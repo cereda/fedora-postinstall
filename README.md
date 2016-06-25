@@ -345,7 +345,8 @@ $ sudo mv texlive.sh /etc/profile.d/
 Then configure OpenType fonts from TeX Live:
 
 ```bash
-$ sudo cp $(kpsewhich -var-value TEXMFSYSVAR)/fonts/conf/texlive-fontconfig.conf /etc/fonts/conf.d/09-texlive.conf
+$ sudo cp $(kpsewhich -var-value TEXMFSYSVAR)/fonts/conf/texlive-fontconfig.conf \
+/etc/fonts/conf.d/09-texlive.conf
 $ sudo fc-cache -fsv
 ```
 
