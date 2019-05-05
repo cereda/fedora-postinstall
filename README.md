@@ -1,10 +1,10 @@
-# Fedora 24 post installation guide
+# Fedora post installation guide
 
-Welcome to my personal Fedora 24 post installation guide. In here, I try to describe most of steps I do after a clean install. Ideas and suggestions were collected from different sources, including [Fedy](http://folkswithhats.org/), and also from personal experience. Use this guide at your own risk and have fun with Fedora! :wink:
+Welcome to my personal Fedora post installation guide. In here, I try to describe most of steps I do after a clean install. Ideas and suggestions were collected from different sources, including [Fedy](http://folkswithhats.org/), and also from personal experience. Use this guide at your own risk and have fun with Fedora! :wink:
 
 ## Upgrade the entire system
 
-First of all, let us update the entire system. I had a keyboard issue with my two Dell laptops after a clean F24 install and the upgrade fixed them right away, so this procedure is highly recommended (if not a mandatory step):
+First of all, let us update the entire system after a clean Fedora install. This procedure is highly recommended (if not a mandatory step), as a lot of potential bugs that could not be fixed for the distro release might already have a patch by now. Open the terminal and type:
 
 ```bash
 $ sudo dnf upgrade -y
@@ -12,42 +12,15 @@ $ sudo dnf upgrade -y
 
 ## Enable RPM Fusion
 
-Fedora already has great applications available out of the box. As to enhance the experience, let us add the repositories for contributed packages ([RPM Fusion](http://rpmfusion.org/)). First, download the repository entries:
+Fedora already has great applications available out of the box. As to enhance the experience, let us add the repositories for contributed packages ([RPM Fusion](http://rpmfusion.org/)). We can configure it in one line:
 
 ```bash
-$ wget http://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-24.noarch.rpm
-$ wget http://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-24.noarch.rpm
-```
-
-Then, it is just a matter of installing these packages:
-
-```bash
-$ sudo dnf install rpmfusion-*
-```
-
-## Install the Flash plugin
-
-Although Flash has been a cause of controversy, it is still needed in some websites. In order to install it, we need to add the Adobe repository to our system. First, download the repository entry:
-
-```bash
-$ wget http://linuxdownload.adobe.com/adobe-release/adobe-release-x86_64-1.0-1.noarch.rpm
-```
-
-And install it:
-
-```bash
-$ sudo dnf install adobe-release-*
-```
-
-Now, it is only a matter of asking `dnf` to install the package:
-
-```bash
-$ sudo dnf install flash-plugin
+sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 ```
 
 ## Terminal with colours
 
-This is almost sacred for me: having colours in my terminal. Create a file named `colours.sh` with the following content:
+I enjoy having colours in my terminal, although it is entirely optional. If you want to have a nice coloured terminal, create a file named `colours.sh` with the following content:
 
 ```bash
 if [[ ! -z \$BASH ]]; then
@@ -67,90 +40,27 @@ And move it to `/etc/profile.d/`:
 $ sudo mv colours.sh /etc/profile.d/
 ```
 
-# Enable systemwide touchpad tap
-
-In order to enable the touchpad tab systemwide, create a file named `00-enable-taps.conf` with the following content:
-
-```bash
-Section "InputClass"
-    Identifier "tap-by-default"
-    MatchIsTouchpad "on"
-    Option "TapButton1" "1"
-EndSection
-```
-
-And move it to `/etc/X11/xorg.conf.d/`:
-
-```bash
-$ sudo mv 00-enable-taps.conf /etc/X11/xorg.conf.d/
-```
+There is no need to restart your entire session. Simply restart your terminal and have fun!
 
 ## Improve font rendering:
 
-Fedora 24 has a great font support. I usually like to improve the font rendering with the following tweak. First of all, we need to install `freetype-freeworld`:
+Fedora has a great font support. I used to rely on an specific release of Freetype available in the contributed repositories, but this procedure became obsolete. It is quite certain that you already have the default `freetype` package installed in your machine, so let us tweak our font configuration. In order to ease our setup, I highly suggest installing the Gnome Tweaks tool:
 
 ```bash
-$ sudo dnf install freetype-freeworld
+$ sudo dnf install gnome-tweaks
 ```
 
-Then create a file named `local.conf` with the following content:
+Now, open this tool we have just installed and set _subpixel antialising_ in the _Fonts_ section. You can tweak a lot of things, so your mileage can greatly vary.
 
-```xml
-<?xml version="1.0"?>
-<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-<fontconfig>
-    <match target="pattern">
-        <edit name="dpi" mode="assign">96</edit>
-    </match>
-    <match target="font">
-        <edit mode="assign" name="antialias" >
-            <bool>true</bool>
-        </edit>
-    </match>
-    <match target="font">
-        <edit mode="assign" name="hinting" >
-            <bool>true</bool>
-        </edit>
-    </match>
-    <match target="font">
-        <edit mode="assign" name="hintstyle" >
-            <const>hintslight</const>
-        </edit>
-    </match>
-    <match target="font">
-        <edit mode="assign" name="rgba" >
-            <const>rgb</const>
-        </edit>
-    </match>
-    <match target="font">
-        <edit mode="assign" name="lcdfilter">
-            <const>lcddefault</const>
-        </edit>
-    </match>
-</fontconfig>
-```
+## Useful packages
 
-And move it to `/etc/fonts/`:
+These are some packages I like to install. Use them at your own risk!
 
-```bash
-$ sudo mv local.conf /etc/fonts/
-```
+1. Lilypond and Frescobaldi for writing sheet music (the former is the actual engraver, the latter is a nice editor). 
 
-## A nice icon theme
-
-Beauty is in the eye of the behold, but I really like the Breeze icon theme, already in the official repositories:
-
-```bash
-$ sudo dnf install breeze-icon-theme
-```
-
-In order to ease the setup, let us install the GNOME Tweak Tool as well:
-
-```bash
-$ sudo dnf install gnome-tweak-tool
-```
-
-## Recommended multimedia packages
+    ```bash
+    $ sudo dnf install lilypond frescobaldi
+    ```
 
 Let us now install some recommended multimedia packages:
 
