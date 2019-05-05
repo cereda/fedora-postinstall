@@ -115,25 +115,21 @@ These are some packages I like to install. Use them at your own risk!
     java-latest-openjdk-headless
     ```
 
-Pick only the ones you need, of course:
+9. Other tools.
 
-```bash
-$ sudo dnf install thunderbird poedit qbittorrent \
-ack  maven scala clojure \
-java-1.8.0-openjdk java-1.8.0-openjdk-headless java-1.8.0-openjdk-devel \
-python-sphinx asciidoc asciidoc-latex asciinema rubygem-rake subversion \
-git-cola mercurial sl gti htop \
- bleachbit \
-axel ipython zsh
-```
+    ```bash
+    $ sudo dnf install thunderbird poedit ack \
+    maven htop bleachbit axel zsh python3-ipython \
+    rubygem-rake audacity-freeworld powerline
+    ```
 
-## Install Powerline
+10. Terminal emulators.
 
-Powerline is also included in Fedora 24:
+    ```bash
+    $ sudo dnf install tmux byobu
+    ```
 
-```bash
-$ sudo dnf install powerline
-```
+
 
 ## Vim setup
 
