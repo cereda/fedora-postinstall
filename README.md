@@ -15,7 +15,9 @@ $ sudo dnf upgrade -y
 Fedora already has great applications available out of the box. As to enhance the experience, let us add the repositories for contributed packages ([RPM Fusion](http://rpmfusion.org/)). We can configure it in one line:
 
 ```bash
-sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install \
+https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 ```
 
 ## Terminal with colours
@@ -42,7 +44,7 @@ $ sudo mv colours.sh /etc/profile.d/
 
 There is no need to restart your entire session. Simply restart your terminal and have fun!
 
-## Improve font rendering:
+## Improve font rendering
 
 Fedora has a great font support. I used to rely on an specific release of Freetype available in the contributed repositories, but this procedure became obsolete. It is quite certain that you already have the default `freetype` package installed in your machine, so let us tweak our font configuration. In order to ease our setup, I highly suggest installing the Gnome Tweaks tool:
 
@@ -56,46 +58,72 @@ Now, open this tool we have just installed and set _subpixel antialising_ in the
 
 These are some packages I like to install. Use them at your own risk!
 
-1. Lilypond and Frescobaldi for writing sheet music (the former is the actual engraver, the latter is a nice editor). 
+1. Lilypond and Frescobaldi for writing sheet music. The former is the actual engraver, the latter is a nice editor for such files. 
 
     ```bash
     $ sudo dnf install lilypond frescobaldi
     ```
 
-Let us now install some recommended multimedia packages:
+2. Timidity for playing MIDI files. I also included the corresponding multimedia codec for use in other applications.
 
-```bash
-$ sudo dnf install faad2 flac gstreamer1-libav gstreamer1-plugins-bad-freeworld \
-gstreamer1-plugins-ugly gstreamer-ffmpeg gstreamer-plugins-espeak gstreamer-plugins-fc \
-gstreamer-plugins-ugly gstreamer-rtsp lame libdca libmad libmatroska x264 xvidcore \
-gstreamer1-plugins-bad-free gstreamer1-plugins-base gstreamer1-plugins-good \
-gstreamer-plugins-bad gstreamer-plugins-bad-free gstreamer-plugins-base \
-gstreamer-plugins-good
-```
+    ```bash
+    $ sudo dnf install timidity++ \
+    gstreamer1-plugins-bad-free-fluidsynth
+    ```
 
-I also like to include these players and tools:
+3. MPV as a multimedia player, and FFmpeg and Lame for conversion.
 
-```bash
-$ sudo dnf install mencoder mplayer mpv vlc ffmpeg
-```
+    ```bash
+    $ sudo dnf install mpv ffmpeg lame
+    ```
 
-## Other useful applications
+4. Some useful command line archiving tools.
 
-I also install the following applications:
+    ```bash
+    $ sudo dnf install p7zip p7zip-plugins unrar
+    ```
 
-```bash
-$ sudo dnf install cabextract lzip nano p7zip p7zip-plugins
-```
+5. Editors in general. Note that `vim`, `emacs` and `nano` are the typical command line editors. I included Leafpad as it is a very lightweight editor, and TeXworks as it is one of the nicest TeX editors out there.
+
+    ```bash
+    $ sudo dnf install vim emacs leafpad nano texworks
+    ```
+
+6. Graphic design editors and utilities.
+
+    ```bash
+    $ sudo dnf install inkscape gimp potrace ImageMagick
+    ```
+
+7. Backgrounds.
+
+    ```bash
+    $ sudo dnf install f$(rpm -E %fedora)-backgrounds \
+    f$(rpm -E %fedora)-backgrounds-base \
+    f$(rpm -E %fedora)-backgrounds-gnome \
+    f$(rpm -E %fedora)-backgrounds-animated \
+    f$(rpm -E %fedora)-backgrounds-extras-base \
+    f$(rpm -E %fedora)-backgrounds-extras-gnome
+    ```
+
+8. The latest Java virtual machine.
+
+    ```bash
+    $ sudo dnf install java-latest-openjdk \
+    java-latest-openjdk-jmods \
+    java-latest-openjdk-devel \
+    java-latest-openjdk-headless
+    ```
 
 Pick only the ones you need, of course:
 
 ```bash
-$ sudo dnf install thunderbird potrace inkscape poedit emacs qbittorrent \
-lilypond frescobaldi texworks ack vim-enhanced vim-X11 maven scala clojure \
+$ sudo dnf install thunderbird poedit qbittorrent \
+ack  maven scala clojure \
 java-1.8.0-openjdk java-1.8.0-openjdk-headless java-1.8.0-openjdk-devel \
 python-sphinx asciidoc asciidoc-latex asciinema rubygem-rake subversion \
-git-cola mercurial sl gti htop f24-backgrounds f24-backgrounds-base \
-f24-backgrounds-extras-base f24-backgrounds-extras-gnome bleachbit \
+git-cola mercurial sl gti htop \
+ bleachbit \
 axel ipython zsh
 ```
 
