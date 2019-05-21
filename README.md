@@ -52,7 +52,14 @@ Fedora has a great font support. I used to rely on an specific release of Freety
 $ sudo dnf install gnome-tweaks
 ```
 
-Now, open this tool we have just installed and set _subpixel antialising_ in the _Fonts_ section. You can tweak a lot of things, so your mileage can greatly vary. I usually restart my session, so changes can be applied accordingly.
+Now, open this tool we have just installed and set _subpixel antialising_ in the _Fonts_ section. Alternatively, we can use the terminal to adjust such things:
+
+```bash
+$ gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing "rgba"
+$ gsettings set org.gnome.settings-daemon.plugins.xsettings hinting "slight"
+```
+
+You can tweak a lot of things, so your mileage can greatly vary. I usually restart my session, so changes can be applied accordingly.
 
 ## Useful packages
 
