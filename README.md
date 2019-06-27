@@ -195,6 +195,26 @@ Then I edit `install.sh` comment the parts I do not want. After the proper chang
 $ sh install
 ```
 
+## Install Snap
+
+Snap can be installed on Fedora. Not exactly my cup of tea, but there are some interesting packages that can be easily deployed in the system through this method. Simply run the following command:
+
+```
+$ sudo dnf install snapd
+```
+
+If I recall correctly, Snap has three modes, and one of them, named _classic_, requires an extra step to be enabled. Personally, this mode defeats the idea of running applications inside a self-contained sandbox, but some applications seem to require it. Run the following command:
+
+```bash
+$ sudo ln -s /var/lib/snapd/snap /snap
+```
+
+At last, but not least, if you are interested in knowing more about Snap applications (or _snaps_, as they are called), install the Snap store, so these snaps can be more readily discovered. Run the following command:
+
+```bash
+$ sudo snap install snap-store
+```
+
 ## Install and configure TeX Live
 
 TeX Live is, in my humble opinion, the best TeX distribution out there. Let us get the install script from TUG and run:
