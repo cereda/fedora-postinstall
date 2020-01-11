@@ -1,0 +1,34 @@
+call plug#begin('~/.vim/plugged')
+
+Plug 'godlygeek/tabular'
+Plug 'itchyny/lightline.vim'
+
+call plug#end()
+
+set nocompatible
+
+filetype plugin indent on
+syntax on
+
+set autoindent
+set expandtab
+
+set softtabstop=4
+set shiftwidth=4
+set shiftround
+
+set backspace=indent,eol,start
+set hidden
+
+set incsearch
+set nohlsearch
+
+set ttyfast
+set lazyredraw
+
+set number
+set ruler
+
+set noshowmode
+set laststatus=2
+

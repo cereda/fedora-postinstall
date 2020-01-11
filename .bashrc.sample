@@ -1,0 +1,17 @@
+if [ -f /etc/bashrc ]; then
+	. /etc/bashrc
+fi
+
+if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]
+then
+    PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+fi
+export PATH
+
+if [ -f /usr/bin/fortune ]; then
+    /usr/bin/fortune
+    echo
+fi
+
+export SDKMAN_DIR="/opt/paulo/apps/sdkman"
+[[ -s "/opt/paulo/apps/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/apps/sdkman/bin/sdkman-init.sh"

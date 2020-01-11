@@ -4,11 +4,13 @@ Welcome to my personal Fedora post installation guide. In this particular docume
 
 ## Upgrade the entire system
 
-First of all, let us update the entire system after a clean Fedora install. This procedure is highly recommended (if not a mandatory step), as a lot of potential bugs that could not be fixed for the distro release might already have a patch by now. Open the terminal and type:
+First of all, let us update the entire system after a clean Fedora install. This procedure is highly recommended (if not a mandatory step), as a lot of potential bugs that could not be fixed for the initial distribution release might already have a patch by now. Open the terminal and type:
 
 ```bash
 $ sudo dnf upgrade --refresh -y
 ```
+
+This procedure might take a significant amount of time, so please be patient. I highly recommend going for a walk during the system upgrade. A hot cup of chocolate might also be recommended. :wink:
 
 ## Enable RPM Fusion
 
@@ -17,8 +19,10 @@ Fedora already has great applications available out of the box. As to enhance th
 ```bash
 sudo dnf install \
 https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
 ```
+
+It should not take much time. :wink:
 
 ## Terminal with colours
 
@@ -42,7 +46,7 @@ And move it to `/etc/profile.d/`:
 $ sudo mv colours.sh /etc/profile.d/
 ```
 
-There is no need to restart your entire session. Simply restart your terminal (or open a new tab) and have fun!
+There is no need to restart your entire session. Simply restart your terminal (or open a new tab) and have fun! Alternatively, you can copy `colours.sh.sample` from this repository and rename it accordingly.
 
 ## Improve font rendering
 
@@ -126,40 +130,84 @@ These are some packages I like to install in most of my Fedora machines. Use the
 
     ```bash
     $ sudo dnf install thunderbird poedit ack \
-    maven htop bleachbit axel zsh python3-ipython \
-    rubygem-rake audacity-freeworld powerline \
+    maven htop axel zsh audacity-freeworld powerline \
     tmux byobu
     ```
 
 ## Editors
 
-I like to recommend the [Janus](https://github.com/carlhuda/janus) distribution for `vim` users. To install it, open the terminal and run the following command:
+From Fedora 31 on, I decided to take a different approach regarding `vim`. Instead of relying on a distribution, I use `vim-plug` to manage my plug-ins. Simply run the following  command in your terminal session:
 
 ```bash
-$ curl -L https://bit.ly/janus-bootstrap | bash
+curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 ```
 
-The Janus distribution will be installed in your `$HOME/.vim` directory. After a proper install, I create a `.janus` directory in my `$HOME`:
+If you use NeoVim, use this command instead:
 
 ```bash
-$ mkdir ~/.janus
+curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 ```
 
-And populate it with the `vim` plugins I use:
-
-```
-$ cd ~/.janus
-$ git clone https://github.com/godlygeek/tabular.git
-$ git clone https://github.com/vim-airline/vim-airline.git
-```
-
-Once both distribution and plugins are in place, this is my `$HOME/.vimrc.before` configuration:
+Now, we need to populate our configuration file with the plug-ins we want to use. It is just a matter of including a `Plug` line in between the `vim-plug` block. Simply add the following lines to your `.vimrc` to include your plug-ins:
 
 ```vim
-let g:tex_flavor = 'latex'
-let g:airline_powerline_fonts = 0
-let g:airline#extensions#tabline#enabled = 1
+call plug#begin('~/.vim/plugged')
+
+Plug 'godlygeek/tabular'
+Plug 'itchyny/lightline.vim'
+
+call plug#end()
 ```
+
+Once the plug-ins are properly referenced in the configuration file, we need to fetch them for actual use! This is a simple procedure, open `vim` and call:
+
+```vim
+:PlugInstall
+```
+
+Wait a couple of seconds and your `vim` is now ready! This is my typical `.vimrc` configuration file:
+
+```vim
+call plug#begin('~/.vim/plugged')
+
+Plug 'godlygeek/tabular'
+Plug 'itchyny/lightline.vim'
+Plug 'sheerun/vim-polyglot'
+Plug 'sainnhe/edge'
+
+call plug#end()
+
+set nocompatible
+
+filetype plugin indent on
+syntax on
+
+set autoindent
+set expandtab
+
+set softtabstop=4
+set shiftwidth=4
+set shiftround
+
+set backspace=indent,eol,start
+set hidden
+
+set incsearch
+set nohlsearch
+
+set ttyfast
+set lazyredraw
+
+set number
+set ruler
+
+set noshowmode
+set laststatus=2
+```
+
+My configuration file is also available as a `.vimrc.sample` file in this repository, so it can be used for a quick setup.
 
 I like to recommend the [Spacemacs](https://github.com/syl20bnr/spacemacs) distribution for `emacs` users. To install it, open the terminal and run the following command:
 
@@ -167,7 +215,7 @@ I like to recommend the [Spacemacs](https://github.com/syl20bnr/spacemacs) distr
 $ git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d
 ```
 
-Now, just open Emacs and follow the instructions on screen. Spacemacs will be configured accordingly.
+Now, just open Emacs and follow the instructions on screen. Spacemacs will be configured accordingly. Of course, make sure to configure the editor to use `vim` bindings. :wink:
 
 ## Fortune cookies in the terminal
 
@@ -186,25 +234,68 @@ if [ -f /usr/bin/fortune ]; then
 fi
 ```
 
-There is no need to restart your entire session. Simply restart your terminal (or open a new tab) and have fun!
+There is no need to restart your entire session. Simply restart your terminal (or open a new tab) and have fun! My configuration file is also available as `.bashrc.sample` in this repository.
+
+## My `/opt` configuration
+
+I usually configure third-party applications in a different fashion in my Fedora machines. For starters, I create a personal directory inside `/opt` for my current user:
+
+```bash
+$ cd /opt
+$ sudo mkdir `whoami`
+$ sudo chown `whoami`.`whoami` `whoami`
+$ cd `whoami`
+$ mkdir applications
+```
+
+Then I redirect most of the installations to the `applications` directory. :wink: 
 
 ## A fancy Z shell
 
-A great enhancement to `zsh` is [Oh my `zsh`](https://github.com/robbyrussell/oh-my-zsh). I personally do not like the last part of the install script, as it changes your current shell. I usually prefer downloading the script:
+A great enhancement to `zsh` is [Oh my `zsh`](https://github.com/robbyrussell/oh-my-zsh). I personally do not like the last part of the install script, as it changes your current shell. I usually execute the following command:
 
 ```bash
-$ wget https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh
+$ MYOPT="/opt/`whoami`/applications"
+$ ZSH="${MYOPT}" CHSH="no" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
-Then I edit `install.sh` comment the parts I do not want. After the proper changes, we simply execute the following command:
+I like to use the `lambda-custom` theme for my Z shell. In order to configure it, run inside `zsh`:
 
 ```bash
-$ sh install
+$ git clone https://github.com/onlurking/lambda-custom-zsh-theme.git $ZSH_CUSTOM/themes/lambda-custom-zsh-theme
+$ ln -s "$ZSH_CUSTOM/themes/lambda-custom-zsh-theme/lambda-mod.zsh-theme" "$ZSH_CUSTOM/themes/lambda-mod.zsh-theme"
 ```
+
+This is my `.zshrc`, with comments omitted:
+
+```zsh
+export ZSH="/opt/paulo/applications/oh-my-zsh"
+ZSH_THEME="lambda-mod"
+CASE_SENSITIVE="true"
+DISABLE_AUTO_UPDATE="true"
+COMPLETION_WAITING_DOTS="true"
+plugins=(git)
+source $ZSH/oh-my-zsh.sh
+export SDKMAN_DIR="/opt/paulo/applications/sdkman"
+[[ -s "/opt/paulo/applications/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/applications/sdkman/bin/sdkman-init.sh"
+```
+
+I still favour bash, but Z is an interesting shell. :wink: My configuration file is also available as `.zshrc.sample` in this repository.
+
+## SDKMAN!
+
+SDKMAN! is a tool for managing Java-based tools and virtual machines. If you are a developer and wants to live dangerously, I recommend this script. Simply run the following commands:
+
+```bash
+$ MYOPT="/opt/`whoami`/applications"
+$ export SDKMAN_DIR="${MYOPT}" && curl -s "https://get.sdkman.io" | bash
+```
+
+There we go. :wink:
 
 ## Install Snap
 
-Snap can be installed on Fedora. Not exactly my cup of tea, but there are some interesting packages that can be easily deployed in the system through this method. Simply run the following command:
+Snap can be installed on Fedora. Not exactly my cup of tea (actually, I do not recommend it at all), but there are some interesting packages that can be easily deployed in the system through this method. Simply run the following command:
 
 ```
 $ sudo dnf install snapd
@@ -262,13 +353,45 @@ Then move it to `/etc/profile.d/`:
 $ sudo mv texlive.sh /etc/profile.d/
 ```
 
-Then configure OpenType fonts from TeX Live:
+The script is available as `texlive.sh.sample` in this repository. :wink:
+
+The following procedure is optional. I personally had an unfortunate experience, but feel free to configure OpenType fonts from TeX Live in your system:
 
 ```bash
 $ sudo cp $(kpsewhich -var-value TEXMFSYSVAR)/fonts/conf/texlive-fontconfig.conf \
 /etc/fonts/conf.d/09-texlive.conf
 $ sudo fc-cache -fsv
 ```
+
+## Apache NetBeans
+
+I usually do two additional steps when configuring Apache NetBeans in my machine. First, I edit `etc/netbeans.conf` and append the following instruction in the `netbeans_default_options` key:
+
+```ini
+ netbeans_default_options=" ... -J-Djava.io.tmpdir=/opt/paulo/temp"
+```
+
+Second, I create a `netbeans.desktop` in the following location:
+
+```bash
+$ vim ~/.local/share/applications/netbeans.desktop
+```
+
+And add the following lines:
+
+```ini
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NetBeans IDE
+Icon=/opt/paulo/apps/netbeans/nb/netbeans.icns
+Exec="/opt/paulo/apps/netbeans/bin/netbeans"
+Comment=The smarter way to code
+Categories=Development;IDE;
+Terminal=false
+```
+
+The file is available as `netbeans.desktop.sample` in this repository. :wink:
 
 ## Configuring `git`
 
