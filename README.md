@@ -157,6 +157,8 @@ call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'
+Plug 'sheerun/vim-polyglot'
+Plug 'sainnhe/edge'
 
 call plug#end()
 ```
@@ -209,6 +211,8 @@ set laststatus=2
 
 My configuration file is also available as a `.vimrc.sample` file in this repository, so it can be used for a quick setup.
 
+If you use NeoVim, there is my configuration file, available as `init.vim.sample` in this repository. Copy it to `~/.config/nvim/init.vim` (notice the file renaming).
+
 I like to recommend the [Spacemacs](https://github.com/syl20bnr/spacemacs) distribution for `emacs` users. To install it, open the terminal and run the following command:
 
 ```bash
@@ -256,7 +260,7 @@ A great enhancement to `zsh` is [Oh my `zsh`](https://github.com/robbyrussell/oh
 
 ```bash
 $ MYOPT="/opt/`whoami`/applications"
-$ ZSH="${MYOPT}" CHSH="no" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+$ ZSH="${MYOPT}/oh-my-zsh" CHSH="no" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
 I like to use the `lambda-custom` theme for my Z shell. In order to configure it, run inside `zsh`:
@@ -270,12 +274,16 @@ This is my `.zshrc`, with comments omitted:
 
 ```zsh
 export ZSH="/opt/paulo/applications/oh-my-zsh"
+
 ZSH_THEME="lambda-mod"
 CASE_SENSITIVE="true"
 DISABLE_AUTO_UPDATE="true"
 COMPLETION_WAITING_DOTS="true"
+
 plugins=(git)
+
 source $ZSH/oh-my-zsh.sh
+
 export SDKMAN_DIR="/opt/paulo/applications/sdkman"
 [[ -s "/opt/paulo/applications/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/applications/sdkman/bin/sdkman-init.sh"
 ```
@@ -288,7 +296,7 @@ SDKMAN! is a tool for managing Java-based tools and virtual machines. If you are
 
 ```bash
 $ MYOPT="/opt/`whoami`/applications"
-$ export SDKMAN_DIR="${MYOPT}" && curl -s "https://get.sdkman.io" | bash
+$ export SDKMAN_DIR="${MYOPT}/sdkman" && curl -s "https://get.sdkman.io" | bash
 ```
 
 There we go. :wink:
