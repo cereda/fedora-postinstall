@@ -2,6 +2,8 @@ call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'
+Plug 'sheerun/vim-polyglot'
+Plug 'sainnhe/edge'
 
 call plug#end()
 
