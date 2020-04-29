@@ -13,5 +13,5 @@ if [ -f /usr/bin/fortune ]; then
     echo
 fi
 
-export SDKMAN_DIR="/opt/paulo/apps/sdkman"
-[[ -s "/opt/paulo/apps/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/apps/sdkman/bin/sdkman-init.sh"
+export SDKMAN_DIR="/opt/paulo/applications/sdkman"
+[[ -s "/opt/paulo/applications/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/applications/sdkman/bin/sdkman-init.sh"

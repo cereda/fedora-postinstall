@@ -1,9 +1,9 @@
-export ZSH="/opt/paulo/apps/oh-my-zsh"
+export ZSH="/opt/paulo/applications/oh-my-zsh"
 ZSH_THEME="lambda-mod"
 CASE_SENSITIVE="true"
 DISABLE_AUTO_UPDATE="true"
 COMPLETION_WAITING_DOTS="true"
 plugins=(git)
 source $ZSH/oh-my-zsh.sh
-export SDKMAN_DIR="/opt/paulo/apps/sdkman"
-[[ -s "/opt/paulo/apps/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/apps/sdkman/bin/sdkman-init.sh"
+export SDKMAN_DIR="/opt/paulo/applications/sdkman"
+[[ -s "/opt/paulo/applications/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/applications/sdkman/bin/sdkman-init.sh"
