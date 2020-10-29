@@ -1,6 +1,6 @@
 # Fedora post installation guide
 
-Welcome to my personal Fedora post installation guide. In this particular document, I try to describe most of steps I do after a clean install of this awesome Linux distribution. Ideas and suggestions were collected from different sources, including [Fedy](http://folkswithhats.org/), and also from personal experience. Use this guide at your own risk and have fun with Fedora! :wink:
+Welcome to my personal Fedora post installation guide. In this particular document, I try to describe most of steps I do after a clean install of this awesome Linux distribution. Ideas and suggestions were collected from different sources and also from personal experience. Use this guide at your own risk and have fun with Fedora! :wink:
 
 ## Upgrade the entire system
 
@@ -12,6 +12,14 @@ $ sudo dnf upgrade --refresh -y
 
 This procedure might take a significant amount of time, so please be patient. I highly recommend going for a walk during the system upgrade. A hot cup of chocolate might also be recommended. :wink:
 
+After a proper update, let us also enable the Fedora workstation repositories. These are third party sources and are not included by default in a typical installation:
+
+```bash
+$ sudo dnf install fedora-workstation-repositories -y
+```
+
+And there we go.
+
 ## Enable RPM Fusion
 
 Fedora already has great applications available out of the box. As to enhance the experience, let us add the repositories for contributed packages ([RPM Fusion](http://rpmfusion.org/)). We can configure it in one command:
@@ -22,7 +30,23 @@ https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fed
 https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
 ```
 
-It should not take much time. :wink:
+For reference:
+
+1. Free:
+
+```bash
+sudo dnf install \
+https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm -y
+```
+
+2. Non-free:
+
+```bash
+sudo dnf install \
+https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+```
+
+It should not take much time. Just for reference, `rpm -E %fedora` returns the installed release number, so we can ensure to install the correct repositories. :wink:
 
 ## Terminal with colours
 
@@ -69,52 +93,40 @@ You can tweak a lot of things, so your mileage can greatly vary. I usually resta
 
 These are some packages I like to install in most of my Fedora machines. Use them at your own risk!
 
-1. Lilypond and Frescobaldi for writing sheet music. The former is the actual engraver, the latter is a nice editor for such files.
+1. Editors in general. Note that `vim` and `neovim` are the typical command line editors (I omited `emacs` since I do not use it, and `nano` because, from Fedora 33 on, it is set as the default editor). Memorable mentions: Leafpad (`leafpad`), a lightweight editor, and TeXworks (`texworks`), one of the best TeX editors out there.
 
     ```bash
-    $ sudo dnf install lilypond frescobaldi
+    $ sudo dnf install vim neovim
     ```
 
-2. Timidity for playing MIDI files. I also included the corresponding multimedia codec for use in other applications.
+2. MPV as a multimedia player. I also set it as my default multimedia player in the system configuration. Memorable mentions: FFmpeg (`ffmpeg`) and Lame (`lame`) for conversion.
 
     ```bash
-    $ sudo dnf install timidity++ \
-    gstreamer1-plugins-bad-free-fluidsynth
+    $ sudo dnf install mpv
     ```
 
-3. MPV as a multimedia player, and FFmpeg and Lame for conversion. I also set MPV as my default multimedia player in the system configuration.
-
-    ```bash
-    $ sudo dnf install mpv ffmpeg lame
-    ```
-
-4. Some useful command line archiving tools. Of course, `zip` and `tar` are already available out of the box, but it is quite convenient to have support for other archive formats, specially `rar` files.
+3. Some useful command line archiving tools. Of course, `zip` and `tar` are already available out of the box, but it is quite convenient to have support for other archive formats, specially `rar` and `7z` files.
 
     ```bash
     $ sudo dnf install p7zip p7zip-plugins unrar
     ```
 
-5. Editors in general. Note that `vim`, `emacs` and `nano` are the typical command line editors. I included Leafpad as it is a very lightweight editor, and TeXworks as it is one of the nicest TeX editors out there.
+4. The Lilypond engraver for writing sheet music. Memorable mentions: Frescobaldi (`frescobaldi`).
 
     ```bash
-    $ sudo dnf install vim emacs leafpad nano texworks
+    $ sudo dnf install lilypond
     ```
 
+5. Timidity for playing MIDI files. Include the `gstreamer1-plugins-bad-free-fluidsynth` multimedia codec for use in other applications.
+
+    ```bash
+    $ sudo dnf install timidity++
+    ```
+    
 6. Graphic design editors and utilities. Inkscape and GIMP are graphical applications, while Potrace and ImageMagick are command line utilities.
 
     ```bash
     $ sudo dnf install inkscape gimp potrace ImageMagick
-    ```
-
-7. Backgrounds for the current release of Fedora. I highly recommend the abstract ones, as they look awesome!
-
-    ```bash
-    $ sudo dnf install f$(rpm -E %fedora)-backgrounds \
-    f$(rpm -E %fedora)-backgrounds-base \
-    f$(rpm -E %fedora)-backgrounds-gnome \
-    f$(rpm -E %fedora)-backgrounds-animated \
-    f$(rpm -E %fedora)-backgrounds-extras-base \
-    f$(rpm -E %fedora)-backgrounds-extras-gnome
     ```
 
 8. The latest Java virtual machine. Be mindful that the default Java commands might not resolve to this version, so make sure to update the symbolic links with the `update-alternatives` tool.
@@ -129,9 +141,7 @@ These are some packages I like to install in most of my Fedora machines. Use the
 9. Other useful applications and tools. Make sure to read their descriptions before installing them in the wild. I would rather have only the packages I actually need on a daily basis.
 
     ```bash
-    $ sudo dnf install thunderbird poedit ack \
-    maven htop axel zsh audacity-freeworld powerline \
-    tmux byobu
+    $ sudo dnf install ack zsh audacity-freeworld
     ```
 
 ## Editors
@@ -159,6 +169,9 @@ Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'
 Plug 'sheerun/vim-polyglot'
 Plug 'sainnhe/edge'
+Plug 'preservim/nerdtree'
+Plug 'psliwka/vim-smoothie'
+Plug 'mhinz/vim-startify'
 
 call plug#end()
 ```
@@ -172,12 +185,17 @@ Once the plug-ins are properly referenced in the configuration file, we need to 
 Wait a couple of seconds and your `vim` is now ready! This is my typical `.vimrc` configuration file:
 
 ```vim
+"/home/paulo/.config/nvim
+
 call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'
 Plug 'sheerun/vim-polyglot'
 Plug 'sainnhe/edge'
+Plug 'preservim/nerdtree'
+Plug 'psliwka/vim-smoothie'
+Plug 'mhinz/vim-startify'
 
 call plug#end()
 
@@ -207,19 +225,28 @@ set ruler
 
 set noshowmode
 set laststatus=2
+
+set background=dark
+if has('termguicolors')
+    set termguicolors
+endif
+
+let g:edge_style = 'aura'
+let g:edge_enable_italic = 0
+let g:edge_disable_italic_comment = 1
+
+let g:lightline = {'colorscheme' : 'edge'}
+
+colorscheme edge
+
+let g:startify_fortune_use_unicode = 1
+let g:startify_custom_footer =
+    \ ['', "   ooh vim", '']
 ```
 
 My configuration file is also available as a `.vimrc.sample` file in this repository, so it can be used for a quick setup.
 
 If you use NeoVim, there is my configuration file, available as `init.vim.sample` in this repository. Copy it to `~/.config/nvim/init.vim` (notice the file renaming).
-
-I like to recommend the [Spacemacs](https://github.com/syl20bnr/spacemacs) distribution for `emacs` users. To install it, open the terminal and run the following command:
-
-```bash
-$ git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d
-```
-
-Now, just open Emacs and follow the instructions on screen. Spacemacs will be configured accordingly. Of course, make sure to configure the editor to use `vim` bindings. :wink:
 
 ## Fortune cookies in the terminal
 
@@ -263,26 +290,44 @@ $ MYOPT="/opt/`whoami`/applications"
 $ ZSH="${MYOPT}/oh-my-zsh" CHSH="no" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
-I like to use the `lambda-custom` theme for my Z shell. In order to configure it, run inside `zsh`:
+I like to use the `spaceship` theme for my Z shell. In order to configure it, run inside `zsh`:
 
-```bash
-$ git clone https://github.com/onlurking/lambda-custom-zsh-theme.git $ZSH_CUSTOM/themes/lambda-custom-zsh-theme
-$ ln -s "$ZSH_CUSTOM/themes/lambda-custom-zsh-theme/lambda-mod.zsh-theme" "$ZSH_CUSTOM/themes/lambda-mod.zsh-theme"
+```zsh
+$ git clone https://github.com/denysdovhan/spaceship-prompt.git "$ZSH_CUSTOM/themes/spaceship-prompt" --depth=1
+$ ln -s "$ZSH_CUSTOM/themes/spaceship-prompt/spaceship.zsh-theme" "$ZSH_CUSTOM/themes/spaceship.zsh-theme"
+```
+
+I also recommend installing the syntax highlighting plugin. Run the following command inside `zsh`:
+
+```zsh
+$ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 ```
 
 This is my `.zshrc`, with comments omitted:
 
 ```zsh
 export ZSH="/opt/paulo/applications/oh-my-zsh"
+ZSH_THEME="spaceship"
 
-ZSH_THEME="lambda-mod"
 CASE_SENSITIVE="true"
 DISABLE_AUTO_UPDATE="true"
 COMPLETION_WAITING_DOTS="true"
 
-plugins=(git)
+plugins=(
+    git
+    colored-man-pages
+    colorize
+    common-aliases
+    copyfile
+    zsh-syntax-highlighting
+)
 
 source $ZSH/oh-my-zsh.sh
+
+if [ -f /usr/bin/fortune ]; then
+    /usr/bin/fortune
+    echo
+fi
 
 export SDKMAN_DIR="/opt/paulo/applications/sdkman"
 [[ -s "/opt/paulo/applications/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/applications/sdkman/bin/sdkman-init.sh"
@@ -300,26 +345,6 @@ $ export SDKMAN_DIR="${MYOPT}/sdkman" && curl -s "https://get.sdkman.io" | bash
 ```
 
 There we go. :wink:
-
-## Install Snap
-
-Snap can be installed on Fedora. Not exactly my cup of tea (actually, I do not recommend it at all), but there are some interesting packages that can be easily deployed in the system through this method. Simply run the following command:
-
-```
-$ sudo dnf install snapd
-```
-
-If I recall correctly, Snap has three modes, and one of them, named _classic_, requires an extra step to be enabled. Personally, this mode defeats the idea of running applications inside a self-contained sandbox, but some applications seem to require it. Run the following command:
-
-```bash
-$ sudo ln -s /var/lib/snapd/snap /snap
-```
-
-At last, but not least, if you are interested in knowing more about Snap applications (or _snaps_, as they are called), install the Snap store, so these snaps can be more readily discovered. Run the following command:
-
-```bash
-$ sudo snap install snap-store
-```
 
 ## Install and configure TeX Live
 

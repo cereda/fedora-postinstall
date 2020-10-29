@@ -1,9 +1,14 @@
+"/home/paulo/.config/nvim
+
 call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'
 Plug 'sheerun/vim-polyglot'
 Plug 'sainnhe/edge'
+Plug 'preservim/nerdtree'
+Plug 'psliwka/vim-smoothie'
+Plug 'mhinz/vim-startify'
 
 call plug#end()
 
@@ -34,3 +39,33 @@ set ruler
 set noshowmode
 set laststatus=2
 
+set background=dark
+if has('termguicolors')
+    set termguicolors
+endif
+
+let g:edge_style = 'aura'
+let g:edge_enable_italic = 0
+let g:edge_disable_italic_comment = 1
+
+let g:lightline = {'colorscheme' : 'edge'}
+
+colorscheme edge
+
+"hi Normal guibg=NONE ctermbg=NONE
+
+let g:startify_fortune_use_unicode = 1
+"let g:startify_custom_header =
+"    \ startify#fortune#cowsay('', '═','║','╔','╗','╝','╚')
+
+let g:startify_custom_footer =
+    \ ['', "   ooh vim", '']
+
+"hi StartifyBracket ctermfg=240
+"hi StartifyFile ctermfg=147
+"hi StartifyFooter ctermfg=240
+"hi StartifyHeader ctermfg=114
+"hi StartifyNumber ctermfg=215
+"hi StartifyPath ctermfg=245
+"hi StartifySlash ctermfg=240
+"hi StartifySpecial ctermfg=240

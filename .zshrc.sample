@@ -1,9 +1,24 @@
 export ZSH="/opt/paulo/applications/oh-my-zsh"
-ZSH_THEME="lambda-mod"
+ZSH_THEME="spaceship"
+
 CASE_SENSITIVE="true"
 DISABLE_AUTO_UPDATE="true"
 COMPLETION_WAITING_DOTS="true"
-plugins=(git)
+
+plugins=(
+    git
+    colored-man-pages
+    colorize
+    common-aliases
+    copyfile
+    zsh-syntax-highlighting
+)
+
 source $ZSH/oh-my-zsh.sh
+
+if [ -f /usr/bin/fortune ]; then
+    /usr/bin/fortune
+fi
+
 export SDKMAN_DIR="/opt/paulo/applications/sdkman"
 [[ -s "/opt/paulo/applications/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/applications/sdkman/bin/sdkman-init.sh"
