@@ -417,8 +417,8 @@ And add the following lines:
 Version=1.0
 Type=Application
 Name=NetBeans IDE
-Icon=/opt/paulo/apps/netbeans/nb/netbeans.icns
-Exec="/opt/paulo/apps/netbeans/bin/netbeans"
+Icon=/opt/paulo/applications/netbeans/nb/netbeans.icns
+Exec="/opt/paulo/applications/netbeans/bin/netbeans"
 Comment=The smarter way to code
 Categories=Development;IDE;
 Terminal=false
