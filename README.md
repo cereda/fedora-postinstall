@@ -2,439 +2,738 @@
 
 Welcome to my personal Fedora post installation guide. In this particular document, I try to describe most of steps I do after a clean install of this awesome Linux distribution. Ideas and suggestions were collected from different sources and also from personal experience. Use this guide at your own risk and have fun with Fedora! :wink:
 
+**Note:** This repository holds a `fedora-postinstall.sh` script that pretty much automates the steps set forth in this guide. But of course, do not run it without understanding what it actually does!
+
 ## Upgrade the entire system
 
-First of all, let us update the entire system after a clean Fedora install. This procedure is highly recommended (if not a mandatory step), as a lot of potential bugs that could not be fixed for the initial distribution release might already have a patch by now. Open the terminal and type:
-
 ```bash
-$ sudo dnf upgrade --refresh -y
+sudo dnf upgrade --refresh -y
 ```
-
-This procedure might take a significant amount of time, so please be patient. I highly recommend going for a walk during the system upgrade. A hot cup of chocolate might also be recommended. :wink:
-
-After a proper update, let us also enable the Fedora workstation repositories. These are third party sources and are not included by default in a typical installation:
-
-```bash
-$ sudo dnf install fedora-workstation-repositories -y
-```
-
-And there we go.
 
 ## Enable RPM Fusion
 
-Fedora already has great applications available out of the box. As to enhance the experience, let us add the repositories for contributed packages ([RPM Fusion](http://rpmfusion.org/)). We can configure it in one command:
-
-```bash
-sudo dnf install \
-https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
-```
-
-For reference:
-
 1. Free:
 
-```bash
-sudo dnf install \
-https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm -y
-```
+    ```bash
+    sudo dnf install \
+    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm -y
+    ```
 
 2. Non-free:
 
-```bash
-sudo dnf install \
-https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
-```
+    ```bash
+    sudo dnf install \
+    https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm -y
+    ```
 
-It should not take much time. Just for reference, `rpm -E %fedora` returns the installed release number, so we can ensure to install the correct repositories. :wink:
-
-## Terminal with colours
-
-I enjoy having colours in my terminal, although it is entirely optional. If you want to have a nice coloured terminal, create a file named `colours.sh` with the following content:
-
-```bash
-if [[ ! -z \$BASH ]]; then
- if [[ \$USER = "root" ]]; then
-  PS1="\[\033[33m\][\[\033[m\]\[\033[31m\]\u@\h\[\033[m\] \[\033[33m\]\W\[\033[m\]\[\033[33m\]]\[\033[m\] # "
- elif [[ $(whoami) = "root" ]]; then
-  PS1="\[\033[33m\][\[\033[m\]\[\033[31m\]\u@\h\[\033[m\] \[\033[33m\]\W\[\033[m\]\[\033[33m\]]\[\033[m\] # "
- else
-  PS1="\[\033[36m\][\[\033[m\]\[\033[34m\]\u@\h\[\033[m\] \[\033[32m\]\W\[\033[m\]\[\033[36m\]]\[\033[m\] \$ "
- fi
-fi
-```
-
-And move it to `/etc/profile.d/`:
-
-```bash
-$ sudo mv colours.sh /etc/profile.d/
-```
-
-There is no need to restart your entire session. Simply restart your terminal (or open a new tab) and have fun! Alternatively, you can copy `colours.sh.sample` from this repository and rename it accordingly.
 
 ## Improve font rendering
 
-Fedora has a great font support. I used to rely on an specific release of Freetype available in the contributed repositories, but this procedure became obsolete since Fedora 30. It is quite certain that you already have the default `freetype` package installed in your machine, so let us tweak our font configuration. In order to ease our setup, I highly suggest installing the Gnome Tweaks tool:
-
 ```bash
-$ sudo dnf install gnome-tweaks
+sudo dnf install gnome-tweaks
 ```
 
 Now, open this tool we have just installed and set _subpixel antialising_ in the _Fonts_ section. Alternatively, we can use the terminal to adjust such things:
 
-```bash
-$ gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing "rgba"
-$ gsettings set org.gnome.settings-daemon.plugins.xsettings hinting "slight"
-```
-
-You can tweak a lot of things, so your mileage can greatly vary. I usually restart my session, so changes can be applied accordingly.
-
-## Useful packages
-
-These are some packages I like to install in most of my Fedora machines. Use them at your own risk!
-
-1. Editors in general. Note that `vim` and `neovim` are the typical command line editors (I omited `emacs` since I do not use it, and `nano` because, from Fedora 33 on, it is set as the default editor). Memorable mentions: Leafpad (`leafpad`), a lightweight editor, and TeXworks (`texworks`), one of the best TeX editors out there.
+1. Font antialiasing
 
     ```bash
-    $ sudo dnf install vim neovim
+    gsettings set org.gnome.desktop.interface font-antialiasing rgba
     ```
 
-2. MPV as a multimedia player. I also set it as my default multimedia player in the system configuration. Memorable mentions: FFmpeg (`ffmpeg`) and Lame (`lame`) for conversion.
+2. Font hinting
 
     ```bash
-    $ sudo dnf install mpv
+    gsettings set org.gnome.desktop.interface font-hinting slight
     ```
 
-3. Some useful command line archiving tools. Of course, `zip` and `tar` are already available out of the box, but it is quite convenient to have support for other archive formats, specially `rar` and `7z` files.
+## Configuring the GNOME text editor
+
+1. Highlighting current line
 
     ```bash
-    $ sudo dnf install p7zip p7zip-plugins unrar
+    gsettings set org.gnome.TextEditor highlight-current-line true
     ```
 
-4. The Lilypond engraver for writing sheet music. Memorable mentions: Frescobaldi (`frescobaldi`).
+2. Disabling restore session
 
     ```bash
-    $ sudo dnf install lilypond
+    gsettings set org.gnome.TextEditor restore-session false
     ```
 
-5. Timidity for playing MIDI files. Include the `gstreamer1-plugins-bad-free-fluidsynth` multimedia codec for use in other applications.
+3. Showing grid
 
     ```bash
-    $ sudo dnf install timidity++
+    gsettings set org.gnome.TextEditor show-grid true
     ```
-    
-6. Graphic design editors and utilities. Inkscape and GIMP are graphical applications, while Potrace and ImageMagick are command line utilities.
+
+4. Showing line numbers
 
     ```bash
-    $ sudo dnf install inkscape gimp potrace ImageMagick
+    gsettings set org.gnome.TextEditor show-line-numbers true
     ```
 
-8. The latest Java virtual machine. Be mindful that the default Java commands might not resolve to this version, so make sure to update the symbolic links with the `update-alternatives` tool.
+5. Showing right margin"
 
     ```bash
-    $ sudo dnf install java-latest-openjdk \
-    java-latest-openjdk-jmods \
-    java-latest-openjdk-devel \
-    java-latest-openjdk-headless
+    gsettings set org.gnome.TextEditor show-right-margin true
     ```
 
-9. Other useful applications and tools. Make sure to read their descriptions before installing them in the wild. I would rather have only the packages I actually need on a daily basis.
+6. Disabling spellcheck
 
     ```bash
-    $ sudo dnf install ack zsh audacity-freeworld
+    gsettings set org.gnome.TextEditor spellcheck false
     ```
 
-## Editors
+## Configuring the interface clock
 
-From Fedora 31 on, I decided to take a different approach regarding `vim`. Instead of relying on a distribution, I use `vim-plug` to manage my plug-ins. Simply run the following  command in your terminal session:
+1. Show the week day
 
-```bash
-curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
-    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-```
+    ```bash
+    gsettings set org.gnome.desktop.interface clock-show-weekday true
+    ```
 
-If you use NeoVim, use this command instead:
+## Removable media
 
-```bash
-curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
-    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-```
+1. Disabling autorun
 
-Now, we need to populate our configuration file with the plug-ins we want to use. It is just a matter of including a `Plug` line in between the `vim-plug` block. Simply add the following lines to your `.vimrc` to include your plug-ins:
+    ```bash
+    gsettings set org.gnome.desktop.media-handling autorun-never true
+    ```
 
-```vim
-call plug#begin('~/.vim/plugged')
+## Configuring touchpad
 
-Plug 'godlygeek/tabular'
-Plug 'itchyny/lightline.vim'
-Plug 'sheerun/vim-polyglot'
-Plug 'sainnhe/edge'
-Plug 'preservim/nerdtree'
-Plug 'psliwka/vim-smoothie'
-Plug 'mhinz/vim-startify'
+1. Enabling tap to click
 
-call plug#end()
-```
+    ```bash
+    gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
+    ```
 
-Once the plug-ins are properly referenced in the configuration file, we need to fetch them for actual use! This is a simple procedure, open `vim` and call:
+2. Enabling two finger scrolling
 
-```vim
-:PlugInstall
-```
+    ```bash
+    gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true
+    ```
 
-Wait a couple of seconds and your `vim` is now ready! This is my typical `.vimrc` configuration file:
+## Configuring notifications
 
-```vim
-"/home/paulo/.config/nvim
+1. Disabling show banners
 
-call plug#begin('~/.vim/plugged')
+    ```bash
+    gsettings set org.gnome.desktop.notifications show-banners false
+    ```
 
-Plug 'godlygeek/tabular'
-Plug 'itchyny/lightline.vim'
-Plug 'sheerun/vim-polyglot'
-Plug 'sainnhe/edge'
-Plug 'preservim/nerdtree'
-Plug 'psliwka/vim-smoothie'
-Plug 'mhinz/vim-startify'
+2. Disabling show in lock screen
 
-call plug#end()
+    ```bash
+    gsettings set org.gnome.desktop.notifications show-in-lock-screen false
+    ```
 
-set nocompatible
+## Technical problems
 
-filetype plugin indent on
-syntax on
+1. Disabling problem reporting
 
-set autoindent
-set expandtab
+    ```bash
+    gsettings set org.gnome.desktop.privacy report-technical-problems false
+    ```
 
-set softtabstop=4
-set shiftwidth=4
-set shiftround
+## Configuring Nautilus
 
-set backspace=indent,eol,start
-set hidden
+1. Setting default folder viewer
 
-set incsearch
-set nohlsearch
+    ```bash
+    gsettings set org.gnome.nautilus.preferences default-folder-viewer icon-view
+    ```
 
-set ttyfast
-set lazyredraw
+2. Disabling image thumbnails
 
-set number
-set ruler
+    ```bash
+    gsettings set org.gnome.nautilus.preferences show-image-thumbnails never
+    ```
 
-set noshowmode
-set laststatus=2
+## Night light
 
-set background=dark
-if has('termguicolors')
-    set termguicolors
-endif
+1. Enabling night light
 
-let g:edge_style = 'aura'
-let g:edge_enable_italic = 0
-let g:edge_disable_italic_comment = 1
+    ```bash
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
+    ```
 
-let g:lightline = {'colorscheme' : 'edge'}
+## Configuring GNOME Software
 
-colorscheme edge
+1. Disabling download updates
 
-let g:startify_fortune_use_unicode = 1
-let g:startify_custom_footer =
-    \ ['', "   ooh vim", '']
-```
+    ```bash
+    gsettings set org.gnome.software download-updates false
+    ```
 
-My configuration file is also available as a `.vimrc.sample` file in this repository, so it can be used for a quick setup.
+2. Disabling notify updates
 
-If you use NeoVim, there is my configuration file, available as `init.vim.sample` in this repository. Copy it to `~/.config/nvim/init.vim` (notice the file renaming).
+    ```bash
+    gsettings set org.gnome.software download-updates-notify false
+    ```
 
-## Fortune cookies in the terminal
-
-This is a very amusing feature to add to your terminal. First of all, we need to install `fortune-mod`:
+## Setting hostname
 
 ```bash
-$ sudo dnf install fortune-mod
+sudo hostnamectl hostname <your host name>
 ```
 
-Then add the following content to `~/.bashrc`:
+## Removal of certain GNOME applications
 
 ```bash
-if [ -f /usr/bin/fortune ]; then
-    /usr/bin/fortune
-    echo
-fi
+sudo dnf remove gnome-calendar gnome-clocks gnome-characters \
+gnome-contacts gnome-maps gnome-user-docs gnome-weather \
+libreoffice rhythmbox simple-scan totem gnome-boxes \
+media-writer
 ```
 
-There is no need to restart your entire session. Simply restart your terminal (or open a new tab) and have fun! My configuration file is also available as `.bashrc.sample` in this repository.
+## Enabling Flathub
 
-## My `/opt` configuration
+1. Adding repository
 
-I usually configure third-party applications in a different fashion in my Fedora machines. For starters, I create a personal directory inside `/opt` for my current user:
+    ```bash
+    flatpak remote-add --if-not-exists \
+    flathub https://flathub.org/repo/flathub.flatpakrepo
+    ```
+
+2. Enabling repository
+
+    ```bash
+    flatpak remote-modify --enable flathub
+    ```
+
+## My custom `/opt` directory structure
 
 ```bash
-$ cd /opt
-$ sudo mkdir `whoami`
-$ sudo chown `whoami`.`whoami` `whoami`
-$ cd `whoami`
-$ mkdir applications
+WHO=$(whoami)
+sudo mkdir -p "/opt/$WHO"
+sudo chown $WHO:$WHO "/opt/$WHO"
+mkdir -p "/opt/$WHO/applications"
+mkdir -p "/opt/$WHO/profile"
+mkdir -p "/opt/$WHO/scripts"
+mkdir -p "/opt/$WHO/stuff"
+mkdir -p "/opt/$WHO/environments"
+mkdir -p "/opt/$WHO/config"
 ```
 
-Then I redirect most of the installations to the `applications` directory. :wink: 
+## Configuring bash
 
-## A fancy Z shell
+1. Updating `.bashrc`
 
-A great enhancement to `zsh` is [Oh my `zsh`](https://github.com/robbyrussell/oh-my-zsh). I personally do not like the last part of the install script, as it changes your current shell. I usually execute the following command:
+    ```bash
+    printf "\n# my personal configuration\nsource /opt/$WHO/scripts/bash.sh" | \
+    tee --append ~/.bashrc
+    ```
+
+2. Creating my personal bash configuration
+
+    ```bash
+    tee /opt/$WHO/scripts/bash.sh <<EOF
+    # check if fortune exists and displays a message
+    if [ -f /usr/bin/fortune ]; then
+        /usr/bin/fortune
+    fi
+
+    # loads the aliases for this machine
+    source /opt/$WHO/scripts/aliases.sh
+
+    # loads the Rust config
+    source /opt/$WHO/scripts/rust.sh
+
+    # set the configuration and log settings for starship
+    export STARSHIP_CONFIG=/opt/$WHO/config/starship/starship.toml
+    export STARSHIP_LOG="error"
+
+    # init starship prompt
+    eval "\$(starship init bash)"
+    EOF
+    ```
+
+3. Creating aliases
+
+    ```bash
+    MACHINENAME=<my machine name>
+    tee /opt/$WHO/scripts/aliases.sh <<EOF
+    # wrapper around some tools and commands I typically use in this computer
+    function $MACHINENAME() {
+        if [ "\$#" -ne 1 ]; then
+        echo "Usage: $MACHINENAME <action>" >&2
+        return 1
+        fi
+
+        case "\$1" in
+            starship)
+                sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
+                ;;
+            debris)
+                bleachbit --preset --clean system.custom
+                ;;
+            declutter)
+                bleachbit --preset --clean system.custom
+                gio trash --empty
+                shutdown -h now
+                ;;
+            tlmgr)
+                tlmgr update --self --all
+                ;;
+            youtube)
+                yt-dlp -U
+                ;;
+            sdk)
+                source /opt/$WHO/scripts/sdk.sh
+                ;;
+            rust)
+                rustup upgrade
+                ;;
+            reset-fp)
+                find /home/$WHO/.var/app -maxdepth 1 -mindepth 1 \
+                -not -name "org.keepassxc.KeePassXC" \
+                -not -name "com.github.tchx84.Flatseal" \
+                -type d -exec rm -rf "{}" \;
+                find /run/user/$(id --user)/app -maxdepth 1 -mindepth 1 \
+                -type d -exec rm -rf "{}" \;
+                ;;
+            flatpak)
+                flatpak upgrade -y
+                flatpak remove --unused
+                ;;
+            vim)
+                vim -c "PlugUpgrade" -c "PlugUpdate" -c "q" -c "q"
+                ;;
+            *)
+                echo "I don't know this action."
+                ;;
+        esac
+    }
+
+    # extracts a playlist from YouTube and creates a proper list
+    function playlist() {
+    if [ "\$#" -ne 2 ]; then
+        echo "Usage: playlist <link> <title>" >&2
+        return 1
+        fi
+        yt-dlp -f 18 "\$1" -o "\$2, part %(video_autonumber)s.%(ext)s"
+    }
+    EOF
+    ```
+
+## Installing the starship prompt
 
 ```bash
-$ MYOPT="/opt/`whoami`/applications"
-$ ZSH="${MYOPT}/oh-my-zsh" CHSH="no" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+mkdir -p "~/.local/bin"
+sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
+mkdir -p "/opt/$WHO/config/starship"
+tee /opt/$WHO/config/starship/starship.toml <<EOF
+[character]
+success_symbol = "[➜](bold green)"
+error_symbol = "[➜](bold red)"
+
+[username]
+show_always = true
+format = "[\$user](\$style) at "
+style_root = "bold red"
+style_user = "bold yellow"
+
+[hostname]
+ssh_only = false
+style = "bold blue"
+
+[java]
+style = "bold green"
+EOF
 ```
 
-I like to use the `spaceship` theme for my Z shell. In order to configure it, run inside `zsh`:
+## Installing SDKman
 
-```zsh
-$ git clone https://github.com/denysdovhan/spaceship-prompt.git "$ZSH_CUSTOM/themes/spaceship-prompt" --depth=1
-$ ln -s "$ZSH_CUSTOM/themes/spaceship-prompt/spaceship.zsh-theme" "$ZSH_CUSTOM/themes/spaceship.zsh-theme"
-```
+1. Installing the binary
 
-I also recommend installing the syntax highlighting plugin. Run the following command inside `zsh`:
+    ```bash
+    export SDKMAN_DIR="$/opt/$WHO/applications/sdkman" && \
+    curl -s "get.sdkman.io?rcupdate=false" | bash
+    ```
 
-```zsh
-$ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-```
+2. Creating the wrapper script
 
-This is my `.zshrc`, with comments omitted:
+    ```bash
+    tee /opt/$WHO/scripts/sdk.sh <<EOF
+    # moving these lines to a single file to source it on demand
+    export SDKMAN_DIR="/opt/$WHO/applications/sdkman"
+    [[ -s "/opt/$WHO/applications/sdkman/bin/sdkman-init.sh" ]] && \
+    source "/opt/$WHO/applications/sdkman/bin/sdkman-init.sh"
+    EOF
+    ```
 
-```zsh
-export ZSH="/opt/paulo/applications/oh-my-zsh"
-ZSH_THEME="spaceship"
+## Installing Rust
 
-CASE_SENSITIVE="true"
-DISABLE_AUTO_UPDATE="true"
-COMPLETION_WAITING_DOTS="true"
+1. Preparing the environment
 
-plugins=(
-    git
-    colored-man-pages
-    colorize
-    common-aliases
-    copyfile
-    zsh-syntax-highlighting
-)
+    ```bash
+    mkdir -p "/opt/$WHO/environments/rust"
+    export CARGO_HOME=/opt/$WHO/environments/rust/cargo
+    export RUSTUP_HOME=/opt/$WHO/applications/rustup
+    ```
 
-source $ZSH/oh-my-zsh.sh
+2. Installing the binaries
 
-if [ -f /usr/bin/fortune ]; then
-    /usr/bin/fortune
-    echo
-fi
+    ```bash
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    ```
 
-export SDKMAN_DIR="/opt/paulo/applications/sdkman"
-[[ -s "/opt/paulo/applications/sdkman/bin/sdkman-init.sh" ]] && source "/opt/paulo/applications/sdkman/bin/sdkman-init.sh"
-```
+3. Writing the helper script
 
-I still favour bash, but Z is an interesting shell. :wink: My configuration file is also available as `.zshrc.sample` in this repository.
+    ```bash
+    tee /opt/$WHO/scripts/rust.sh <<EOF
+    export CARGO_HOME=/opt/$WHO/environments/rust/cargo
+    export RUSTUP_HOME=/opt/$WHO/applications/rustup
+    export PATH=\${PATH}:\${CARGO_HOME}/bin
+    EOF
+    ```
 
-## SDKMAN!
+## Installing vim and neovim
 
-SDKMAN! is a tool for managing Java-based tools and virtual machines. If you are a developer and wants to live dangerously, I recommend this script. Simply run the following commands:
+1. Installing the binaries
+
+    ```bash
+    sudo dnf install vim neovim
+    ```
+
+2. Installing the plug-in manager for vim and neovim
+
+    ```bash
+    curl -fLo ~/.vim/autoload/plug.vim \
+    --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    curl -fLo ~/.local/share/nvim/site/autoload/plug.vim \
+    --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    ```
+
+3. Creating configuration file for vim
+
+    ```bash
+    tee ~/.vimrc <<EOF
+    call plug#begin('~/.vim/plugged')
+
+    Plug 'godlygeek/tabular'
+    Plug 'itchyny/lightline.vim'
+    Plug 'sheerun/vim-polyglot'
+    Plug 'sainnhe/edge'
+    Plug 'preservim/nerdtree'
+    Plug 'psliwka/vim-smoothie'
+    Plug 'mhinz/vim-startify'
+    Plug 'tpope/vim-surround'
+    Plug 'preservim/nerdcommenter'
+    Plug 'luochen1990/rainbow'
+    Plug 'teto/vim-listchars'
+    Plug 'cohama/lexima.vim'
+    Plug 'junegunn/vim-easy-align'
+
+    call plug#end()
+
+    set nocompatible
+
+    filetype plugin indent on
+    syntax on
+
+    set autoindent
+    set expandtab
+
+    set softtabstop=4
+    set shiftwidth=4
+    set shiftround
+
+    set backspace=indent,eol,start
+    set hidden
+
+    set incsearch
+    set nohlsearch
+
+    set ttyfast
+    set lazyredraw
+
+    set number
+    set ruler
+
+    set noshowmode
+    set laststatus=2
+
+    set background=dark
+    if has('termguicolors')
+        set termguicolors
+    endif
+
+    let g:edge_style = 'aura'
+    let g:edge_enable_italic = 0
+    let g:edge_disable_italic_comment = 1
+
+    let g:lightline = {'colorscheme' : 'edge'}
+
+    colorscheme edge
+
+    let g:startify_fortune_use_unicode = 1
+    let g:startify_custom_footer =
+        \ ['', "   ooh vim", '']
+
+    let g:rainbow_active = 0
+    set viminfo=""
+    EOF
+    ```
+
+4. Creating configuration file for neovim
+
+    ```bash
+    mkdir -p "~/.config/nvim"
+    tee ~/.config/nvim/init.vim <<EOF
+    call plug#begin('~/.vim/plugged')
+
+    Plug 'godlygeek/tabular'
+    Plug 'itchyny/lightline.vim'
+    Plug 'sheerun/vim-polyglot'
+    Plug 'sainnhe/edge'
+    Plug 'preservim/nerdtree'
+    Plug 'psliwka/vim-smoothie'
+    Plug 'mhinz/vim-startify'
+    Plug 'tpope/vim-surround'
+    Plug 'preservim/nerdcommenter'
+    Plug 'luochen1990/rainbow'
+    Plug 'teto/vim-listchars'
+    Plug 'cohama/lexima.vim'
+    Plug 'junegunn/vim-easy-align'
+    Plug 'nvim-treesitter/nvim-treesitter'
+    Plug 'Eandrju/cellular-automaton.nvim'
+
+    call plug#end()
+
+    set nocompatible
+
+    filetype plugin indent on
+    syntax on
+
+    set autoindent
+    set expandtab
+
+    set softtabstop=4
+    set shiftwidth=4
+    set shiftround
+
+    set backspace=indent,eol,start
+    set hidden
+
+    set incsearch
+    set nohlsearch
+
+    set ttyfast
+    set lazyredraw
+
+    set number
+    set ruler
+
+    set noshowmode
+    set laststatus=2
+
+    set background=dark
+    if has('termguicolors')
+        set termguicolors
+    endif
+
+    let g:edge_style = 'aura'
+    let g:edge_enable_italic = 0
+    let g:edge_disable_italic_comment = 1
+
+    let g:lightline = {'colorscheme' : 'edge'}
+
+    colorscheme edge
+
+    let g:startify_fortune_use_unicode = 1
+    let g:startify_custom_footer =
+        \ ['', "   ooh vim", '']
+
+    let g:rainbow_active = 0
+    set viminfo=""
+    EOF
+    ```
+
+## Installing command line archiving tools
 
 ```bash
-$ MYOPT="/opt/`whoami`/applications"
-$ export SDKMAN_DIR="${MYOPT}/sdkman" && curl -s "https://get.sdkman.io" | bash
+sudo dnf install p7zip p7zip-plugins unrar file-roller
 ```
 
-There we go. :wink:
-
-## Install and configure TeX Live
-
-TeX Live is, in my humble opinion, the best TeX distribution out there. Let us get the install script from TUG and run:
+## Installing the latest Java SDK
 
 ```bash
-$ wget http://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz
-$ tar xvzf install-tl-unx.tar.gz
-$ cd install-tl-20*
-$ sudo ./install-tl
+sudo dnf install java-latest-openjdk java-latest-openjdk-jmods \
+java-latest-openjdk-devel java-latest-openjdk-headless
 ```
 
-After installing TeX Live, let us create a symbolic link:
+## Installing assorted useful tools
 
 ```bash
-$ sudo ln -s /usr/local/texlive/<year>/bin/<arch> /opt/texbin
+sudo dnf install ack bat hyperfine \
+git-delta ffmpeg fdupes fortune-mod
 ```
 
-Create a file named `texlive.sh` with the following content:
+## Writing my git configuration
 
 ```bash
+tee ~/.gitconfig <<EOF
+[user]
+	name = $GITNAME
+	email = $GITEMAIL
+[core]
+	editor = vim
+	pager = delta
+[push]
+	default = simple
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	side-by-side = true
+	line-numbers = true
+EOF
+```
+
+## Installing VSCodium
+
+1. Adding RPM repository
+
+    ```bash
+    sudo tee /etc/yum.repos.d/vscodium.repo <<EOF
+    [paulcarroty-vscodium-repo]
+    name=Pavlo Rudyi's VSCodium repo
+    baseurl=https://paulcarroty.gitlab.io/vscodium-deb-rpm-repo/rpms/
+    enabled=1
+    gpgcheck=1
+    repo_gpgcheck=1
+    gpgkey=https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
+    metadata_expire=1h
+    EOF
+    ```
+
+2. Installing the binary
+
+    ```bash
+    sudo dnf install codium
+    ```
+
+## Installing Flatpak applications
+
+```bash
+flatpak install flathub com.github.tchx84.Flatseal
+flatpak install flathub com.belmoussaoui.Authenticator
+flatpak install flathub com.obsproject.Studio
+flatpak install flathub com.rafaelmardojai.Blanket
+flatpak install flathub com.skype.Client
+flatpak install flathub io.mpv.Mpv
+flatpak install flathub io.github.celluloid_player.Celluloid
+flatpak install flathub org.audacityteam.Audacity
+flatpak install flathub org.fedoraproject.MediaWriter
+flatpak install flathub org.gimp.GIMP
+flatpak install flathub org.inkscape.Inkscape
+flatpak install flathub org.kde.kdenlive
+flatpak install flathub org.keepassxc.KeePassXC
+flatpak install flathub org.libreoffice.LibreOffice
+flatpak install flathub org.qbittorrent.qBittorrent
+flatpak install flathub fr.handbrake.ghb
+flatpak install flathub org.gnome.Boxes
+flatpak install flathub com.google.Chrome
+flatpak install flathub io.dbeaver.DBeaverCommunity
+```
+
+## Creating script for TeX Live
+
+```bash
+sudo tee /etc/profile.d/texlive.sh <<EOF
 #!/bin/bash
 pathmunge () {
-    if ! echo $PATH | /bin/egrep -q "(^|:)$1($|:)" ; then
-        if [ "$2" = "after" ] ; then
-            PATH=$PATH:$1
+    if ! echo \$PATH | /bin/grep -E -q "(^|:)\$1($|:)" ; then
+        if [ "\$2" = "after" ] ; then
+            PATH=\$PATH:\$1
         else
-            PATH=$1:$PATH
+            PATH=\$1:\$PATH
         fi
     fi
 }
 pathmunge /opt/texbin
 unset pathmunge
+EOF
 ```
 
-Then move it to `/etc/profile.d/`:
+## Installing Timidity++
 
 ```bash
-$ sudo mv texlive.sh /etc/profile.d/
+sudo dnf install timidity++
 ```
 
-The script is available as `texlive.sh.sample` in this repository. :wink:
-
-The following procedure is optional. I personally had an unfortunate experience, but feel free to configure OpenType fonts from TeX Live in your system:
+## Installing Distrobox
 
 ```bash
-$ sudo cp $(kpsewhich -var-value TEXMFSYSVAR)/fonts/conf/texlive-fontconfig.conf \
-/etc/fonts/conf.d/09-texlive.conf
-$ sudo fc-cache -fsv
+sudo dnf install distrobox
 ```
 
-## Apache NetBeans
-
-I usually do two additional steps when configuring Apache NetBeans in my machine. First, I edit `etc/netbeans.conf` and append the following instruction in the `netbeans_default_options` key:
-
-```ini
- netbeans_default_options=" ... -J-Djava.io.tmpdir=/opt/paulo/temp"
-```
-
-Second, I create a `netbeans.desktop` in the following location:
+# Installing GitHub and Gitlab helpers
 
 ```bash
-$ vim ~/.local/share/applications/netbeans.desktop
+sudo dnf install gh glab
 ```
 
-And add the following lines:
-
-```ini
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=NetBeans IDE
-Icon=/opt/paulo/applications/netbeans/nb/netbeans.icns
-Exec="/opt/paulo/applications/netbeans/bin/netbeans"
-Comment=The smarter way to code
-Categories=Development;IDE;
-Terminal=false
-```
-
-The file is available as `netbeans.desktop.sample` in this repository. :wink:
-
-## Configuring `git`
-
-This is my `git` configuration:
+## Running DNF autoremove
 
 ```bash
-$ git config --global user.name "John Doe"
-$ git config --global user.email johndoe@example.com
-$ git config --global core.editor vim
-$ git config --global push.default simple
+sudo dnf autoremove
+```
+
+## Removing unused Flatpak runtimes
+
+```bash
+flatpak remove --unused
+```
+
+## Installing fonts
+
+1. Downloading fonts
+
+    ```bash
+    FONTVERSION="v3.0.0"
+    mkdir -p ~/.local/share/fonts
+    wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/CascadiaCode.zip
+    unzip CascadiaCode.zip -d "~/.local/share/fonts/Caskaydia Cove"
+    wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/FiraCode.zip
+    unzip FiraCode.zip -d "~/.local/share/fonts/Fira Code"
+    wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/FiraMono.zip
+    unzip FiraMono.zip -d "~/.local/share/fonts/Fura Mono"
+    wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/JetBrainsMono.zip
+    unzip JetBrainsMono.zip -d "~/.local/share/fonts/JetBrains Mono"
+    ```
+
+2. Removing unused files
+
+    ```bash
+    find ~/.local/share/fonts -type f \
+    -not -name "*.ttf" \
+    -not -name "*.otf" \
+    -exec rm {} \;
+    ```
+
+3. Generating font cache
+
+    ```bash
+    fc-cache -fv ~/.local/share/fonts
+    ```
+
+## Installing YouTube downloader
+
+```bash
+wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
+mv yt-dlp ~/.local/bin
+chmod +x ~/.local/bin/yt-dlp
+```
+
+## TeX Live hints
+
+After installing TeX Live, don't forget to create a symlink:
+
+```
+sudo ln -s /opt/$WHO/applications/texlive/<year>/bin/<arch> /opt/texbin
 ```
 
 *To be continued.* :wink:
