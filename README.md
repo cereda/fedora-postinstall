@@ -662,7 +662,7 @@ sudo dnf install timidity++
 sudo dnf install distrobox
 ```
 
-# Installing GitHub and Gitlab helpers
+## Installing GitHub and Gitlab helpers
 
 ```bash
 sudo dnf install gh glab
