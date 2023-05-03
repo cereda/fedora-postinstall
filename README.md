@@ -73,7 +73,7 @@ Now, open this tool we have just installed and set _subpixel antialising_ in the
     gsettings set org.gnome.TextEditor show-line-numbers true
     ```
 
-5. Showing right margin"
+5. Showing right margin
 
     ```bash
     gsettings set org.gnome.TextEditor show-right-margin true
@@ -87,19 +87,15 @@ Now, open this tool we have just installed and set _subpixel antialising_ in the
 
 ## Configuring the interface clock
 
-1. Show the week day
-
-    ```bash
-    gsettings set org.gnome.desktop.interface clock-show-weekday true
-    ```
+```bash
+gsettings set org.gnome.desktop.interface clock-show-weekday true
+```
 
 ## Removable media
 
-1. Disabling autorun
-
-    ```bash
-    gsettings set org.gnome.desktop.media-handling autorun-never true
-    ```
+```bash
+gsettings set org.gnome.desktop.media-handling autorun-never true
+```
 
 ## Configuring touchpad
 
@@ -131,11 +127,9 @@ Now, open this tool we have just installed and set _subpixel antialising_ in the
 
 ## Technical problems
 
-1. Disabling problem reporting
-
-    ```bash
-    gsettings set org.gnome.desktop.privacy report-technical-problems false
-    ```
+```bash
+gsettings set org.gnome.desktop.privacy report-technical-problems false
+```
 
 ## Configuring Nautilus
 
@@ -153,11 +147,9 @@ Now, open this tool we have just installed and set _subpixel antialising_ in the
 
 ## Night light
 
-1. Enabling night light
-
-    ```bash
-    gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
-    ```
+```bash
+gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
+```
 
 ## Configuring GNOME Software
 
