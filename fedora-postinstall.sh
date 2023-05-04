@@ -147,7 +147,7 @@ echo
 echo "Configuring bash"
 echo "1. Updating .bashrc"
 printf "\n# my personal configuration\nsource /opt/$WHO/scripts/bash.sh" | \
-tee --append ~/.bashrc
+tee --append /home/$WHO/.bashrc
 
 # my personal bash configuration
 echo "2. Creating my personal bash configuration"
@@ -183,7 +183,7 @@ function $MACHINENAME() {
 
     case "\$1" in
         starship)
-            sh -c "\$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
+            sh -c "\$(curl -fsSL https://starship.rs/install.sh)" -- -b /home/$WHO/.local/bin -y
             ;;
         debris)
             bleachbit --preset --clean system.custom
@@ -243,9 +243,9 @@ echo
 # starship install
 echo "Installing the starship prompt"
 echo "1. Creating the local directory for binaries"
-mkdir -p "~/.local/bin"
+mkdir -p "/home/$WHO/.local/bin"
 echo "2. Installing the binary"
-sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
+sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b /home/$WHO/.local/bin -y
 echo "3. Preparing the configuration directory"
 mkdir -p "/opt/$WHO/config/starship"
 
@@ -309,14 +309,14 @@ echo "1. Installing the binaries"
 sudo dnf install vim neovim
 
 echo "2. Installing the plug-in manager for vim"
-curl -fLo ~/.vim/autoload/plug.vim \
+curl -fLo /home/$WHO/.vim/autoload/plug.vim \
 --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 echo "3. Installing the plug-in manager for neovim"
-curl -fLo ~/.local/share/nvim/site/autoload/plug.vim \
+curl -fLo /home/$WHO/.local/share/nvim/site/autoload/plug.vim \
 --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
 echo "4. Creating configuration file for vim"
-tee ~/.vimrc <<EOF
+tee /home/$WHO/.vimrc <<EOF
 call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
@@ -384,10 +384,10 @@ set viminfo=""
 EOF
 
 echo "5. Creating configuration directory for neovim"
-mkdir -p "~/.config/nvim"
+mkdir -p "/home/$WHO/.config/nvim"
 
 echo "6. Creating configuration file for neovim"
-tee ~/.config/nvim/init.vim <<EOF
+tee /home/$WHO/.config/nvim/init.vim <<EOF
 call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
@@ -475,7 +475,7 @@ echo
 
 # git configuration
 echo "Writing my git configuration"
-tee ~/.gitconfig <<EOF
+tee /home/$WHO/.gitconfig <<EOF
 [user]
 	name = $GITNAME
 	email = $GITEMAIL
@@ -2813,7 +2813,7 @@ Pg==
 EOF
 
 echo "2. Creating desktop shortcut"
-tee ~/.local/share/applications/jetbrains-idea-ce.desktop <<EOF
+tee /home/$WHO/.local/share/applications/jetbrains-idea-ce.desktop <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -2935,33 +2935,33 @@ echo
 
 # fonts
 echo "Installing fonts"
-mkdir -p ~/.local/share/fonts
+mkdir -p /home/$WHO/.local/share/fonts
 
 echo "1. Downloading Caskaydia Cove"
 wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/CascadiaCode.zip
 echo "2. Extracting file"
-unzip CascadiaCode.zip -d "~/.local/share/fonts/Caskaydia Cove"
+unzip CascadiaCode.zip -d "/home/$WHO/.local/share/fonts/Caskaydia Cove"
 
 echo "3. Downloading Fira Code"
 wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/FiraCode.zip
 echo "4. Extracting file"
-unzip FiraCode.zip -d "~/.local/share/fonts/Fira Code"
+unzip FiraCode.zip -d "/home/$WHO/.local/share/fonts/Fira Code"
 
 echo "5. Downloading Fura Mono"
 wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/FiraMono.zip
 echo "6. Extracting file"
-unzip FiraMono.zip -d "~/.local/share/fonts/Fura Mono"
+unzip FiraMono.zip -d "/home/$WHO/.local/share/fonts/Fura Mono"
 
 echo "7. Downloading JetBrains Mono"
 wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/JetBrainsMono.zip
 echo "8. Extracting file"
-unzip JetBrainsMono.zip -d "~/.local/share/fonts/JetBrains Mono"
+unzip JetBrainsMono.zip -d "/home/$WHO/.local/share/fonts/JetBrains Mono"
 
 echo "9. Removing unused files"
-find ~/.local/share/fonts -type f -not -name "*.ttf" -not -name "*.otf" -exec rm {} \;
+find /home/$WHO/.local/share/fonts -type f -not -name "*.ttf" -not -name "*.otf" -exec rm {} \;
 
 echo "10. Generating font cache"
-fc-cache -fv ~/.local/share/fonts
+fc-cache -fv /home/$WHO/.local/share/fonts
 echo
 
 # yt-dlp
@@ -2969,9 +2969,9 @@ echo "Installing yt-dlp"
 echo "1. Downloading binary"
 wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
 echo "2. Moving to local directory"
-mv yt-dlp ~/.local/bin
+mv yt-dlp /home/$WHO/.local/bin
 echo "3. Making it executable"
-chmod +x ~/.local/bin/yt-dlp
+chmod +x /home/$WHO/.local/bin/yt-dlp
 echo
 
 # TeX Live hints
