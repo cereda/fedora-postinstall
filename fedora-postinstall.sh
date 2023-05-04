@@ -106,8 +106,8 @@ echo
 # removal of certain GNOME applications
 echo "Removing certain GNOME applications"
 sudo dnf remove gnome-calendar gnome-clocks gnome-characters gnome-contacts gnome-maps \
-gnome-user-docs gnome-weather libreoffice rhythmbox simple-scan totem gnome-boxes \
-media-writer
+gnome-user-docs gnome-weather libreoffice* rhythmbox simple-scan totem gnome-boxes \
+mediawriter
 echo
 
 # Flathub
