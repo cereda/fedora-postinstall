@@ -183,7 +183,7 @@ function $MACHINENAME() {
 
     case "\$1" in
         starship)
-            sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
+            sh -c "\$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
             ;;
         debris)
             bleachbit --preset --clean system.custom
