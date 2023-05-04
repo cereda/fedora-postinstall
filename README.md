@@ -215,7 +215,7 @@ mkdir -p "/opt/$WHO/config"
 
     ```bash
     printf "\n# my personal configuration\nsource /opt/$WHO/scripts/bash.sh" | \
-    tee --append ~/.bashrc
+    tee --append /home/$WHO/.bashrc
     ```
 
 2. Creating my personal bash configuration
@@ -256,7 +256,7 @@ mkdir -p "/opt/$WHO/config"
 
         case "\$1" in
             starship)
-                sh -c "\$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
+                sh -c "\$(curl -fsSL https://starship.rs/install.sh)" -- -b /home/$WHO/.local/bin -y
                 ;;
             debris)
                 bleachbit --preset --clean system.custom
@@ -314,7 +314,7 @@ mkdir -p "/opt/$WHO/config"
 
 ```bash
 mkdir -p "~/.local/bin"
-sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b ~/.local/bin -y
+sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b /home/$WHO/.local/bin -y
 mkdir -p "/opt/$WHO/config/starship"
 tee /opt/$WHO/config/starship/starship.toml <<EOF
 [character]
@@ -393,16 +393,16 @@ EOF
 2. Installing the plug-in manager for vim and neovim
 
     ```bash
-    curl -fLo ~/.vim/autoload/plug.vim \
+    curl -fLo /home/$WHO/.vim/autoload/plug.vim \
     --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-    curl -fLo ~/.local/share/nvim/site/autoload/plug.vim \
+    curl -fLo /home/$WHO/.local/share/nvim/site/autoload/plug.vim \
     --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
     ```
 
 3. Creating configuration file for vim
 
     ```bash
-    tee ~/.vimrc <<EOF
+    tee /home/$WHO/.vimrc <<EOF
     call plug#begin('~/.vim/plugged')
 
     Plug 'godlygeek/tabular'
@@ -473,8 +473,8 @@ EOF
 4. Creating configuration file for neovim
 
     ```bash
-    mkdir -p "~/.config/nvim"
-    tee ~/.config/nvim/init.vim <<EOF
+    mkdir -p "/home/$WHO/.config/nvim"
+    tee /home/$WHO/.config/nvim/init.vim <<EOF
     call plug#begin('~/.vim/plugged')
 
     Plug 'godlygeek/tabular'
@@ -567,7 +567,7 @@ git-delta ffmpeg fdupes fortune-mod
 ## Writing my git configuration
 
 ```bash
-tee ~/.gitconfig <<EOF
+tee /home/$WHO/.gitconfig <<EOF
 [user]
 	name = $GITNAME
 	email = $GITEMAIL
@@ -686,21 +686,21 @@ flatpak remove --unused
 
     ```bash
     FONTVERSION="v3.0.0"
-    mkdir -p ~/.local/share/fonts
+    mkdir -p /home/$WHO/.local/share/fonts
     wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/CascadiaCode.zip
-    unzip CascadiaCode.zip -d "~/.local/share/fonts/Caskaydia Cove"
+    unzip CascadiaCode.zip -d "/home/$WHO/.local/share/fonts/Caskaydia Cove"
     wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/FiraCode.zip
-    unzip FiraCode.zip -d "~/.local/share/fonts/Fira Code"
+    unzip FiraCode.zip -d "/home/$WHO/.local/share/fonts/Fira Code"
     wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/FiraMono.zip
-    unzip FiraMono.zip -d "~/.local/share/fonts/Fura Mono"
+    unzip FiraMono.zip -d "/home/$WHO/.local/share/fonts/Fura Mono"
     wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/JetBrainsMono.zip
-    unzip JetBrainsMono.zip -d "~/.local/share/fonts/JetBrains Mono"
+    unzip JetBrainsMono.zip -d "/home/$WHO/.local/share/fonts/JetBrains Mono"
     ```
 
 2. Removing unused files
 
     ```bash
-    find ~/.local/share/fonts -type f \
+    find /home/$WHO/.local/share/fonts -type f \
     -not -name "*.ttf" \
     -not -name "*.otf" \
     -exec rm {} \;
@@ -709,15 +709,15 @@ flatpak remove --unused
 3. Generating font cache
 
     ```bash
-    fc-cache -fv ~/.local/share/fonts
+    fc-cache -fv /home/$WHO/.local/share/fonts
     ```
 
 ## Installing YouTube downloader
 
 ```bash
 wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
-mv yt-dlp ~/.local/bin
-chmod +x ~/.local/bin/yt-dlp
+mv yt-dlp /home/$WHO/.local/bin
+chmod +x /home/$WHO/.local/bin/yt-dlp
 ```
 
 ## TeX Live hints
