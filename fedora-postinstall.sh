@@ -273,8 +273,8 @@ echo
 # SDKman
 echo "Installing SDKman"
 echo "1. Installing the binary"
-export SDKMAN_DIR="$/opt/$WHO/applications/sdkman" && \
-curl -s "get.sdkman.io?rcupdate=false" | bash
+export SDKMAN_DIR="/opt/$WHO/applications/sdkman" && \
+curl -s "https://get.sdkman.io?rcupdate=false" | bash
 
 echo "2. Creating the wrapper script"
 tee /opt/$WHO/scripts/sdk.sh <<EOF
