@@ -1,0 +1,8 @@
+{
+    "workbench.startupEditor": "none",
+    "editor.fontFamily": "'JetBrainsMono Nerd Font',  'Droid Sans Mono', 'monospace', monospace",
+    "security.workspace.trust.untrustedFiles": "open",
+    "security.workspace.trust.startupPrompt": "never",
+    "security.workspace.trust.enabled": false,
+    "window.restoreWindows": "none"
+}
