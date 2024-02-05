@@ -685,7 +685,7 @@ flatpak remove --unused
 1. Downloading fonts
 
     ```bash
-    FONTVERSION="v3.0.0"
+    FONTVERSION="v3.1.1"
     mkdir -p /home/$WHO/.local/share/fonts
     wget https://github.com/ryanoasis/nerd-fonts/releases/download/$FONTVERSION/CascadiaCode.zip
     unzip CascadiaCode.zip -d "/home/$WHO/.local/share/fonts/Caskaydia Cove"
