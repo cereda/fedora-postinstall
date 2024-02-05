@@ -4,7 +4,7 @@ MACHINENAME="my-machine"
 WHO="$(whoami)"
 GITNAME="my-git-name"
 GITEMAIL="my-git-email"
-FONTVERSION="v3.0.0"
+FONTVERSION="v3.1.1"
 
 # header
 echo "Paulo's postinstall script for Fedora $(rpm -E %fedora)"
