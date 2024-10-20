@@ -498,6 +498,7 @@ function ${MACHINE_NAME} {
                 conda)
                     if [ -e "${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3/bin/conda" ]; then
                         eval "\$("${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3/bin/conda" shell.bash hook)"
+                        conda upgrade --all
                     fi
                 ;;
                 
@@ -561,6 +562,32 @@ function ${MACHINE_NAME} {
             case "\$2" in
                 menu)
                     gsettings set org.gnome.shell app-picker-layout "[]"
+                ;;
+
+                *)
+                    echo "I don't know this target."
+                ;;
+            esac
+        ;;
+
+        use)
+            case "\$2" in
+                sdk)
+                    if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" ]; then
+                        source "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh"
+                    fi
+                ;;
+
+                conda)
+                    if [ -e "${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3/bin/conda" ]; then
+                        eval "\$("${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3/bin/conda" shell.bash hook)"
+                    fi
+                ;;
+
+                node)
+                    if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/node.sh" ]; then
+                        source "${ROOT_DIRECTORY_STRUCTURE}/scripts/node.sh"
+                    fi
                 ;;
 
                 *)
