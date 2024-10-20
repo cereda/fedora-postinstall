@@ -423,6 +423,19 @@ EOF
 function ${MACHINE_NAME} {
     if [ "\$#" -ne 2 ]; then
         echo "Usage: ${MACHINE_NAME} <action> <target>" >&2
+        echo
+        echo "╭──────────┬────────────────────────────────────────────────╮"
+        echo "│ Actions  │ Targets                                        │"
+        echo "├──────────┼────────────────────────────────────────────────┤"
+        echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
+        echo "│          │ rust, deno, bun, flatpak, conda, world         │"
+        echo "├──────────┼────────────────────────────────────────────────┤"
+        echo "│ clean    │ flatpak, files, cache, system                  │"
+        echo "├──────────┼────────────────────────────────────────────────┤"
+        echo "│ config   │ menu                                           │"
+        echo "├──────────┼────────────────────────────────────────────────┤"
+        echo "│ use      │ sdk, conda, node                               │"
+        echo "╰──────────┴────────────────────────────────────────────────╯"
         return 1
     fi
 
@@ -519,6 +532,11 @@ function ${MACHINE_NAME} {
 
                 *)
                     echo "I don't know this target."
+                    echo
+                    echo "╭──────────┬────────────────────────────────────────────────╮"
+                    echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
+                    echo "│          │ rust, deno, bun, flatpak, conda, world         │"
+                    echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
         ;;
@@ -554,6 +572,10 @@ function ${MACHINE_NAME} {
 
                 *)
                     echo "I don't know this target."
+                    echo
+                    echo "╭──────────┬────────────────────────────────────────────────╮"
+                    echo "│ clean    │ flatpak, files, cache, system                  │"
+                    echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac       
         ;;
@@ -566,6 +588,11 @@ function ${MACHINE_NAME} {
 
                 *)
                     echo "I don't know this target."
+                    echo
+                    echo "╭──────────┬────────────────────────────────────────────────╮"
+                    echo "│ config   │ menu                                           │"
+                    echo "╰──────────┴────────────────────────────────────────────────╯"
+
                 ;;
             esac
         ;;
@@ -592,12 +619,29 @@ function ${MACHINE_NAME} {
 
                 *)
                     echo "I don't know this target."
+                    echo
+                    echo "╭──────────┬────────────────────────────────────────────────╮"
+                    echo "│ use      │ sdk, conda, node                               │"
+                    echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
         ;;
 
         *)
             echo "I don't know this action."
+            echo
+            echo "╭──────────┬────────────────────────────────────────────────╮"
+            echo "│ Actions  │ Targets                                        │"
+            echo "├──────────┼────────────────────────────────────────────────┤"
+            echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
+            echo "│          │ rust, deno, bun, flatpak, conda, world         │"
+            echo "├──────────┼────────────────────────────────────────────────┤"
+            echo "│ clean    │ flatpak, files, cache, system                  │"
+            echo "├──────────┼────────────────────────────────────────────────┤"
+            echo "│ config   │ menu                                           │"
+            echo "├──────────┼────────────────────────────────────────────────┤"
+            echo "│ use      │ sdk, conda, node                               │"
+            echo "╰──────────┴────────────────────────────────────────────────╯"
         ;;
     esac
 }
