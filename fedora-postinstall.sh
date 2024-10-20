@@ -47,14 +47,16 @@ declare -t SUGGESTED_FLATPAKS=(
     "org.qbittorrent.qBittorrent"
 )
 
+GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v0.14.5/gum_0.14.5_Linux_x86_64.tar.gz"
+
 SCRIPT_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 GUM="${SCRIPT_PATH}/gum"
 
 if [ ! -x "${GUM}" ]; then
-    echo >&2 "gum is needed for this script. Please download it at:"
-    echo >&2 "https://github.com/charmbracelet/gum/releases"
-    exit 1
+    echo "gum is needed for this script, please wait."
+    wget "${GUM_LINK} -O gum.tar.gz
+    tar xvzf gum.tar.gz --wildcards --no-anchored '*gum' && mv gum_*/gum . && rm -rf gum_*
 fi
 
 function chapter {
@@ -186,7 +188,7 @@ else
         if [ $? = 0 ]; then
             
             info "Replacing Fedora's ffmpeg."
-            sudo dnf swap ffmpeg-free ffmpeg --allowerasing
+            sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y
         fi
     fi
 fi
@@ -658,7 +660,7 @@ EOF
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" <<EOF
 export CARGO_HOME="${ROOT_DIRECTORY_STRUCTURE}/environments/rust/cargo"
 export RUSTUP_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/rustup"
-export PATH=${PATH}:${CARGO_HOME}/bin
+export PATH=\${PATH}:\${CARGO_HOME}/bin
 EOF
     fi
 
@@ -667,7 +669,7 @@ EOF
     if [ $? = 0 ]; then
 
         info "Installing vim."
-        sudo dnf install vim
+        sudo dnf install vim -y
 
         info "Installing the plug-in manager for vim."
         curl -fLo "${HOME}/.vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
@@ -745,7 +747,7 @@ EOF
 
     if [ $? = 0 ]; then
         info "Installing neovim."
-        sudo dnf install neovim
+        sudo dnf install neovim -y
 
         info "Installing the plug-in manager for neovim."
         curl -fLo "${HOME}/.local/share/nvim/site/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
@@ -936,7 +938,7 @@ metadata_expire=1h
 EOF
 
         info "Installing the VSCodium application."
-        sudo dnf install codium
+        sudo dnf install codium -y
 
         info "Preparing the configuration directory."
         mkdir -p "${HOME}/.config/VSCodium/User"
@@ -993,25 +995,25 @@ EOF
         mkdir -p "${HOME}/.local/share/fonts"
 
         info "Downloading Caskaydia Cove."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/CascadiaCode.zip
+        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/CascadiaCode.zip
 
         info "Extracting file."
         unzip CascadiaCode.zip -d "${HOME}/.local/share/fonts/Caskaydia Cove"
 
         info "Downloading Fira Code."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/FiraCode.zip
+        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/FiraCode.zip
 
         info "Extracting file."
         unzip FiraCode.zip -d "${HOME}/.local/share/fonts/Fira Code"
 
         info "Downloading Fura Mono."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/FiraMono.zip
+        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/FiraMono.zip
 
         info "Extracting file."
         unzip FiraMono.zip -d "${HOME}/.local/share/fonts/Fura Mono"
 
         info "Downloading JetBrains Mono."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/JetBrainsMono.zip
+        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/JetBrainsMono.zip
 
         info "Extracting file."
         unzip JetBrainsMono.zip -d "${HOME}/.local/share/fonts/JetBrains Mono"
