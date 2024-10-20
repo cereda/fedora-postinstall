@@ -47,18 +47,22 @@ declare -t SUGGESTED_FLATPAKS=(
     "org.qbittorrent.qBittorrent"
 )
 
+SCRIPT_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+GUM="${SCRIPT_PATH}/gum"
+
 function chapter {
-    gum style --border double \
+    ${GUM} style --border double \
         --align center \
         --width 60 \
-        --padding "1 1" \
+        --padding "1 0" \
         --foreground 10 \
         --border-foreground 10 \
         "$1"
 }
 
 function section {
-    gum style --width 60 \
+    ${GUM} style --width 60 \
         --border rounded \
         --align center \
         --foreground 12 \
@@ -67,28 +71,23 @@ function section {
 }
 
 function question {
-    gum confirm \
+    ${GUM} confirm \
         --prompt.foreground=6 \
         --selected.background=6 \
         "$1"
 }
 
 function text {
-    gum style --width 60 \
-        --margin "1 1" \
+    ${GUM} style --width 60 \
+        --margin "1 0" \
     "$1"    
 }
 
-function command_exists {
-    command -v "$1" >/dev/null 2>&1 ||
-    {
-        echo >&2 "This script requires $1. Please install it"
-        echo >&2 "first and run this script again."
-        exit 1
-    }
+function info {
+    ${GUM} style --width 60 \
+        --foreground 11 \
+        "$1"
 }
-
-command_exists gum
 
 FEDORA_VERSION=$(rpm -E %fedora)
 
@@ -110,10 +109,10 @@ if [ $? = 0 ]; then
 
     text "Let's configure the Flathub repository."
 
-    text "Configuring Flathub."
+    info "Configuring Flathub."
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-    text "Enabling Flathub."
+    info "Enabling Flathub."
     flatpak remote-modify --enable flathub
     
 fi
@@ -125,7 +124,7 @@ if [ "${FEDORA_FLAVOUR}" = "Silverblue" ]; then
     text "Fedora Silverblue comes with several applications installed as flatpaks. Would you like to remove some of them?"
 
     mapfile -t INSTALLED_FLATPAKS < <(flatpak list --app --columns=application)
-    readarray -t FLATPAKS_TO_REMOVE <<< $(gum choose --no-limit --height 15 "${INSTALLED_FLATPAKS[@]}")
+    readarray -t FLATPAKS_TO_REMOVE <<< $(${GUM} choose --no-limit --height 15 "${INSTALLED_FLATPAKS[@]}")
 
     if [ -z "${FLATPAKS_TO_REMOVE}" ]; then
         text "You haven't selected any items from the list. Moving on."
@@ -133,11 +132,11 @@ if [ "${FEDORA_FLAVOUR}" = "Silverblue" ]; then
         text "You've selected ${#FLATPAKS_TO_REMOVE[@]} flatpak(s) to remove. Please wait."
 
         for FLATPAK_TO_REMOVE in "${FLATPAKS_TO_REMOVE[@]}"; do
-            text "Removing ${FLATPAK_TO_REMOVE}."
+            info "Removing ${FLATPAK_TO_REMOVE}."
             flatpak uninstall "${FLATPAK_TO_REMOVE}" -y
         done
 
-        text "Removing unused framework(s)."
+        info "Removing unused framework(s)."
         flatpak uninstall --unused -y
     fi
 else
@@ -146,7 +145,7 @@ else
 
     text "Fedora Workstation comes with several applications that could be removed. Would you like to remove some of them?"
 
-    readarray -t PACKAGES_TO_REMOVE <<< $(gum choose --no-limit --height 15 "${EXISTING_PACKAGES[@]}")
+    readarray -t PACKAGES_TO_REMOVE <<< $(${GUM} choose --no-limit --height 15 "${EXISTING_PACKAGES[@]}")
 
     if [ -z "${PACKAGES_TO_REMOVE}" ]; then
         text "You haven't selected any items from the list. Moving on."
@@ -155,10 +154,10 @@ else
 
         PACKAGE_REMOVAL_LIST=$(printf " %s" "${PACKAGES_TO_REMOVE[@]}")
 
-        text "Removing package(s)."
+        info "Removing package(s)."
         sudo dnf remove ${PACKAGE_REMOVAL_LIST:1} -y
 
-        text "Cleaning up orphan packages."
+        info "Cleaning up orphan packages."
         sudo dnf autoremove -y
     fi
 
@@ -170,17 +169,17 @@ else
 
         text "Let's configure the RPMFusion repositories."
 
-        text "Configuring the free repository."
+        info "Configuring the free repository."
         sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm -y
 
-        text "Configuring the non-free repository."
+        info "Configuring the non-free repository."
         sudo dnf install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm -y
 
         rpm -qa | grep -i ffmpeg >/dev/null 2>&1 && section "ffmpeg configuration" && question "Do you want to replace Fedora's ffmpeg?"
 
         if [ $? = 0 ]; then
             
-            text "Replacing Fedora's ffmpeg."
+            info "Replacing Fedora's ffmpeg."
             sudo dnf swap ffmpeg-free ffmpeg --allowerasing
         fi
     fi
@@ -190,7 +189,7 @@ section "Flatpak applications"
 
 text "Do you want to install any of these Flatpak applications?"
 
-readarray -t FLATPAKS_TO_INSTALL <<< $(gum choose --no-limit --height 15 "${SUGGESTED_FLATPAKS[@]}")
+readarray -t FLATPAKS_TO_INSTALL <<< $(${GUM} choose --no-limit --height 15 "${SUGGESTED_FLATPAKS[@]}")
 
 if [ -z "${FLATPAKS_TO_INSTALL}" ]; then
     text "You haven't selected any items from the list. Moving on."
@@ -199,13 +198,13 @@ else
     text "You've selected ${#FLATPAKS_TO_INSTALL[@]} flatpak(s) to install. Please wait."
 
     for FLATPAK_TO_INSTALL in "${FLATPAKS_TO_INSTALL[@]}"; do
-        text "Installing ${FLATPAK_TO_REMOVE}."
-        flatpak install flathub ${FLATPAK_TO_INSTALL} --y
+        info "Installing ${FLATPAK_TO_REMOVE}."
+        flatpak install flathub ${FLATPAK_TO_INSTALL} -y
     done
 
     text "Which Flatpak applications do you want to keep from cache cleaning?"
 
-    readarray -t FLATPAKS_TO_KEEP_CACHE <<< $(gum choose --no-limit --selected="com.github.tchx84.Flatseal" --height 15 "${FLATPAKS_TO_INSTALL[@]}")
+    readarray -t FLATPAKS_TO_KEEP_CACHE <<< $(${GUM} choose --no-limit --selected="com.github.tchx84.Flatseal" --height 15 "${FLATPAKS_TO_INSTALL[@]}")
     FLATPAKS_KEEP_CACHE_LIST=$(printf " -not -name %s" "${FLATPAKS_TO_KEEP_CACHE[@]}")    
 fi
 
@@ -215,10 +214,10 @@ question "Do you want to improve font rendering?"
 
 if [ $? = 0 ]; then
 
-    text "Font antialiasing."
+    info "Font antialiasing."
     gsettings set org.gnome.desktop.interface font-antialiasing rgba
 
-    text "Font hinting."
+    info "Font hinting."
     gsettings set org.gnome.desktop.interface font-hinting slight
 fi
 
@@ -226,22 +225,22 @@ question "Do you want to configure the GNOME text editor?"
 
 if [ $? = 0 ]; then
 
-    text "Highlighting current line."
+    info "Highlighting current line."
     gsettings set org.gnome.TextEditor highlight-current-line true
 
-    text "Disabling restore session."
+    info "Disabling restore session."
     gsettings set org.gnome.TextEditor restore-session false
 
-    text "Showing grid."
+    info "Showing grid."
     gsettings set org.gnome.TextEditor show-grid true
 
-    text "Showing line numbers."
+    info "Showing line numbers."
     gsettings set org.gnome.TextEditor show-line-numbers true
 
-    text "Showing right margin."
+    info "Showing right margin."
     gsettings set org.gnome.TextEditor show-right-margin true
 
-    text "Disabling spellcheck."
+    info "Disabling spellcheck."
     gsettings set org.gnome.TextEditor spellcheck false
 fi
 
@@ -249,7 +248,7 @@ question "Do you want to configure the GNOME clock?"
 
 if [ $? = 0 ]; then
 
-    text "Showing weekday."
+    info "Showing weekday."
     gsettings set org.gnome.desktop.interface clock-show-weekday true
 fi
 
@@ -257,7 +256,7 @@ question "Do you want to disable autorum for removable media?"
 
 if [ $? = 0 ]; then
 
-    text "Disabling autorun for removable media."
+    info "Disabling autorun for removable media."
     gsettings set org.gnome.desktop.media-handling autorun-never true
 fi
 
@@ -265,10 +264,10 @@ question "Do you want to configure your laptop touchpad?"
 
 if [ $? = 0 ]; then
 
-    text "Enabling tap to click."
+    info "Enabling tap to click."
     gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
 
-    text "Enabling two finger scrolling."
+    info "Enabling two finger scrolling."
     gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true
 fi
 
@@ -276,10 +275,10 @@ question "Do you want to disable notification banners?"
 
 if [ $? = 0 ]; then
 
-    text "Disabling show banners."
+    info "Disabling show banners."
     gsettings set org.gnome.desktop.notifications show-banners false
 
-    text "Disabling show in lock screen."
+    info "Disabling show in lock screen."
     gsettings set org.gnome.desktop.notifications show-in-lock-screen false
 fi
 
@@ -287,7 +286,7 @@ question "Do you want to disable technical reports?"
 
 if [ $? = 0 ]; then
 
-    text "Disabling problem reporting."
+    info "Disabling problem reporting."
     gsettings set org.gnome.desktop.privacy report-technical-problems false
 fi
 
@@ -295,10 +294,10 @@ question "Do you want to configure Nautilus?"
 
 if [ $? = 0 ]; then
 
-    text "Setting default folder viewer."
+    info "Setting default folder viewer."
     gsettings set org.gnome.nautilus.preferences default-folder-viewer icon-view
 
-    text "Disabling image thumbnails."
+    info "Disabling image thumbnails."
     gsettings set org.gnome.nautilus.preferences show-image-thumbnails never
 fi
 
@@ -306,7 +305,7 @@ question "Do you want to enable night light?"
 
 if [ $? = 0 ]; then
 
-    text "Enabling night light."
+    info "Enabling night light."
     gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
 fi
 
@@ -314,18 +313,18 @@ question "Do you want to disable notifications from GNOME Software?"
 
 if [ $? = 0 ]; then
 
-    text "Disabling download updates."
+    info "Disabling download updates."
     gsettings set org.gnome.software download-updates false
 
-    text "Disabling notify updates."
+    info "Disabling notify updates."
     gsettings set org.gnome.software download-updates-notify false
 fi
 
 section "Hostname configuration"
 
-MACHINE_NAME=$(gum input --prompt "Your machine name: ")
+MACHINE_NAME=$(${GUM} input --prompt "Your machine name: ")
 
-text "Configuring hostname."
+info "Configuring hostname."
 sudo hostnamectl hostname "${MACHINE_NAME}"
 
 text "Your Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION} is now named ${MACHINE_NAME}."
@@ -340,28 +339,28 @@ if [ $? = 0 ]; then
 
     text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE} (Paulo's configuration)."
 
-    text "Creating root directory."
+    info "Creating root directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}"
 
-    text "Creating directory for applications."
+    info "Creating directory for applications."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/applications"
 
-    text "Creating directory for config files."
+    info "Creating directory for config files."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config"
 
-    text "Creating directory for profile."
+    info "Creating directory for profile."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/profile"
 
-    text "Creating directory for scripts."
+    info "Creating directory for scripts."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/scripts"
 
-    text "Creating directory for general stuff."
+    info "Creating directory for general stuff."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/stuff"
 
-    text "Creating directory for environments."
+    info "Creating directory for environments."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments"
 
-    text "Updating bash entry point."
+    info "Updating bash entry point."
     tee --append "${HOME}/.bashrc" <<EOF
 
 # my personal configuration
@@ -370,7 +369,7 @@ if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" ]; then
 fi
 EOF
 
-    text "Creating main file for bash."
+    info "Creating main file for bash."
     tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" <<EOF
 # check if fortune exists and displays a message
 if [ -f /usr/bin/fortune ]; then
@@ -403,7 +402,7 @@ if [ -x "\$(command -v starship)" ]; then
 fi
 EOF
 
-    text "Creating aliases file."
+    info "Creating aliases file."
     tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<EOF
 # wrapper around some tools and commands I typically use in this computer
 function ${MACHINE_NAME} {
@@ -456,7 +455,6 @@ function ${MACHINE_NAME} {
                     if [ -x "\$(command -v yt-dlp)" ]; then
                         yt-dlp -U
                     fi
-                    ;;
                 ;;
 
                 rust)
@@ -484,7 +482,7 @@ function ${MACHINE_NAME} {
 
                 conda)
                     if [ -e "${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3/bin/conda" ]; then
-                        eval "$("${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3/bin/conda" shell.bash hook)"
+                        eval "\$("${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3/bin/conda" shell.bash hook)"
                     fi
                 ;;
                 
@@ -558,7 +556,7 @@ function ${MACHINE_NAME} {
 
         *)
             echo "I don't know this action."
-        ;
+        ;;
     esac
 }
 
@@ -592,16 +590,16 @@ EOF
 
     if [ $? = 0 ]; then
         
-        text "Preparing the installation directory."
+        info "Preparing the installation directory."
         mkdir -p "${HOME}/.local/bin"
         
-        text "Installing starship."
+        info "Installing starship."
         sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b "${HOME}/.local/bin" -y
 
-        text "Preparing the configuration directory."
+        info "Preparing the configuration directory."
         mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/starship"
 
-        text "Creating the configuration file."
+        info "Creating the configuration file."
         tee "${ROOT_DIRECTORY_STRUCTURE}/config/starship/starship.toml" <<EOF
 [character]
 success_symbol = "[➜](bold green)"
@@ -626,10 +624,10 @@ EOF
     question "Do you want to install SDKman?"
 
     if [ $? = 0 ]; then
-        text "Installing the SDKman binary."
+        info "Installing the SDKman binary."
         export SDKMAN_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman" && curl -s "https://get.sdkman.io?rcupdate=false" | bash
 
-        text "Creating wrapper script."
+        info "Creating wrapper script."
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" <<EOF
 # moving these lines to a single file to source it on demand
 export SDKMAN_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman"
@@ -640,17 +638,17 @@ EOF
     question "Do you want to install Rust?"
 
     if [ $? = 0 ]; then
-        text "Preparing the Rust environment."
+        info "Preparing the Rust environment."
         mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments/rust"
         
-        text "Exporting environment variables."
+        info "Exporting environment variables."
         export CARGO_HOME="${ROOT_DIRECTORY_STRUCTURE}/environments/rust/cargo"
         export RUSTUP_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/rustup"
 
-        text "Installing binaries."
+        info "Installing binaries."
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-        text "Writing helper script."
+        info "Writing helper script."
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" <<EOF
 export CARGO_HOME="${ROOT_DIRECTORY_STRUCTURE}/environments/rust/cargo"
 export RUSTUP_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/rustup"
@@ -662,13 +660,13 @@ EOF
 
     if [ $? = 0 ]; then
 
-        text "Installing vim."
+        info "Installing vim."
         sudo dnf install vim
 
-        text "Installing the plug-in manager for vim."
+        info "Installing the plug-in manager for vim."
         curl -fLo "${HOME}/.vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
-        text "Creating the configuration file."
+        info "Creating the configuration file."
         tee "${HOME}/.vimrc" <<EOF
 call plug#begin('~/.vim/plugged')
 
@@ -740,15 +738,16 @@ EOF
     question "Do you want to install and configure neovim?"
 
     if [ $? = 0 ]; then
-        text "Installing neovim."
+        info "Installing neovim."
         sudo dnf install neovim
 
-        text "Installing the plug-in manager for neovim."
+        info "Installing the plug-in manager for neovim."
         curl -fLo "${HOME}/.local/share/nvim/site/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
-        text "Creating configuration directory for neovim."
+        info "Creating configuration directory for neovim."
         mkdir -p "${HOME}/.config/nvim"
 
+        info "Creating configuration file for neovim."
         tee "${HOME}/.config/nvim/init.vim" <<EOF
 call plug#begin('~/.vim/plugged')
 
@@ -822,11 +821,11 @@ EOF
 
     if [ $? = 0 ]; then
 
-        text "Installing nvm."
+        info "Installing nvm."
         NVM_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/nvm"
         (git clone https://github.com/nvm-sh/nvm.git "${NVM_DIR}" && cd "${NVM_DIR}" && git checkout `git describe --abbrev=0 --tags --match "v[0-9]*" $(git rev-list --tags --max-count=1)`)
 
-        # TODO rename file
+        info "Creating configuration script."
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/node.sh" <<EOF
 export NVM_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/nvm"
 [ -s "\${NVM_DIR}/nvm.sh" ] && \. "\${NVM_DIR}/nvm.sh"
@@ -839,7 +838,7 @@ EOF
 
     if [ $? = 0 ]; then
 
-        text "Generating custom colors file."
+        info "Generating custom colors file."
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/colors.sh" <<EOF
 if [ -x "\$(command -v vivid)" ]; then
     export LS_COLORS="\$(vivid generate dracula)"
@@ -854,14 +853,14 @@ EOF
 
     if [ $? = 0 ]; then
 
-        text "Installing command line archiving tools."
+        info "Installing command line archiving tools."
         sudo dnf install p7zip p7zip-plugins unrar file-roller
     fi
 
     question "Do you want to install the latest Java SDK?"
 
     if [ $? = 0 ]; then
-        text "Installing the latest Java SDK."
+        info "Installing the latest Java SDK."
         sudo dnf install java-latest-openjdk java-latest-openjdk-jmods java-latest-openjdk-devel java-latest-openjdk-headless
     fi
 
@@ -883,19 +882,19 @@ EOF
             "hyperfine"
         )
 
-        readarray -t SELECTED_PACKAGES <<< $(gum choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}")
+        readarray -t SELECTED_PACKAGES <<< $(${GUM} choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}")
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
         
-        text "Installing packages."
+        info "Installing packages."
         sudo dnf install ${PACKAGE_INSTALL_LIST:1} -y
     fi
 
     section "git configuration"
 
-GIT_USERNAME=$(gum input --prompt "Your full name: ")
-GIT_EMAIL=$(gum input --prompt "Your e-mail address: ")
+GIT_USERNAME=$(${GUM} input --prompt "Your full name: ")
+GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
 
-    text "Generating configuration file for git."
+    info "Generating configuration file for git."
     tee "${HOME}/.gitconfig" <<EOF
 [user]
 	name = ${GIT_USERNAME}
@@ -918,7 +917,7 @@ EOF
 
     if [ $? = 0 ]; then
 
-        text "Adding the RPM repository."
+        info "Adding the RPM repository."
         sudo tee "/etc/yum.repos.d/vscodium.repo" <<EOF
 [paulcarroty-vscodium-repo]
 name=Pavlo Rudyi's VSCodium repo
@@ -930,13 +929,13 @@ gpgkey=https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
 metadata_expire=1h
 EOF
 
-        text "Installing the VSCodium application."
+        info "Installing the VSCodium application."
         sudo dnf install codium
 
-        text "Preparing the configuration directory."
+        info "Preparing the configuration directory."
         mkdir -p "${HOME}/.config/VSCodium/User"
 
-        text "Writing the configuration file."
+        info "Writing the configuration file."
         tee "${HOME}/.config/VSCodium/User/settings.json" <<EOF
 {
     "workbench.startupEditor": "none",
@@ -958,7 +957,7 @@ EOF
 
     if [ $? = 0 ]; then
     
-        text "Creating script for TeX Live."
+        info "Creating script for TeX Live."
         sudo tee "/etc/profile.d/texlive.sh" <<EOF
 #!/bin/bash
 pathmunge () {
@@ -982,39 +981,39 @@ EOF
 
     if [ $? = 0 ]; then
 
-        FONT_VERSION=$(gum input --prompt "Latest version of Nerd Fonts: " --value "3.2.1")
+        FONT_VERSION=$(${GUM} input --prompt "Latest version of Nerd Fonts: " --value "3.2.1")
 
-        text "Creating local font directory."
+        info "Creating local font directory."
         mkdir -p "${HOME}/.local/share/fonts"
 
-        text "Downloading Caskaydia Cove."
+        info "Downloading Caskaydia Cove."
         wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/CascadiaCode.zip
 
-        text "Extracting file."
+        info "Extracting file."
         unzip CascadiaCode.zip -d "${HOME}/.local/share/fonts/Caskaydia Cove"
 
-        text "Downloading Fira Code."
+        info "Downloading Fira Code."
         wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/FiraCode.zip
 
-        text "Extracting file."
+        info "Extracting file."
         unzip FiraCode.zip -d "${HOME}/.local/share/fonts/Fira Code"
 
-        text "Downloading Fura Mono."
+        info "Downloading Fura Mono."
         wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/FiraMono.zip
 
-        text "Extracting file."
+        info "Extracting file."
         unzip FiraMono.zip -d "${HOME}/.local/share/fonts/Fura Mono"
 
-        text "Downloading JetBrains Mono."
+        info "Downloading JetBrains Mono."
         wget https://github.com/ryanoasis/nerd-fonts/releases/download/${FONT_VERSION}/JetBrainsMono.zip
 
-        text "Extracting file."
+        info "Extracting file."
         unzip JetBrainsMono.zip -d "${HOME}/.local/share/fonts/JetBrains Mono"
 
-        text "Removing unused files."
+        info "Removing unused files."
         find "${HOME}/.local/share/fonts" -type f -not -name "*.ttf" -not -name "*.otf" -exec rm {} \;
 
-        text "Generating font cache."
+        info "Generating font cache."
         fc-cache -fv "${HOME}/.local/share/fonts"
     fi
 
@@ -1024,13 +1023,13 @@ EOF
 
     if [ $? = 0 ]; then
 
-        text "Downloading yt-dlp script."
+        info "Downloading yt-dlp script."
         wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
 
-        text "Moving script to the installation directory."
+        info "Moving script to the installation directory."
         mv yt-dlp "${HOME}/.local/bin"
 
-        text "Changing execute permissions."
+        info "Changing execute permissions."
         chmod +x "${HOME}/.local/bin/yt-dlp"
     fi
 
