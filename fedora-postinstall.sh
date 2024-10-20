@@ -51,6 +51,12 @@ SCRIPT_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 GUM="${SCRIPT_PATH}/gum"
 
+if [ ! -x "${GUM}" ]; then
+    echo >&2 "gum is needed for this script. Please download it at:"
+    echo >&2 "https://github.com/charmbracelet/gum/releases"
+    exit 1
+fi
+
 function chapter {
     ${GUM} style --border double \
         --align center \
@@ -97,7 +103,7 @@ question "Did you upgrade your system?" || exit 1
 
 text "Welcome to my post installation script for Fedora! Please select which flavour of Fedora you are currently running."
 
-FEDORA_FLAVOUR=$(gum choose "Workstation" "Silverblue")
+FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
 
 text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"
 
