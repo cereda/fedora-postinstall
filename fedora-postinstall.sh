@@ -49,13 +49,13 @@ declare -t SUGGESTED_FLATPAKS=(
 
 GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v0.14.5/gum_0.14.5_Linux_x86_64.tar.gz"
 
-SCRIPT_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 GUM="${SCRIPT_PATH}/gum"
 
 if [ ! -x "${GUM}" ]; then
     echo "gum is needed for this script, please wait."
-    wget "${GUM_LINK} -O gum.tar.gz
+    wget "${GUM_LINK}" -O gum.tar.gz
     tar xvzf gum.tar.gz --wildcards --no-anchored '*gum' && mv gum_*/gum . && rm -rf gum_*
 fi
 
