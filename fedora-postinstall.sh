@@ -47,6 +47,13 @@ declare -t SUGGESTED_FLATPAKS=(
     "org.qbittorrent.qBittorrent"
 )
 
+declare -A NERD_FONTS=(
+    ["Caskaydia Cove"]="CascadiaCode"
+    ["Fira Code"]="FiraCode"
+    ["Fura Mono"]="FiraMono"
+    ["JetBrains Mono"]="JetBrainsMono"
+)
+
 GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v0.14.5/gum_0.14.5_Linux_x86_64.tar.gz"
 
 SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
@@ -994,34 +1001,21 @@ EOF
         info "Creating local font directory."
         mkdir -p "${HOME}/.local/share/fonts"
 
-        info "Downloading Caskaydia Cove."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/CascadiaCode.zip
+        for NERD_FONT in "${!NERD_FONTS[@]}" ; do
+            info "Downloading ${NERD_FONT}."
+            wget "https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/${NERD_FONTS[${NERD_FONT}]}.zip"
 
-        info "Extracting file."
-        unzip CascadiaCode.zip -d "${HOME}/.local/share/fonts/Caskaydia Cove"
-
-        info "Downloading Fira Code."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/FiraCode.zip
-
-        info "Extracting file."
-        unzip FiraCode.zip -d "${HOME}/.local/share/fonts/Fira Code"
-
-        info "Downloading Fura Mono."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/FiraMono.zip
-
-        info "Extracting file."
-        unzip FiraMono.zip -d "${HOME}/.local/share/fonts/Fura Mono"
-
-        info "Downloading JetBrains Mono."
-        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/JetBrainsMono.zip
-
-        info "Extracting file."
-        unzip JetBrainsMono.zip -d "${HOME}/.local/share/fonts/JetBrains Mono"
+            info "Extracting file."    
+            unzip "${NERD_FONTS[${NERD_FONT}]}.zip" -d "${HOME}/.local/share/fonts/${NERD_FONT}"
+        done
 
         info "Removing unused files."
         find "${HOME}/.local/share/fonts" -type f -not -name "*.ttf" -not -name "*.otf" -exec rm {} \;
 
         info "Generating font cache."
+        fc-cache -fv "${HOME}/.local/share/fonts"
+
+        info "Regenerating font cache."
         fc-cache -fv "${HOME}/.local/share/fonts"
     fi
 
