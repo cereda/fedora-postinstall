@@ -1120,6 +1120,7 @@ EOF
     if [ $? = 0 ]; then
 
         info "Copying profile photo."
+        bash gen-cat.sh
         cp cat.png "${ROOT_DIRECTORY_STRUCTURE}/profile/cat.png"
     fi
 
