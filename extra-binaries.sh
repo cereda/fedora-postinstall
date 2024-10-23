@@ -4,7 +4,7 @@ GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v0.14.5/gum_0.1
 
 SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
-GUM="${SCRIPT_PATH}/gum"
+GUM=$(command -v gum || printf "${SCRIPT_PATH}/gum")
 
 if [ ! -x "${GUM}" ]; then
     echo "gum is needed for this script, please wait."

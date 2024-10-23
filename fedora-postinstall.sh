@@ -213,7 +213,7 @@ else
     text "You've selected ${#FLATPAKS_TO_INSTALL[@]} flatpak(s) to install. Please wait."
 
     for FLATPAK_TO_INSTALL in "${FLATPAKS_TO_INSTALL[@]}"; do
-        info "Installing ${FLATPAK_TO_REMOVE}."
+        info "Installing ${FLATPAK_TO_INSTALL}."
         flatpak install flathub ${FLATPAK_TO_INSTALL} -y
     done
 
@@ -969,10 +969,17 @@ EOF
         )
 
         readarray -t SELECTED_PACKAGES <<< $(${GUM} choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}")
-        PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
-        
-        info "Installing packages."
-        sudo dnf install ${PACKAGE_INSTALL_LIST:1} -y
+
+        if [ -z "${SELECTED_PACKAGES}" ]; then
+            text "You haven't selected any items from the list. Moving on."
+        else
+
+            PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
+            
+            info "Installing packages."
+            sudo dnf install ${PACKAGE_INSTALL_LIST:1} -y
+        fi
+
     fi
 
     section "git configuration"
