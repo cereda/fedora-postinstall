@@ -193,7 +193,7 @@ if [ $? = 0 ]; then
     mkdir -p archives
 
     info "Moving files to temporary directory."
-    find . -mindepth 1 -maxdepth 1 '(' -name "*.zip" -o -name "*.tar.gz" -o -name "*.tgz" ')' -exec mv {} archive/ \;
+    find . -mindepth 1 -maxdepth 1 '(' -name "*.zip" -o -name "*.tar.gz" -o -name "*.tgz" ')' -exec mv {} archives/ \;
 
     info "Unpacking binaries."
     (cd archives && find -type f -name "*.tar.gz" -exec tar xzf {} \;)
