@@ -198,7 +198,7 @@ if [ $? = 0 ]; then
     info "Unpacking binaries."
     (cd archives && find -type f -name "*.tar.gz" -exec tar xzf {} \;)
     (cd archives && find -type f -name "*.tgz" -exec tar xzf {} \;)
-    (cd archives && find -type f -name "*.zip" -exec unzip {} \;)
+    (cd archives && find -type f -name "*.zip" -exec unzip -q {} \;)
 
     info "Creating deployment directory."
     rm -f deploys
