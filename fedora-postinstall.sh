@@ -236,27 +236,30 @@ if [ $? = 0 ]; then
     gsettings set org.gnome.desktop.interface font-hinting slight
 fi
 
-question "Do you want to configure the GNOME text editor?"
+if [ "${FEDORA_FLAVOUR}" = "Workstation" ]; then
 
-if [ $? = 0 ]; then
+    question "Do you want to configure the GNOME text editor?"
 
-    info "Highlighting current line."
-    gsettings set org.gnome.TextEditor highlight-current-line true
+    if [ $? = 0 ]; then
 
-    info "Disabling restore session."
-    gsettings set org.gnome.TextEditor restore-session false
+        info "Highlighting current line."
+        gsettings set org.gnome.TextEditor highlight-current-line true
 
-    info "Showing grid."
-    gsettings set org.gnome.TextEditor show-grid true
+        info "Disabling restore session."
+        gsettings set org.gnome.TextEditor restore-session false
 
-    info "Showing line numbers."
-    gsettings set org.gnome.TextEditor show-line-numbers true
+        info "Showing grid."
+        gsettings set org.gnome.TextEditor show-grid true
 
-    info "Showing right margin."
-    gsettings set org.gnome.TextEditor show-right-margin true
+        info "Showing line numbers."
+        gsettings set org.gnome.TextEditor show-line-numbers true
 
-    info "Disabling spellcheck."
-    gsettings set org.gnome.TextEditor spellcheck false
+        info "Showing right margin."
+        gsettings set org.gnome.TextEditor show-right-margin true
+
+        info "Disabling spellcheck."
+        gsettings set org.gnome.TextEditor spellcheck false
+    fi
 fi
 
 question "Do you want to configure the GNOME clock?"
@@ -742,18 +745,20 @@ export PATH=\${PATH}:\${CARGO_HOME}/bin
 EOF
     fi
 
-    question "Do you want to install and configure vim?"
+    if [ "${FEDORA_FLAVOUR}" = "Workstation" ]; then
 
-    if [ $? = 0 ]; then
+        question "Do you want to install and configure vim?"
 
-        info "Installing vim."
-        sudo dnf install vim -y
+        if [ $? = 0 ]; then
 
-        info "Installing the plug-in manager for vim."
-        curl -fLo "${HOME}/.vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+            info "Installing vim."
+            sudo dnf install vim -y
 
-        info "Creating the configuration file."
-        tee "${HOME}/.vimrc" <<EOF
+            info "Installing the plug-in manager for vim."
+            curl -fLo "${HOME}/.vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
+            info "Creating the configuration file."
+            tee "${HOME}/.vimrc" <<EOF
 call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
@@ -819,22 +824,22 @@ let g:startify_custom_footer =
 let g:rainbow_active = 0
 set viminfo=""
 EOF
-    fi
+        fi
 
-    question "Do you want to install and configure neovim?"
+        question "Do you want to install and configure neovim?"
 
-    if [ $? = 0 ]; then
-        info "Installing neovim."
-        sudo dnf install neovim -y
+        if [ $? = 0 ]; then
+            info "Installing neovim."
+            sudo dnf install neovim -y
 
-        info "Installing the plug-in manager for neovim."
-        curl -fLo "${HOME}/.local/share/nvim/site/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+            info "Installing the plug-in manager for neovim."
+            curl -fLo "${HOME}/.local/share/nvim/site/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
-        info "Creating configuration directory for neovim."
-        mkdir -p "${HOME}/.config/nvim"
+            info "Creating configuration directory for neovim."
+            mkdir -p "${HOME}/.config/nvim"
 
-        info "Creating configuration file for neovim."
-        tee "${HOME}/.config/nvim/init.vim" <<EOF
+            info "Creating configuration file for neovim."
+            tee "${HOME}/.config/nvim/init.vim" <<EOF
 call plug#begin('~/.vim/plugged')
 
 Plug 'godlygeek/tabular'
@@ -901,6 +906,7 @@ let g:rainbow_active = 0
 set viminfo=""
 EOF
 
+        fi
     fi
 
     question "Do you want to install nvm?"
@@ -933,59 +939,63 @@ EOF
 
     fi
 
-    section "Useful applications"
+    if [ "${FEDORA_FLAVOUR}" = "Workstation" ]; then
 
-    question "Do you want to install archiving tools (p7zip and unrar)?"
+        section "Useful applications"
 
-    if [ $? = 0 ]; then
+        question "Do you want to install archiving tools (p7zip and unrar)?"
 
-        info "Installing command line archiving tools."
-        sudo dnf install p7zip p7zip-plugins unrar file-roller
-    fi
+        if [ $? = 0 ]; then
 
-    question "Do you want to install the latest Java SDK?"
+            info "Installing command line archiving tools."
+            sudo dnf install p7zip p7zip-plugins unrar file-roller
+        fi
 
-    if [ $? = 0 ]; then
-        info "Installing the latest Java SDK."
-        sudo dnf install java-latest-openjdk java-latest-openjdk-jmods java-latest-openjdk-devel java-latest-openjdk-headless
-    fi
+        question "Do you want to install the latest Java SDK?"
 
-    question "Do you want to install other useful tools?"
+        if [ $? = 0 ]; then
+            info "Installing the latest Java SDK."
+            sudo dnf install java-latest-openjdk java-latest-openjdk-jmods java-latest-openjdk-devel java-latest-openjdk-headless
+        fi
 
-    if [ $? = 0 ]; then
+        question "Do you want to install other useful tools?"
 
-        text "Select which packages you want to install."
+        if [ $? = 0 ]; then
 
-        declare -t PACKAGES_TO_INSTALL=(
-            "ack"
-            "bat"
-            "bleachbit"
-            "fdupes"
-            "ffmpeg"
-            "fortune-mod"
-            "git-delta"
-            "git-lfs"
-            "hyperfine"
-        )
+            text "Select which packages you want to install."
 
-        readarray -t SELECTED_PACKAGES <<< $(${GUM} choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}")
+            declare -t PACKAGES_TO_INSTALL=(
+                "ack"
+                "bat"
+                "bleachbit"
+                "fdupes"
+                "ffmpeg"
+                "fortune-mod"
+                "git-delta"
+                "git-lfs"
+                "hyperfine"
+            )
 
-        if [ -z "${SELECTED_PACKAGES}" ]; then
-            text "You haven't selected any items from the list. Moving on."
-        else
+            readarray -t SELECTED_PACKAGES <<< $(${GUM} choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}")
 
-            PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
-            
-            info "Installing packages."
-            sudo dnf install ${PACKAGE_INSTALL_LIST:1} -y
+            if [ -z "${SELECTED_PACKAGES}" ]; then
+                text "You haven't selected any items from the list. Moving on."
+            else
+
+                PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
+                
+                info "Installing packages."
+                sudo dnf install ${PACKAGE_INSTALL_LIST:1} -y
+            fi
+
         fi
 
     fi
 
     section "git configuration"
 
-GIT_USERNAME=$(${GUM} input --prompt "Your full name: ")
-GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
+    GIT_USERNAME=$(${GUM} input --prompt "Your full name: ")
+    GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
 
     info "Generating configuration file for git."
     tee "${HOME}/.gitconfig" <<EOF
@@ -1004,14 +1014,16 @@ GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
 	line-numbers = true
 EOF
 
-    section "VSCodium configuration"
+    if [ "${FEDORA_FLAVOUR}" = "Workstation" ]; then
 
-    question "Do you want to install and configure VSCodium?"
+        section "VSCodium configuration"
 
-    if [ $? = 0 ]; then
+        question "Do you want to install and configure VSCodium?"
 
-        info "Adding the RPM repository."
-        sudo tee "/etc/yum.repos.d/vscodium.repo" <<EOF
+        if [ $? = 0 ]; then
+
+            info "Adding the RPM repository."
+            sudo tee "/etc/yum.repos.d/vscodium.repo" <<EOF
 [paulcarroty-vscodium-repo]
 name=Pavlo Rudyi's VSCodium repo
 baseurl=https://paulcarroty.gitlab.io/vscodium-deb-rpm-repo/rpms/
@@ -1022,14 +1034,14 @@ gpgkey=https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
 metadata_expire=1h
 EOF
 
-        info "Installing the VSCodium application."
-        sudo dnf install codium -y
+            info "Installing the VSCodium application."
+            sudo dnf install codium -y
 
-        info "Preparing the configuration directory."
-        mkdir -p "${HOME}/.config/VSCodium/User"
+            info "Preparing the configuration directory."
+            mkdir -p "${HOME}/.config/VSCodium/User"
 
-        info "Writing the configuration file."
-        tee "${HOME}/.config/VSCodium/User/settings.json" <<EOF
+            info "Writing the configuration file."
+            tee "${HOME}/.config/VSCodium/User/settings.json" <<EOF
 {
     "workbench.startupEditor": "none",
     "editor.fontFamily": "'JetBrainsMono Nerd Font',  'Droid Sans Mono', 'monospace', monospace",
@@ -1041,6 +1053,8 @@ EOF
     "workbench.colorTheme": "Default Light Modern"
 }
 EOF
+
+        fi
 
     fi
 

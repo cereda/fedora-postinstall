@@ -198,7 +198,7 @@ if [ $? = 0 ]; then
     info "Unpacking binaries."
     (cd archives && find -type f -name "*.tar.gz" -exec tar xzf {} \;)
     (cd archives && find -type f -name "*.tgz" -exec tar xzf {} \;)
-    (cd archives && find -type f -name "*.zip" -exec unzip -q {} \;)
+    (cd archives && find -type f -name "*.zip" -exec unzip -q -n {} \;)
 
     info "Creating deployment directory."
     rm -f deploys
@@ -219,17 +219,32 @@ if [ $? = 0 ]; then
     info "Fixing 'yq' and moving to the deployment directory."
     mv deploys/yq_* deploys/yq
 
+    info "Making 'yq' executable."
+    chmod +x deploys/yq
+
     info "Fixing 'ipinfo' and moving to the deployment directory."
     mv deploys/ipinfo_* deploys/ipinfo
+
+    info "Making 'ipinfo' executable."
+    chmod +x deploys/ipinfo
 
     info "Fixing 'fx' and moving to the deployment directory."
     mv fx_* deploys/fx
 
+    info "Making 'fx' executable."
+    chmod +x deploys/fx
+
     info "Fixing 'picocrypt' and moving to the deployment directory."
     mv picocrypt-* deploys/picocrypt
 
+    info "Making 'picocrypt' executable."
+    chmod +x deploys/picocrypt
+
     info "Fixing 'ttyd' and moving to the deployment directory."
     mv ttyd.x* deploys/ttyd
+
+    info "Making 'ttyd' executable."
+    chmod +x deploys/ttyd
 
     info "Removing unused files from the deployment directory."
     rm -f deploys/*.sh
