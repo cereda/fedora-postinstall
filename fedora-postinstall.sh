@@ -431,7 +431,8 @@ function ${MACHINE_NAME} {
         echo "│ Actions  │ Targets                                        │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
-        echo "│          │ rust, deno, bun, flatpak, conda, world         │"
+        echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
+        echo "│          │ world                                          │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ clean    │ flatpak, files, cache, system                  │"
         echo "├──────────┼────────────────────────────────────────────────┤"
@@ -517,6 +518,12 @@ function ${MACHINE_NAME} {
                         conda upgrade --all
                     fi
                 ;;
+
+                distrobox)
+                    if [ -x "\$(command -v distrobox)" ]; then
+                        curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
+                    fi
+                ;;
                 
                 world)
                     ${MACHINE_NAME} upgrade flatpak
@@ -538,7 +545,8 @@ function ${MACHINE_NAME} {
                     echo
                     echo "╭──────────┬────────────────────────────────────────────────╮"
                     echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
-                    echo "│          │ rust, deno, bun, flatpak, conda, world         │"
+                    echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
+                    echo "│          │ world                                          │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -557,6 +565,7 @@ function ${MACHINE_NAME} {
                     sudo rm -f /var/log/btmp-*
                     sudo rm -f /var/log/dnf.librepo.log.*
                     sudo rm -f /var/log/dnf.log.*
+                    sudo rm -f /var/log/dnf5.log.*
                     sudo rm -f /var/log/dnf.rpm.log.*
                     sudo rm -f /var/log/hawkey.log-*
                 ;;
@@ -637,7 +646,8 @@ function ${MACHINE_NAME} {
             echo "│ Actions  │ Targets                                        │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
-            echo "│          │ rust, deno, bun, flatpak, conda, world         │"
+            echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
+            echo "│          │ world                                          │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ clean    │ flatpak, files, cache, system                  │"
             echo "├──────────┼────────────────────────────────────────────────┤"
@@ -1080,6 +1090,16 @@ pathmunge /opt/texbin
 unset pathmunge
 EOF
 
+    fi
+
+    section "Distrobox configuration"
+
+    question "Do you want to install and configure Distrobox?"
+
+    if [ $? = 0 ]; then
+
+        info "Installing and configuring Distrobox."
+        curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
     fi
 
     section "Custom font configuration"
