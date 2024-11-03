@@ -50,9 +50,10 @@ This script basically does the following tasks:
 11. Configures git.
 12. Installs and configures VSCodium (a community-driven, freely-licensed binary distribution of Microsoft's editor VSCode).
 13. Configures system-wide TeX Live path resolution.
-14. Downloads and installs fonts from the Nerd Fonts project.
-15. Downloads and configures `yt-dlp`.
-16. Generates the cat profile photo from `gen-cat.sh`.
+14. Installs and configures Distrobox.
+15. Downloads and installs fonts from the Nerd Fonts project.
+16. Downloads and configures `yt-dlp`.
+17. Generates the cat profile photo from `gen-cat.sh`.
 
 Additionally, `extra-binaries.sh` finds the latest versions of softwares I use from GitHub (beware of hitting the API rate limit),
 downloads and deploys them into the `${HOME}/.local/bin` directory (already available in `${PATH}`).
