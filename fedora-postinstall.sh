@@ -749,9 +749,21 @@ EOF
 
         info "Writing helper script."
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" <<EOF
+#!/bin/bash
 export CARGO_HOME="${ROOT_DIRECTORY_STRUCTURE}/environments/rust/cargo"
 export RUSTUP_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/rustup"
-export PATH=\${PATH}:\${CARGO_HOME}/bin
+
+pathmunge () {
+    if ! echo \$PATH | /bin/grep -E -q "(^|:)\$1($|:)" ; then
+        if [ "\$2" = "after" ] ; then
+            PATH=\$PATH:\$1
+        else
+            PATH=\$1:\$PATH
+        fi
+    fi
+}
+pathmunge \${CARGO_HOME}/bin after
+unset pathmunge
 EOF
     fi
 
