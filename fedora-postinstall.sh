@@ -394,21 +394,27 @@ if [ -f /usr/bin/fortune ]; then
     /usr/bin/fortune
 fi
 
-# loads the aliases for this machine
+# load the aliases for this machine
 if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
 fi
 
-# loads the color scheme
+# load the bash completion functions
+if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" ]; then
+    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh"
+fi
+
+# load the color scheme
 if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/colors.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/colors.sh"
 fi
 
-# loads the Rust config
+# load the Rust config
 if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh"
 fi
 
+# set starship as default prompt
 if [ -x "\$(command -v starship)" ]; then
 
     # set the configuration and log settings for starship
@@ -568,10 +574,14 @@ function ${MACHINE_NAME} {
                     sudo rm -f /var/log/dnf5.log.*
                     sudo rm -f /var/log/dnf.rpm.log.*
                     sudo rm -f /var/log/hawkey.log-*
+                    sudo rm -f /var/log/tuned/tuned.log.*
                 ;;
 
                 cache)
                     if [ -x "\$(command -v bleachbit)" ]; then
+                        if [ -x "\$(command -v gum)" ]; then
+                            pidof -q firefox && gum confirm "Firefox is running. Should I stop it?" && killall firefox
+                        fi
                         bleachbit --preset --clean system.custom
                     fi
                     gio trash --empty
@@ -659,7 +669,7 @@ function ${MACHINE_NAME} {
     esac
 }
 
-# extracts a playlist from YouTube and creates a proper list
+# extract a playlist from YouTube and creates a proper list
 function playlist {
     if [ "\$#" -ne 2 ]; then
         echo "Usage: playlist <link> <title>" >&2
@@ -668,7 +678,7 @@ function playlist {
     yt-dlp -f 18 "\$1" -o "\$2, part %(video_autonumber)s.%(ext)s"
 }
 
-# extracts videos from certain links
+# extract videos from certain links
 function video-downloader {
     for link in "\$@"; do
         yt-dlp "\$link" -o - | ffmpeg -i pipe: "\$(shuf -er -n10  {A..Z} {a..z} {0..9} | tr -d '\n').mp4"
@@ -683,6 +693,49 @@ function audio-to-ogg {
     fi
     ffmpeg -i "\$1" -vn -c:a libvorbis -b:a 64k "\${1%.*}.ogg"
 }
+EOF
+
+    info "Creating completion file."
+    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<EOF
+_${MACHINE_NAME}()
+{
+    local cur prev
+
+    cur=\${COMP_WORDS[COMP_CWORD]}
+    prev=\${COMP_WORDS[COMP_CWORD-1]}
+
+    case \${COMP_CWORD} in
+        1)
+            COMPREPLY=(\$(compgen -W "upgrade clean config use" -- \${cur}))
+        ;;
+
+        2)
+            case \${prev} in
+                upgrade)
+                    COMPREPLY=(\$(compgen -W "system starship tex sdk vim node youtube rust deno bun flatpak conda distrobox world" -- \${cur}))
+                ;;
+
+                clean)
+                    COMPREPLY=(\$(compgen -W "flatpak files cache system" -- \${cur}))
+                ;;
+
+                config)
+                    COMPREPLY=(\$(compgen -W "menu" -- \${cur}))
+                ;;
+
+                use)
+                    COMPREPLY=(\$(compgen -W "sdk conda node" -- \${cur}))
+                ;;
+            esac
+        ;;
+
+        *)
+            COMPREPLY=()
+        ;;
+    esac
+}
+
+complete -F _${MACHINE_NAME} ${MACHINE_NAME}
 EOF
 
     question "Do you want to install starship?"
