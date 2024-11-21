@@ -456,6 +456,7 @@ function ${MACHINE_NAME} {
                 system)
                     sudo dnf upgrade --refresh
                     sudo dnf autoremove
+                    ${MACHINE_NAME} clean files
                 ;;
 
                 starship)
