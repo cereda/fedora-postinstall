@@ -510,7 +510,7 @@ function ${MACHINE_NAME} {
 
                 bun)
                     if [ -x "\$(command -v bun)" ]; then
-                        bun upgrade
+                        bun upgrade --stable
                     fi
                 ;;
 
