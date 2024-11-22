@@ -414,6 +414,11 @@ if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh"
 fi
 
+# load the toolbox config
+if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" ]; then
+    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh"
+fi
+
 # set starship as default prompt
 if [ -x "\$(command -v starship)" ]; then
 
@@ -737,6 +742,16 @@ _${MACHINE_NAME}()
 }
 
 complete -F _${MACHINE_NAME} ${MACHINE_NAME}
+EOF
+
+    info "Creating toolbox file."
+    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
+# check if inside a toolbox container
+if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
+    
+    # add any toolbox-specific configuration inside this block
+    :
+fi
 EOF
 
     question "Do you want to install starship?"
