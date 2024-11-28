@@ -443,7 +443,7 @@ function ${MACHINE_NAME} {
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
         echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-        echo "│          │ world                                          │"
+        echo "│          │ uv, world                                      │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ clean    │ flatpak, files, cache, system                  │"
         echo "├──────────┼────────────────────────────────────────────────┤"
@@ -536,6 +536,12 @@ function ${MACHINE_NAME} {
                         curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
                     fi
                 ;;
+
+                uv)
+                    if [ -x "\$(command -v uv)" ]; then
+                        uv self update
+                    fi
+                ;;
                 
                 world)
                     ${MACHINE_NAME} upgrade flatpak
@@ -548,6 +554,7 @@ function ${MACHINE_NAME} {
                     ${MACHINE_NAME} upgrade deno
                     ${MACHINE_NAME} upgrade bun
                     ${MACHINE_NAME} upgrade conda
+                    ${MACHINE_NAME} upgrade uv
                     ${MACHINE_NAME} clean flatpak
                     ${MACHINE_NAME} clean cache
                 ;;
@@ -558,7 +565,7 @@ function ${MACHINE_NAME} {
                     echo "╭──────────┬────────────────────────────────────────────────╮"
                     echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
                     echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-                    echo "│          │ world                                          │"
+                    echo "│          │ uv, world                                      │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -663,7 +670,7 @@ function ${MACHINE_NAME} {
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
             echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-            echo "│          │ world                                          │"
+            echo "│          │ uv, world                                      │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ clean    │ flatpak, files, cache, system                  │"
             echo "├──────────┼────────────────────────────────────────────────┤"
@@ -718,7 +725,7 @@ _${MACHINE_NAME}()
         2)
             case \${prev} in
                 upgrade)
-                    COMPREPLY=(\$(compgen -W "system starship tex sdk vim node youtube rust deno bun flatpak conda distrobox world" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "system starship tex sdk vim node youtube rust deno bun flatpak conda distrobox uv world" -- \${cur}))
                 ;;
 
                 clean)
@@ -801,6 +808,13 @@ style = "bold blue"
 style = "bold green"
 EOF
 
+    fi
+
+    question "Do you want to install uv?"
+
+    if [ $? = 0 ]; then
+        info "Installing uv."
+        export UV_NO_MODIFY_PATH=1 && curl -LsSf https://astral.sh/uv/install.sh | sh
     fi
 
     question "Do you want to install SDKman?"
