@@ -1269,4 +1269,19 @@ EOF
 
 fi
 
+section "Nix configuration"
+
+question "Do you want to install Nix?"
+
+if [ $? = 0 ]; then
+
+    info "Installing Nix."
+    if [ "${FEDORA_FLAVOUR}" = "Silverblue" ]; then
+        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install ostree --no-confirm --persistence=/var/lib/nix
+    else
+        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm
+    fi
+
+fi
+
 text "That's all, folks!"
