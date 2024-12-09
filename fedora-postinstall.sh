@@ -45,6 +45,7 @@ declare -t SUGGESTED_FLATPAKS=(
     "org.localsend.localsend_app"
     "org.mozilla.Thunderbird"
     "org.qbittorrent.qBittorrent"
+    "com.vivaldi.Vivaldi"
 )
 
 declare -A NERD_FONTS=(
