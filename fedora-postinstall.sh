@@ -430,6 +430,13 @@ if [ -x "\$(command -v starship)" ]; then
     # init starship prompt
     eval "\$(starship init bash)"
 fi
+
+# hook direnv into the shell
+if [ -x "\$(command -v direnv)" ]; then
+
+    # activate direnv
+    eval "$(direnv hook bash)"
+fi
 EOF
 
     info "Creating aliases file."
