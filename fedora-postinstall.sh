@@ -444,7 +444,7 @@ function ${MACHINE_NAME} {
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
         echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-        echo "│          │ uv, world                                      │"
+        echo "│          │ uv, direnv, world                              │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ clean    │ flatpak, files, cache, system                  │"
         echo "├──────────┼────────────────────────────────────────────────┤"
@@ -538,6 +538,12 @@ function ${MACHINE_NAME} {
                     fi
                 ;;
 
+                direnv)
+                    if [ -x "\$(command -v direnv)" ]; then
+                        export bin_path="${HOME}/.local/bin" && curl -sfL https://direnv.net/install.sh | bash
+                    fi
+                ;;
+
                 uv)
                     if [ -x "\$(command -v uv)" ]; then
                         uv self update
@@ -566,7 +572,7 @@ function ${MACHINE_NAME} {
                     echo "╭──────────┬────────────────────────────────────────────────╮"
                     echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
                     echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-                    echo "│          │ uv, world                                      │"
+                    echo "│          │ uv, direnv, world                              │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -671,7 +677,7 @@ function ${MACHINE_NAME} {
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
             echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-            echo "│          │ uv, world                                      │"
+            echo "│          │ uv, direnv, world                              │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ clean    │ flatpak, files, cache, system                  │"
             echo "├──────────┼────────────────────────────────────────────────┤"
@@ -1282,6 +1288,17 @@ if [ $? = 0 ]; then
     else
         curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm
     fi
+
+fi
+
+section "direnv configuration"
+
+question "Do you want to install direnv?"
+
+if [ $? = 0 ]; then
+
+    info "Installing direnv."
+    export bin_path="${HOME}/.local/bin" && curl -sfL https://direnv.net/install.sh | bash
 
 fi
 
