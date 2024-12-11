@@ -435,7 +435,7 @@ fi
 if [ -x "\$(command -v direnv)" ]; then
 
     # activate direnv
-    eval "$(direnv hook bash)"
+    eval "\$(direnv hook bash)"
 fi
 EOF
 
