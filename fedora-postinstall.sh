@@ -774,11 +774,11 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     # e.g, path to TeX Live from the host system:
     #
     # pathmunge () {
-    #     if ! echo $PATH | /bin/grep -E -q "(^|:)$1($|:)" ; then
-    #         if [ "$2" = "after" ] ; then
-    #             PATH=$PATH:$1
+    #     if ! echo \$PATH | /bin/grep -E -q "(^|:)\$1(\$|:)" ; then
+    #         if [ "\$2" = "after" ] ; then
+    #             PATH=\$PATH:\$1
     #         else
-    #             PATH=$1:$PATH
+    #             PATH=\$1:\$PATH
     #         fi
     #     fi
     # }
