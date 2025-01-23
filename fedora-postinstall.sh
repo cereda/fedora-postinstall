@@ -589,8 +589,8 @@ function ${MACHINE_NAME} {
             case "\$2" in
                 flatpak)
                     flatpak remove --unused -y
-                    find "${HOME}/.var/app" -maxdepth 1 -mindepth 1 ${FLATPAKS_KEEP_CACHE_LIST:1} -type d -exec rm -rf "{}" \;
-                    find "/run/user/$(id --user)/app" -maxdepth 1 -mindepth 1 -type d -exec rm -rf "{}" \;
+                    find "${HOME}/.var/app" -maxdepth 1 -mindepth 1 ${FLATPAKS_KEEP_CACHE_LIST:1} -type d -exec rm -rf "{}" \; 2>/dev/null
+                    find "/run/user/$(id --user)/app" -maxdepth 1 -mindepth 1 -type d -exec rm -rf "{}" \; 2>/dev/null
                 ;;
 
                 files)
