@@ -457,7 +457,7 @@ function ${MACHINE_NAME} {
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ config   │ menu                                           │"
         echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ use      │ sdk, conda, node                               │"
+        echo "│ use      │ sdk, conda, node, server                       │"
         echo "╰──────────┴────────────────────────────────────────────────╯"
         return 1
     fi
@@ -666,11 +666,23 @@ function ${MACHINE_NAME} {
                     fi
                 ;;
 
+                server)
+                    local IP_ADDRESS=\$(ip address | grep 192 | awk -F ' ' '{print \$2}' | cut -d'/' -f1)
+                    echo "Current IP: \${IP_ADDRESS}"
+                    if [ -x "\$(command -v caddy)" ]; then
+                        echo "Starting the Caddy server, please wait."
+                        caddy file-server --browse --listen :8000
+                    else
+                        echo "Starting the Python HTTP server, please wait."
+                        python -m http.server
+                    fi
+                ;;
+
                 *)
                     echo "I don't know this target."
                     echo
                     echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ use      │ sdk, conda, node                               │"
+                    echo "│ use      │ sdk, conda, node, server                       │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -690,7 +702,7 @@ function ${MACHINE_NAME} {
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ config   │ menu                                           │"
             echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ use      │ sdk, conda, node                               │"
+            echo "│ use      │ sdk, conda, node, server                       │"
             echo "╰──────────┴────────────────────────────────────────────────╯"
         ;;
     esac
