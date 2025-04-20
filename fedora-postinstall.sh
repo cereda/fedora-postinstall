@@ -763,7 +763,7 @@ _${MACHINE_NAME}()
                 ;;
 
                 use)
-                    COMPREPLY=(\$(compgen -W "sdk conda node" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "sdk conda node server" -- \${cur}))
                 ;;
             esac
         ;;
