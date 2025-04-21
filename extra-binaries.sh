@@ -186,6 +186,10 @@ if [ $? = 0 ]; then
     test -f binsider.json || wget -q -O binsider.json https://api.github.com/repos/orhun/binsider/releases/latest
     wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("tar.gz")).browser_download_url' binsider.json)
 
+    info "Getting latest version and downloading 'caddy'."
+    test -f caddy.json || wget -q -O caddy.json https://api.github.com/repos/caddyserver/caddy/releases/latest
+    wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux") and endswith("tar.gz")).browser_download_url' caddy.json)
+
     text "Preparing to unpack binaries."
 
     info "Creating temporary directory."
