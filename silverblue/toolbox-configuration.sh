@@ -9,7 +9,7 @@ contained, reproducible container, without affecting the host system."
 
 echo
 
-TOOLBOX_NAME=$(${GUM} input --prompt "Your toolbox container name: " --value "$f{FEDORA_VERSION}-dev")
+TOOLBOX_NAME=$(${GUM} input --prompt "Your toolbox container name: " --value "f${FEDORA_VERSION}-dev")
 
 info "Creating and configuring toolbox."
 toolbox create ${TOOLBOX_NAME}
