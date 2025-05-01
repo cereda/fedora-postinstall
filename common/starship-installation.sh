@@ -48,4 +48,4 @@ symbol = "🔴"
 format = "[\$symbol \$status](\$style) "
 EOF
 
-if
+fi
