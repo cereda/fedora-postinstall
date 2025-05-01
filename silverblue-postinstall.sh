@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 source "common/flathub-configuration.sh"
+source "silverblue/flatpak-unpin.sh"
 source "silverblue/flatpak-cleanup.sh"
 source "common/flatpaks-installation.sh"
 
@@ -46,5 +47,3 @@ source "silverblue/useful-packages.sh"
 source "silverblue/neovim-installation.sh"
 
 source "common/profile-photo.sh"
-
-# TODO flatpak unpin
