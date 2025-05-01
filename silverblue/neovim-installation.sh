@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+
+section "neovim installation and configuration"
+
+description "neovim is an open-source, community-driven, and highly \
+customizable fork of the Vim text editor. It aims to improve upon the \
+original vim by providing a modern, extensible, and efficient text \
+editing experience, with a focus on developer productivity and the \
+integration of various plugins and tools."
+
+echo
+
+question "Do you want to install and configure neovim?"
+
+if [ $? = 0 ]; then
+    info "Installing neovim as an RPM package."
+    toolbox --container ${TOOLBOX_NAME} run sudo dnf install neovim
+
+    text "Which configuration do you want to apply?"
+    NEOVIM_FLAVOUR=$(${GUM} choose "Classic" "Modern")
+
+    if [ "${NEOVIM_FLAVOUR}" = "Classic" ]; then
+
+        info "Installing the plug-in manager for neovim."
+        curl -fLo "${HOME}/.local/share/nvim/site/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
+        info "Creating configuration directory for neovim."
+        mkdir -p "${HOME}/.config/nvim"
+
+        info "Creating configuration file for neovim (classic)."
+        tee "${HOME}/.config/nvim/init.vim" <<EOF
+call plug#begin('~/.vim/plugged')
+
+Plug 'godlygeek/tabular'
+Plug 'itchyny/lightline.vim'
+Plug 'sheerun/vim-polyglot'
+Plug 'sainnhe/edge'
+Plug 'preservim/nerdtree'
+Plug 'psliwka/vim-smoothie'
+Plug 'mhinz/vim-startify'
+Plug 'tpope/vim-surround'
+Plug 'preservim/nerdcommenter'
+Plug 'luochen1990/rainbow'
+Plug 'teto/vim-listchars'
+Plug 'cohama/lexima.vim'
+Plug 'junegunn/vim-easy-align'
+
+call plug#end()
+
+set nocompatible
+
+filetype plugin indent on
+syntax on
+
+set autoindent
+set expandtab
+
+set softtabstop=4
+set shiftwidth=4
+set shiftround
+
+set backspace=indent,eol,start
+set hidden
+
+set incsearch
+set nohlsearch
+
+set ttyfast
+set lazyredraw
+
+set number
+set ruler
+
+set noshowmode
+set laststatus=2
+
+set background=dark
+if has('termguicolors')
+    set termguicolors
+endif
+
+let g:edge_style = 'aura'
+let g:edge_enable_italic = 0
+let g:edge_disable_italic_comment = 1
+
+let g:lightline = {'colorscheme' : 'edge'}
+
+colorscheme edge
+
+let g:startify_fortune_use_unicode = 1
+let g:startify_custom_footer =
+    \ ['', "   ooh vim", '']
+
+let g:rainbow_active = 0
+set viminfo=""
+EOF
+
+    else
+        info "Cloning the bootstrap template (modern)." 
+        git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
+
+        info "Cleaning the template (modern)."
+        rm -rf "${HOME}/.config/nvim/.git"
+
+        info "Adding custom options to the template."
+        tee --append "${HOME}/.config/nvim/lua/config/options.lua" <<EOF
+
+-- ****************************************
+-- Paulo's personal configuration
+-- ****************************************
+local opt = vim.opt
+
+opt.autoindent = true
+opt.expandtab = true
+opt.softtabstop = 4
+opt.shiftwidth = 4
+opt.shiftround = true
+-- ****************************************
+EOF
+
+        info "Adding custom plugin configuration."
+        tee "${HOME}/.config/nvim/lua/plugins/logo.lua" <<EOF
+-- ****************************************
+-- Paulo's personal configuration
+-- ****************************************
+return {
+  "snacks.nvim",
+  opts = {
+    dashboard = {
+      -- dashboard configuration
+      preset = {
+        header = [[
+██████╗ ██╗   ██╗ ██████╗██╗  ██╗███████╗██╗
+██╔══██╗██║   ██║██╔════╝██║ ██╔╝██╔════╝██║
+██║  ██║██║   ██║██║     █████╔╝ ███████╗██║
+██║  ██║██║   ██║██║     ██╔═██╗ ╚════██║╚═╝
+██████╔╝╚██████╔╝╚██████╗██║  ██╗███████║██╗
+╚═════╝  ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝
+        ]],
+      },
+    },
+  },
+}
+-- ****************************************
+EOF
+
+    fi
+fi
