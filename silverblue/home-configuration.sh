@@ -131,11 +131,11 @@ function ${MACHINE_NAME} {
             case "\$2" in
                 system)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-                        echo "${PAULO_ICON_TOOLBOX} Upgrading system (via dnf)."
+                        echo "\${PAULO_ICON_TOOLBOX} Upgrading system (via dnf)."
                         sudo dnf upgrade --refresh
                         sudo dnf autoremove
                     else
-                        echo "${PAULO_ICON_SYSTEM} Upgrading system (via rpm-ostree)."
+                        echo "\${PAULO_ICON_SYSTEM} Upgrading system (via rpm-ostree)."
                         rpm-ostree upgrade
                     fi
                 ;;
@@ -147,11 +147,11 @@ function ${MACHINE_NAME} {
                 tex)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
                         if [ -x "\$(command -v tlmgr)" ]; then
-                            echo "${PAULO_ICON_TOOLBOX} Upgrading TeX distro (via tlmgr)."
+                            echo "\${PAULO_ICON_TOOLBOX} Upgrading TeX distro (via tlmgr)."
                             tlmgr update --self --all --reinstall-forcibly-removed
                         fi
                     else
-                        echo "${PAULO_ICON_SYSTEM} No TeX distro manager available."
+                        echo "\${PAULO_ICON_SYSTEM} No TeX distro manager available."
                     fi
                 ;;
                 
@@ -197,19 +197,19 @@ function ${MACHINE_NAME} {
                 nvim)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
                         if [ -x "\$(command -v nvim)" ]; then
-                            echo "${PAULO_ICON_TOOLBOX} Upgrading neovim."
+                            echo "\${PAULO_ICON_TOOLBOX} Upgrading neovim."
                             nvim --headless "+Lazy! sync" +qa
                         fi
                     else
-                        echo "${PAULO_ICON_SYSTEM} neovim is not available."
+                        echo "\${PAULO_ICON_SYSTEM} neovim is not available."
                     fi
                 ;;
 
                 flatpak)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-                        echo "${PAULO_ICON_TOOLBOX} Flatpak is not available."
+                        echo "\${PAULO_ICON_TOOLBOX} Flatpak is not available."
                     else
-                        echo "${PAULO_ICON_SYSTEM} Upgrading flatpaks."
+                        echo "\${PAULO_ICON_SYSTEM} Upgrading flatpaks."
                         flatpak upgrade -y
                         flatpak remove --unused -y
                     fi
@@ -272,9 +272,9 @@ function ${MACHINE_NAME} {
             case "\$2" in
                 flatpak)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-                        echo "${PAULO_ICON_TOOLBOX} Flatpak is not available."
+                        echo "\${PAULO_ICON_TOOLBOX} Flatpak is not available."
                     else
-                        echo "${PAULO_ICON_SYSTEM} Cleaning installed flatpaks."
+                        echo "\${PAULO_ICON_SYSTEM} Cleaning installed flatpaks."
                         flatpak remove --unused -y
                     fi
                     find "${HOME}/.var/app" -maxdepth 1 -mindepth 1 -not -name org.gnome.TextEditor ${FLATPAKS_KEEP_CACHE_LIST:1} -type d -exec rm -rf "{}" \; 2>/dev/null
@@ -283,10 +283,10 @@ function ${MACHINE_NAME} {
 
                 cache)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-                        echo "${PAULO_ICON_TOOLBOX} bleachbit is not available."
+                        echo "\${PAULO_ICON_TOOLBOX} bleachbit is not available."
                     else
                         if [ "\$(flatpak list --app | grep bleachbit)" ]; then
-                            echo "${PAULO_ICON_SYSTEM} Cleaning cache (bleachbit)."
+                            echo "\${PAULO_ICON_SYSTEM} Cleaning cache (bleachbit)."
                             if [ -x "\$(command -v gum)" ]; then
                                 pidof -q firefox && gum confirm "Firefox is running. Should I stop it?" && killall firefox
                             fi
@@ -303,11 +303,11 @@ function ${MACHINE_NAME} {
 
                 toolbox)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-                        echo "${PAULO_ICON_TOOLBOX} Installing packages (via DNF)."
+                        echo "\${PAULO_ICON_TOOLBOX} Installing packages (via DNF)."
                         sudo dnf install TOOLBOX_INSTALLATION_LIST
                         echo "Done."
                     else
-                        echo "${PAULO_ICON_SYSTEM} Cannot run this command."
+                        echo "\${PAULO_ICON_SYSTEM} Cannot run this command."
                     fi
                 ;;
 
