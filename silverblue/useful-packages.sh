@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-function toolbox_handle_error {
-    echo "Error occurred while creating and configuring toolbox. Please verify."
-}
-
 section "Useful packages"
 
 description "This section will help you install a collection of useful \
@@ -28,12 +24,14 @@ if [ $? = 0 ]; then
     else
 
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
-        
-        info "Installing packages inside the ${TOOLBOX_NAME} toolbox."
-        trap 'toolbox_handle_error' ERR
-        toolbox --container ${TOOLBOX_NAME} run sudo dnf install ${PACKAGE_INSTALL_LIST:1}
-        unset -f toolbox_handle_error
-        trap - ERR
+
+        question "Should I install them now? It's advisable to do this later."
+
+        if [ $? = 0 ]; then
+
+            info "Installing packages inside the ${TOOLBOX_NAME} toolbox."
+            toolbox --container ${TOOLBOX_NAME} run sudo dnf install ${PACKAGE_INSTALL_LIST:1}
+        fi
 
         info "Adding package list to helper function (for reproducibility)."
         sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST:1}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
