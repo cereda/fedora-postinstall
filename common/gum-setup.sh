@@ -4,8 +4,6 @@ GUM_VERSION="0.16.0"
 
 GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_Linux_x86_64.tar.gz"
 
-SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
-
 GUM=$(command -v gum || printf "${SCRIPT_PATH}/gum")
 
 if [ ! -x "${GUM}" ]; then

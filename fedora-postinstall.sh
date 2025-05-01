@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
 source "common/gum-setup.sh"
 source "common/gum-functions.sh"
 
