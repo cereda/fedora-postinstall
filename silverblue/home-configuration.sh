@@ -341,9 +341,16 @@ function ${MACHINE_NAME} {
 
                 toolbox)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-                        echo "\${PAULO_ICON_TOOLBOX} Installing packages (via DNF)."
-                        sudo dnf install TOOLBOX_INSTALLATION_LIST
-                        echo "Done."
+                        local PACKAGE_LIST="TOOLBOX_INSTALLATION_LIST"
+                        echo -e "\${PAULO_ICON_TOOLBOX} Packages to install (via DNF).\n"
+
+                        if [[ -x "\$(command -v gum)" ]]; then
+                            gum style --width=80 --italic "${PACKAGE_LIST}"
+                        else
+                            echo ${PACKAGE_LIST}
+                        fi
+
+                        echo -e "\nDone."
                     else
                         echo "\${PAULO_ICON_SYSTEM} Cannot run this command."
                     fi
