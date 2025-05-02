@@ -38,10 +38,12 @@ question "Do you want to install nvm?"
 if [ $? = 0 ]; then
 
     if [ -z ${ROOT_DIRECTORY_STRUCTURE+x} ]; then
-      warning "Custom configuration for the home directory was not set."
-      warning "I don't know where to install nvm."
-      warning "The script will move to the next section."
-      return 0
+    
+        warning "Custom configuration for the home directory was \
+not set. I don't know where to install nvm. The script will move \
+to the next section."
+
+        return 0
     fi
 
     info "Installing nvm from GitHub."
