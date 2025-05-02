@@ -60,7 +60,7 @@ if [ $? = 0 ]; then
     fi
 fi
 
-if [ -z ${ROOT_DIRECTORY_STRUCTURE+x} ]; then
+if [ ! -z ${ROOT_DIRECTORY_STRUCTURE+x} ]; then
     info "Adding package list to helper function (for reproducibility)."
     sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
 fi
