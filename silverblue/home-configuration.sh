@@ -349,8 +349,6 @@ function ${MACHINE_NAME} {
                         else
                             echo "\${PACKAGE_LIST}"
                         fi
-
-                        echo -e "\nDone."
                     else
                         echo "\${PAULO_ICON_SYSTEM} Cannot run this command."
                     fi
