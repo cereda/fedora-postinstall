@@ -323,6 +323,22 @@ function ${MACHINE_NAME} {
                     shutdown -h now
                 ;;
 
+                *)
+                    echo "I don't know this target."
+                    echo
+                    echo "╭──────────┬────────────────────────────────────────────────╮"
+                    echo "│ config   │ flatpak, cache, system                         │"
+                    echo "╰──────────┴────────────────────────────────────────────────╯"
+                ;;
+            esac       
+        ;;
+
+        config)
+            case "\$2" in
+                menu)
+                    gsettings set org.gnome.shell app-picker-layout "[]"
+                ;;
+
                 toolbox)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
                         echo "\${PAULO_ICON_TOOLBOX} Installing packages (via DNF)."
@@ -338,24 +354,6 @@ function ${MACHINE_NAME} {
                     echo
                     echo "╭──────────┬────────────────────────────────────────────────╮"
                     echo "│ config   │ menu, toolbox                                  │"
-                    echo "╰──────────┴────────────────────────────────────────────────╯"
-                ;;
-            esac       
-        ;;
-
-        config)
-            case "\$2" in
-                menu)
-                    gsettings set org.gnome.shell app-picker-layout "[]"
-                ;;
-
-
-
-                *)
-                    echo "I don't know this target."
-                    echo
-                    echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ config   │ menu                                           │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
 
                 ;;
