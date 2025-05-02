@@ -66,3 +66,10 @@ function info {
         --foreground 11 \
         "$1"
 }
+
+function warning {
+    ${GUM} style --width ${GUM_TEXT_WIDTH} \
+        --foreground 5 \
+        "$1"
+}
+

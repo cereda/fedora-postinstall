@@ -35,6 +35,13 @@ question "Do you want to install and configure Helix?"
 
 if [ $? = 0 ]; then
 
+    if [ -z ${ROOT_DIRECTORY_STRUCTURE+x} ]; then
+      warning "Custom configuration for the home directory was not set."
+      warning "I don't know where to install Helix."
+      warning "The script will move to the next section."
+      return 0
+    fi
+
     info "Getting latest version of Helix from GitHub."
     test -f helix-editor.json || wget -q -O helix-editor.json https://api.github.com/repos/helix-editor/helix/releases/latest
 
