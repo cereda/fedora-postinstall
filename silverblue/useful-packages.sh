@@ -43,6 +43,7 @@ if [ $? = 0 ]; then
 
     if [ -z "${SELECTED_PACKAGES}" ]; then
         text "You haven't selected any items from the list. Moving on."
+        PACKAGE_INSTALL_LIST="No packages provided. This is a clean toolbox."
     else
 
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
@@ -54,8 +55,8 @@ if [ $? = 0 ]; then
             info "Installing packages inside the ${TOOLBOX_NAME} toolbox."
             toolbox --container ${TOOLBOX_NAME} run sudo dnf install ${PACKAGE_INSTALL_LIST:1}
         fi
-
-        info "Adding package list to helper function (for reproducibility)."
-        sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST:1}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
     fi
+
+    info "Adding package list to helper function (for reproducibility)."
+    sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST:1}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
 fi
