@@ -60,4 +60,4 @@ if [ $? = 0 ]; then
 fi
 
 info "Adding package list to helper function (for reproducibility)."
-sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST:1}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
+sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST:1}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" 2>/dev/null
