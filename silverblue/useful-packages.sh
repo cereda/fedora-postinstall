@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-PACKAGE_INSTALL_LIST=" No packages provided. This is a clean toolbox."
+PACKAGE_INSTALL_LIST="No packages provided. This is a clean toolbox."
 
 section "Useful packages"
 
@@ -48,16 +48,19 @@ if [ $? = 0 ]; then
     else
 
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
+        PACKAGE_INSTALL_LIST="${PACKAGE_INSTALL_LIST:1}"
 
         question "Should I install them now? It's advisable to do this later."
 
         if [ $? = 0 ]; then
 
             info "Installing packages inside the ${TOOLBOX_NAME} toolbox."
-            toolbox --container ${TOOLBOX_NAME} run sudo dnf install ${PACKAGE_INSTALL_LIST:1}
+            toolbox --container ${TOOLBOX_NAME} run sudo dnf install ${PACKAGE_INSTALL_LIST}
         fi
     fi
 fi
 
-info "Adding package list to helper function (for reproducibility)."
-sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST:1}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" 2>/dev/null
+if [ -z ${ROOT_DIRECTORY_STRUCTURE+x} ]; then
+    info "Adding package list to helper function (for reproducibility)."
+    sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
+fi

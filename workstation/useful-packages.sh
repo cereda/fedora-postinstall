@@ -45,8 +45,9 @@ if [ $? = 0 ]; then
     else
 
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
+        PACKAGE_INSTALL_LIST="${PACKAGE_INSTALL_LIST:1}"
         
         info "Installing packages."
-        sudo dnf install ${PACKAGE_INSTALL_LIST:1} -y
+        sudo dnf install ${PACKAGE_INSTALL_LIST} -y
     fi
 fi
