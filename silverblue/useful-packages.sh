@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-PACKAGE_INSTALL_LIST="No packages provided. This is a clean toolbox."
+PACKAGE_INSTALL_LIST=" No packages provided. This is a clean toolbox."
 
 section "Useful packages"
 
