@@ -34,5 +34,5 @@ question "Do you want to remove the logo from GDM?"
 if [ $? = 0 ]; then
 
     info "Removing logo from GDM."
-    sudo gsettings set org.gnome.login-screen logo ''
+    sudo -u gdm gsettings set org.gnome.login-screen logo ''
 fi
