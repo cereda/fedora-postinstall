@@ -22,6 +22,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then
+    echo "This script cannot be executed directly."
+    exit 1
+fi
+
 source "common/flathub-configuration.sh"
 source "silverblue/flatpak-unpin.sh"
 source "silverblue/flatpak-cleanup.sh"
