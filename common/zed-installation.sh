@@ -42,7 +42,7 @@ if [ $? = 0 ]; then
 set. I don't know where to install Zed. The script will move to the \
 next section."
 
-      return 0
+        return 0
     fi
 
     info "Getting the latest version of Zed from GitHub."
