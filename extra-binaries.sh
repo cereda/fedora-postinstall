@@ -1,46 +1,46 @@
 #!/usr/bin/env bash
 
-GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v0.14.5/gum_0.14.5_Linux_x86_64.tar.gz"
+# MIT License
+# 
+# Copyright (c) 2025, Paulo Cereda
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
-GUM=$(command -v gum || printf "${SCRIPT_PATH}/gum")
+source "common/gum-setup.sh"
+source "common/gum-functions.sh"
 
-if [ ! -x "${GUM}" ]; then
-    echo "gum is needed for this script, please wait."
-    wget "${GUM_LINK}" -O gum.tar.gz
-    tar xvzf gum.tar.gz --wildcards --no-anchored '*gum' && mv gum_*/gum . && rm -rf gum_*
-fi
+FEDORA_VERSION=$(rpm -E %fedora)
 
-function section {
-    ${GUM} style --width 60 \
-        --border rounded \
-        --align center \
-        --foreground 12 \
-        --border-foreground 12 \
-        "$1"
-}
-
-function question {
-    ${GUM} confirm \
-        --prompt.foreground=6 \
-        --selected.background=6 \
-        "$1"
-}
-
-function text {
-    ${GUM} style --width 60 \
-        --margin "1 0" \
-    "$1"    
-}
-
-function info {
-    ${GUM} style --width 60 \
-        --foreground 11 \
-        "$1"
-}
+chapter "Paulo's Fedora ${FEDORA_VERSION} post installation script"
 
 section "Extra binaries"
+
+description "This script will download a collection of command line tools. \
+These tools cover a wide range of functionalities, such as terminal based \
+video recording, terminal sharing, vulnerability scanning, data processing, \
+system monitoring, web development, and much more, providing users with a \
+comprehensive set of utilities to enhance their productivity and workflow \
+within the terminal environment."
+
+echo
 
 question "Do you want to install extra binaries for your system?"
 
@@ -48,8 +48,17 @@ if [ $? = 0 ]; then
 
     if [ ! -x "$(command -v jq)" ]; then
 
-        info "Installing jq."
-        sudo dnf install jq
+        question "Are you running Workstation?"
+
+        if [ $? = 0 ]; then
+
+            info "Installing jq (required to parse JSON data from GitHub)."
+            sudo dnf install jq
+        else
+
+            info "Silverblue does not have 'dnf' available. Script will end."
+            exit 1
+        fi
     fi
     
     text "The script will get the latest versions of a list of binaries from the GitHub API. Please wait."
