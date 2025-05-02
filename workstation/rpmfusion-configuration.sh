@@ -42,7 +42,7 @@ if [ $? = 0 ]; then
     info "Configuring the non-free repository."
     sudo dnf install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm -y
 
-    if [ "$(rpm -qa | grep -i coudium)" ]; then
+    if [ "$(rpm -qa | grep -i ffmpeg)" ]; then
 
         section "ffmpeg configuration"
 
