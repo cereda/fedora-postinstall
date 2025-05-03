@@ -34,17 +34,6 @@ echo
 
 question "Do you want to install and configure Zed?"
 
-if [ $? = 0 ]; then
-
-    if [ -z ${ROOT_DIRECTORY_STRUCTURE+x} ]; then
-
-        warning "Custom configuration for the home directory was not \
-set. I don't know where to install Zed. The script will move to the \
-next section."
-
-        return 0
-    fi
-
     info "Getting the latest version of Zed from GitHub."
     test -f zed-editor.json || wget -q -O zed-editor.json https://api.github.com/repos/zed-industries/zed/releases/latest
 

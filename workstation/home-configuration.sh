@@ -9,37 +9,41 @@ permissions to their specific needs."
 
 echo
 
-question "Do you want to create a custom configuration for your home directory?"
+question "Do you want to use a hidden directory structure? [recommended]"
 
 if [ $? = 0 ]; then
 
     ROOT_DIRECTORY_STRUCTURE="${HOME}/.${MACHINE_NAME}"
+else
 
-    text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE} (Paulo's configuration)."
+    ROOT_DIRECTORY_STRUCTURE="$(dirchooser)"
+fi
 
-    info "Creating root directory."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}"
+text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE}."
 
-    info "Creating directory for applications."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/applications"
+info "Creating root directory."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}"
 
-    info "Creating directory for config files."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config"
+info "Creating directory for applications."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/applications"
 
-    info "Creating directory for profile."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/profile"
+info "Creating directory for config files."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config"
 
-    info "Creating directory for scripts."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/scripts"
+info "Creating directory for profile."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/profile"
 
-    info "Creating directory for general stuff."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/stuff"
+info "Creating directory for scripts."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/scripts"
 
-    info "Creating directory for environments."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments"
+info "Creating directory for general stuff."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/stuff"
 
-    info "Updating bash entry point."
-    tee --append "${HOME}/.bashrc" <<EOF
+info "Creating directory for environments."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments"
+
+info "Updating bash entry point."
+tee --append "${HOME}/.bashrc" <<EOF
 
 # my personal configuration
 if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" ]; then
@@ -47,8 +51,8 @@ if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" ]; then
 fi
 EOF
 
-    info "Creating main file for bash."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" <<EOF
+info "Creating main file for bash."
+tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" <<EOF
 # check if fortune exists and displays a message
 if [ -f /usr/bin/fortune ]; then
     /usr/bin/fortune
@@ -98,8 +102,8 @@ if [ -x "\$(command -v direnv)" ]; then
 fi
 EOF
 
-    info "Creating aliases file."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<EOF
+info "Creating aliases file."
+tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<EOF
 # wrapper around some tools and commands I typically use in this computer
 function ${MACHINE_NAME} {
     if [ "\$#" -ne 2 ]; then
@@ -423,8 +427,8 @@ function audio-to-ogg {
 # **********************************************************************
 EOF
 
-    info "Creating completion file."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<EOF
+info "Creating completion file."
+tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<EOF
 _${MACHINE_NAME}()
 {
     local cur prev
@@ -466,8 +470,8 @@ _${MACHINE_NAME}()
 complete -F _${MACHINE_NAME} ${MACHINE_NAME}
 EOF
 
-    info "Creating toolbox file."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
+info "Creating toolbox file."
+tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     
@@ -489,5 +493,3 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     :
 fi
 EOF
-
-fi

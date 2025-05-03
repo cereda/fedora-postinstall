@@ -36,15 +36,6 @@ question "Do you want to install Rust?"
 
 if [ $? = 0 ]; then
 
-    if [ -z ${ROOT_DIRECTORY_STRUCTURE+x} ]; then
-
-        warning "Custom configuration for the home directory was \
-not set. I don't know where to install Rust. The script will move \
-to the next section."
-
-        return 0
-    fi
-
     info "Preparing the Rust environment."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments/rust"
     
