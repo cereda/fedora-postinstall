@@ -76,9 +76,9 @@ question "Do you want to install and configure Zed?"
 }
 EOF
 
-  info "Creating a desktop shortcut for Zed."
-  mkdir -p "${HOME}/.local/share/applications"
-  tee "${HOME}/.local/share/applications/zed.desktop" <<EOF
+    info "Creating a desktop shortcut for Zed."
+    mkdir -p "${HOME}/.local/share/applications"
+    tee "${HOME}/.local/share/applications/zed.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application

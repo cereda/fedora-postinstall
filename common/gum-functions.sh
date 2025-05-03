@@ -66,19 +66,3 @@ function info {
         --foreground 11 \
         "$1"
 }
-
-function dirchooser {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-"Please select a directory. You can navigate between \
-directories using the left and right arrow keys, and \
-select one with the Enter key."
-
-    local DIRECTORY=null
-
-    while [ ! -d "${DIRECTORY}" ]; do
-
-        DIRECTORY=$(gum file --all --permissions --directory)
-    done
-    
-    echo "$DIRECTORY"
-}

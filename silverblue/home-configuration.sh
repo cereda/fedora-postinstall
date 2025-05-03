@@ -38,7 +38,19 @@ if [ $? = 0 ]; then
     ROOT_DIRECTORY_STRUCTURE="${HOME}/.${MACHINE_NAME}"
 else
 
-    ROOT_DIRECTORY_STRUCTURE="$(dirchooser)"
+    ${GUM} style --width ${GUM_TEXT_WIDTH} \
+"Please select a directory. You can navigate between \
+directories using the left and right arrow keys, and \
+select one with the Enter key."
+
+    SELECT_DIRECTORY=null
+
+    while [ ! -d "${SELECT_DIRECTORY}" ]; do
+
+        SELECT_DIRECTORY=$(gum file --all --permissions --directory)
+    done
+
+    ROOT_DIRECTORY_STRUCTURE="${SELECT_DIRECTORY}"
 fi
 
 text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE}."
