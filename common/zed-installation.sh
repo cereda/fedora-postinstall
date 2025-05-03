@@ -34,6 +34,8 @@ echo
 
 question "Do you want to install and configure Zed?"
 
+if [ $? = 0 ]; then
+
     info "Getting the latest version of Zed from GitHub."
     test -f zed-editor.json || wget -q -O zed-editor.json https://api.github.com/repos/zed-industries/zed/releases/latest
 
