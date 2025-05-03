@@ -47,7 +47,7 @@ select one with the Enter key."
 
     while [ ! -d "${SELECT_DIRECTORY}" ]; do
 
-        SELECT_DIRECTORY=$(gum file --all --permissions --directory)
+        SELECT_DIRECTORY=$(${GUM} file --all --permissions --directory)
     done
 
     ROOT_DIRECTORY_STRUCTURE="${SELECT_DIRECTORY}"
