@@ -112,6 +112,16 @@ if [ -x "\$(command -v direnv)" ]; then
     # activate direnv
     eval "\$(direnv hook bash)"
 fi
+
+# hook carapace-bin into the shell
+if [ -x "\$(command -v carapace)" ]; then
+
+    # optional, but suggested in the user manual
+    export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
+
+    # 
+    source <(carapace _carapace)
+fi
 EOF
 
 info "Creating aliases file."

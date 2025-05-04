@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-section "Helix configuration"
+section "Helix installation and configuration"
 
 description "Helix is an open-source, modal code editor that aims to \
 provide a modern, efficient, and customizable text editing experience. \
