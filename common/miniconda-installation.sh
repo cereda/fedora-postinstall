@@ -33,7 +33,7 @@ question "Do you want to install Miniconda?"
 
 if [ $? = 0 ]; then
 
-    local MINICONDA_INSTALLATION_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3"
+    MINICONDA_INSTALLATION_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3"
 
     info "Creating installation directory."
     mkdir -p "${MINICONDA_INSTALLATION_DIRECTORY}"
