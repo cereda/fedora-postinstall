@@ -47,6 +47,7 @@ source "common/hostname-configuration.sh"
 
 source "silverblue/home-configuration.sh"
 source "common/starship-installation.sh"
+source "common/carapace-installation.sh"
 source "common/uv-installation.sh"
 source "common/sdkman-installation.sh"
 source "common/rust-installation.sh"
@@ -72,5 +73,6 @@ source "silverblue/packages-to-install.sh"
 source "silverblue/useful-packages.sh"
 
 source "silverblue/neovim-installation.sh"
+source "common/miniconda-installation.sh"
 
 source "common/profile-photo.sh"
