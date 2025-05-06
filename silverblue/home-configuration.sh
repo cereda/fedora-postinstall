@@ -553,7 +553,7 @@ _${MACHINE_NAME}()
         2)
             case \${prev} in
                 upgrade)
-                    COMPREPLY=(\$(compgen -W "system starship tex sdk nvim node youtube rust deno bun flatpak conda distrobox uv direnv world" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "system starship tex sdk nvim node youtube rust deno bun flatpak conda distrobox uv direnv brew world" -- \${cur}))
                 ;;
 
                 clean)
