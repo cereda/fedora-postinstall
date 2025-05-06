@@ -117,6 +117,11 @@ if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh"
 fi
 
+# load the Homebrew config
+if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" ]; then
+    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh"
+fi
+
 # set starship as default prompt
 if [ -x "\$(command -v starship)" ]; then
 
@@ -162,7 +167,7 @@ function ${MACHINE_NAME} {
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ upgrade  │ system, starship, tex, sdk, uv, node, youtube  │"
         echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-        echo "│          │ nvim, direnv, world                            │"
+        echo "│          │ nvim, direnv, brew, world                      │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ clean    │ flatpak, cache, system                         │"
         echo "├──────────┼────────────────────────────────────────────────┤"
@@ -287,6 +292,18 @@ function ${MACHINE_NAME} {
                         uv self update
                     fi
                 ;;
+
+                brew)
+                    if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
+                        if [ -x "\$(command -v brew)" ]; then
+                            echo "\${PAULO_ICON_TOOLBOX} Upgrading formulas (via brew)."
+                            brew update
+                            brew upgrade
+                        fi  
+                    else
+                        echo "\${PAULO_ICON_SYSTEM} brew is not available."
+                    fi
+                ;;
                 
                 world)
                     ${MACHINE_NAME} upgrade flatpak
@@ -300,6 +317,7 @@ function ${MACHINE_NAME} {
                     ${MACHINE_NAME} upgrade nvim
                     ${MACHINE_NAME} upgrade conda
                     ${MACHINE_NAME} upgrade uv
+                    ${MACHINE_NAME} upgrade brew
                     ${MACHINE_NAME} clean flatpak
                     ${MACHINE_NAME} clean cache
                 ;;
@@ -310,7 +328,7 @@ function ${MACHINE_NAME} {
                     echo "╭──────────┬────────────────────────────────────────────────╮"
                     echo "│ upgrade  │ system, starship, tex, sdk, uv, node, youtube  │"
                     echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-                    echo "│          │ nvim, direnv, world                            │"
+                    echo "│          │ nvim, direnv, brew, world                      │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -441,7 +459,7 @@ function ${MACHINE_NAME} {
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ upgrade  │ system, starship, tex, sdk, uv, node, youtube  │"
             echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-            echo "│          │ nvim, direnv, world                            │"
+            echo "│          │ nvim, direnv, brew, world                      │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ clean    │ flatpak, cache, system                         │"
             echo "├──────────┼────────────────────────────────────────────────┤"

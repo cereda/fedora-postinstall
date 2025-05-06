@@ -74,5 +74,6 @@ source "silverblue/useful-packages.sh"
 
 source "silverblue/neovim-installation.sh"
 source "common/miniconda-installation.sh"
+source "silverblue/homebrew-installation.sh"
 
 source "common/profile-photo.sh"
