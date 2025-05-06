@@ -51,7 +51,7 @@ FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
 
 text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"
 
-[[ "${FEDORA_FLAVOUR}" = "Workstation" ]] && source "workstation-postinstall.sh"
-[[ "${FEDORA_FLAVOUR}" = "Silverblue" ]] && source "silverblue-postinstall.sh"
+[[ "${FEDORA_FLAVOUR}" = "Workstation" ]] && source "workstation/post-installation.sh"
+[[ "${FEDORA_FLAVOUR}" = "Silverblue" ]] && source "silverblue/post-installation.sh"
 
 text "That's all, folks!"
