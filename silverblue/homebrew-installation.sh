@@ -75,6 +75,9 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 		sudo mount --bind /run/host/var/home/linuxbrew /home/linuxbrew
 	fi
 
+    # disable environment hints
+    export HOMEBREW_NO_ENV_HINTS=1
+
     # source the Homebrew configuration
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
