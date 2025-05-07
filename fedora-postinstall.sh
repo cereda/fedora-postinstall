@@ -42,16 +42,26 @@ distribution."
 
 echo
 
-question "Did you upgrade your system?" || exit 1
+if [ -z "${EXTRA_BINARIES_ONLY+x}" ]; then
 
-text "Welcome to my post installation script for Fedora! \
-Please select which flavour of Fedora you are currently running."
+    question "Did you upgrade your system?" || exit 1
 
-FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
+    text "Welcome to my post installation script for Fedora! \
+    Please select which flavour of Fedora you are currently running."
 
-text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"
+    FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
 
-[[ "${FEDORA_FLAVOUR}" = "Workstation" ]] && source "workstation/post-installation.sh"
-[[ "${FEDORA_FLAVOUR}" = "Silverblue" ]] && source "silverblue/post-installation.sh"
+    text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"
+
+    [[ "${FEDORA_FLAVOUR}" = "Workstation" ]] && source "workstation/post-installation.sh"
+    [[ "${FEDORA_FLAVOUR}" = "Silverblue" ]] && source "silverblue/post-installation.sh"
+else
+
+text "Welcome to my post installation script for Fedora! It appears you have \
+chosen to skip the flavour selection. The script will now proceed directly \
+to the installation of additional binaries."
+fi
+
+# TODO source extra-binaries
 
 text "That's all, folks!"
