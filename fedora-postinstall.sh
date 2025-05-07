@@ -27,9 +27,6 @@ SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 source "common/gum-setup.sh"
 source "common/gum-functions.sh"
 
-source "common/flatpaks-to-install.sh"
-source "common/fonts-to-install.sh"
-
 FEDORA_VERSION=$(rpm -E %fedora)
 
 chapter "Paulo's Fedora ${FEDORA_VERSION} post installation script"
@@ -45,6 +42,9 @@ echo
 if [ -z "${EXTRA_BINARIES_ONLY+x}" ]; then
 
     question "Did you upgrade your system?" || exit 1
+
+    source "common/flatpaks-to-install.sh"
+    source "common/fonts-to-install.sh"
 
     text "Welcome to my post installation script for Fedora! \
     Please select which flavour of Fedora you are currently running."
