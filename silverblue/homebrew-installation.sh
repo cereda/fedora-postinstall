@@ -68,7 +68,7 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 	fi
 
     # mount point for Homebrew does not exist
-    if [[ ! $(mount | grep linuxbrew) ]]; then
+    if [[ ! \$(mount | grep linuxbrew) ]]; then
 
         # mount point binding to the existing Homebrew
         # directory in the host system
@@ -79,7 +79,7 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     export HOMEBREW_NO_ENV_HINTS=1
 
     # source the Homebrew configuration
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
 EOF
 
