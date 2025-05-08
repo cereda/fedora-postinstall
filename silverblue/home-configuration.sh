@@ -389,7 +389,7 @@ function ${MACHINE_NAME} {
                         echo -e "\${PAULO_ICON_TOOLBOX} Packages to install (via DNF).\n"
 
                         if [[ -x "\$(command -v gum)" ]]; then
-                            gum style --width=80 --italic "\${PACKAGE_LIST}"
+                            gum style --width 80 --italic "\${PACKAGE_LIST}"
                         else
                             echo "\${PACKAGE_LIST}"
                         fi

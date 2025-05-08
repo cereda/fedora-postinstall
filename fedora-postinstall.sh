@@ -62,6 +62,6 @@ chosen to skip the flavour selection. The script will now proceed directly \
 to the installation of additional command line tools."
 fi
 
-# TODO source extra-binaries
+source "extras/additional-tools.sh"
 
 text "That's all, folks!"

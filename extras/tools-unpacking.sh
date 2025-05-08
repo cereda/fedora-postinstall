@@ -22,60 +22,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-GUM_TEXT_WIDTH=75
+tool-section "Unpacking stage"
 
-function chapter {
-    ${GUM} style --border double \
-        --align center \
-        --width ${GUM_TEXT_WIDTH} \
-        --padding "1 0" \
-        --foreground 10 \
-        --border-foreground 10 \
-        "$1"
-}
+info "Creating temporary directory for unpacking (#1)."
+rm -f archives
+mkdir -p archives
 
-function section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        --align center \
-        --foreground 12 \
-        --border-foreground 12 \
-        "$1"
-}
+info "Moving archive files to the temporary directory (#1)."
+find . -mindepth 1 -maxdepth 1 '(' -name "*.zip" -o -name "*.tar.gz" -o -name "*.tgz" ')' -exec mv {} archives/ \;
 
-function tool-section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        "Additional command line tools: $1"
-}
+info "Unpacking archive files."
+(cd archives && find -type f -name "*.tar.gz" -exec tar xzf {} \;)
+(cd archives && find -type f -name "*.tgz" -exec tar xzf {} \;)
+(cd archives && find -type f -name "*.zip" -exec unzip -q -n {} \;)
 
-function question {
-    ${GUM} confirm \
-        --prompt.foreground=6 \
-        --selected.background=6 \
-        "$1"
-}
+info "Creating temporary directory for deployment (#2)."
+rm -f deploys
+mkdir -p deploys
 
-function text {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    "$1"    
-}
-
-function description {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    --italic \
-    "$1"
-}
-
-function info {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 11 \
-        "$1"
-}
-
-function warning {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 3 \
-        --italic \
-        "$1"
-}
+info "Moving executable files to the temporary directory (#2)."
+find archives -type f -executable -exec mv {} deploys/ \;

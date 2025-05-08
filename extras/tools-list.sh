@@ -22,60 +22,40 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-GUM_TEXT_WIDTH=75
-
-function chapter {
-    ${GUM} style --border double \
-        --align center \
-        --width ${GUM_TEXT_WIDTH} \
-        --padding "1 0" \
-        --foreground 10 \
-        --border-foreground 10 \
-        "$1"
-}
-
-function section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        --align center \
-        --foreground 12 \
-        --border-foreground 12 \
-        "$1"
-}
-
-function tool-section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        "Additional command line tools: $1"
-}
-
-function question {
-    ${GUM} confirm \
-        --prompt.foreground=6 \
-        --selected.background=6 \
-        "$1"
-}
-
-function text {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    "$1"    
-}
-
-function description {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    --italic \
-    "$1"
-}
-
-function info {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 11 \
-        "$1"
-}
-
-function warning {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 3 \
-        --italic \
-        "$1"
-}
+declare -t CLI_TOOLS_LIST=(
+    "binsider"
+    "bottom"
+    "bun"
+    "caddy"
+    "deno"
+    "duckdb"
+    "duf"
+    "f2"
+    "fd"
+    "freeze"
+    "fx"
+    "glow"
+    "gping"
+    "grex"
+    "gum"
+    "hexyl"
+    "ipinfo"
+    "jless"
+    "lapce"
+    "lsd"
+    "ouch"
+    "picocrypt"
+    "pingu"
+    "procs"
+    "ripgrep"
+    "surreal"
+    "trdsql"
+    "trippy"
+    "trivy"
+    "ttyd"
+    "vhs"
+    "vimv"
+    "vivid"
+    "yq"
+    "zellij"
+)

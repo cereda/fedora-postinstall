@@ -22,60 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-GUM_TEXT_WIDTH=75
+tool-section "duf"
 
-function chapter {
-    ${GUM} style --border double \
-        --align center \
-        --width ${GUM_TEXT_WIDTH} \
-        --padding "1 0" \
-        --foreground 10 \
-        --border-foreground 10 \
-        "$1"
-}
+description "duf provides a detailed and user-friendly overview of disk \
+usage across file systems, making it easier to monitor and manage storage \
+utilization from the terminal."
 
-function section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        --align center \
-        --foreground 12 \
-        --border-foreground 12 \
-        "$1"
-}
+echo
 
-function tool-section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        "Additional command line tools: $1"
-}
+info "Getting latest version of duf from GitHub."
+test -f duf.json || wget -q -O duf.json https://api.github.com/repos/muesli/duf/releases/latest
 
-function question {
-    ${GUM} confirm \
-        --prompt.foreground=6 \
-        --selected.background=6 \
-        "$1"
-}
-
-function text {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    "$1"    
-}
-
-function description {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    --italic \
-    "$1"
-}
-
-function info {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 11 \
-        "$1"
-}
-
-function warning {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 3 \
-        --italic \
-        "$1"
-}
+info "Downloading duf from GitHub."
+wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux") and endswith("tar.gz")).browser_download_url' duf.json)

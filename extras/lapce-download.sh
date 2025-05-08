@@ -22,60 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-GUM_TEXT_WIDTH=75
+tool-section "Lapce"
 
-function chapter {
-    ${GUM} style --border double \
-        --align center \
-        --width ${GUM_TEXT_WIDTH} \
-        --padding "1 0" \
-        --foreground 10 \
-        --border-foreground 10 \
-        "$1"
-}
+description "Lapce is a feature-rich, terminal-based code editor that \
+provides a highly customizable and efficient interface for writing, \
+editing, and managing code directly from the command line."
 
-function section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        --align center \
-        --foreground 12 \
-        --border-foreground 12 \
-        "$1"
-}
+echo
 
-function tool-section {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --border rounded \
-        "Additional command line tools: $1"
-}
+info "Getting latest version of Lapce from GitHub."
+test -f lapce.json || wget -q -O lapce.json https://api.github.com/repos/lapce/lapce/releases/latest
 
-function question {
-    ${GUM} confirm \
-        --prompt.foreground=6 \
-        --selected.background=6 \
-        "$1"
-}
-
-function text {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    "$1"    
-}
-
-function description {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    --italic \
-    "$1"
-}
-
-function info {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 11 \
-        "$1"
-}
-
-function warning {
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-        --foreground 3 \
-        --italic \
-        "$1"
-}
+info "Downloading Lapce from GitHub."
+wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux")).browser_download_url' lapce.json)
