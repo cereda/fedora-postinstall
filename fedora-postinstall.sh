@@ -39,7 +39,7 @@ distribution."
 
 echo
 
-if [ -z "${EXTRA_BINARIES_ONLY+x}" ]; then
+if [ -z "${CLI_TOOLS_ONLY+x}" ]; then
 
     question "Did you upgrade your system?" || exit 1
 
@@ -59,7 +59,7 @@ else
 
 text "Welcome to my post installation script for Fedora! It appears you have \
 chosen to skip the flavour selection. The script will now proceed directly \
-to the installation of additional binaries."
+to the installation of additional command line tools."
 fi
 
 # TODO source extra-binaries
