@@ -47,7 +47,7 @@ if [ -z "${CLI_TOOLS_ONLY+x}" ]; then
     source "common/fonts-to-install.sh"
 
     text "Welcome to my post installation script for Fedora! \
-    Please select which flavour of Fedora you are currently running."
+Please select which flavour of Fedora you are currently running."
 
     FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
 
