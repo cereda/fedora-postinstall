@@ -54,8 +54,43 @@ if [ $? = 0 ]; then
         text "Please run 'sudo dnf group install development-tools' inside the Homebrew container."
     fi
 
-    info "Creating Homebrew file."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<EOF
+    question "Should brew be available outside a toolbox environment?"
+
+    if [ $? = 0 ]; then
+
+        info "Creating Homebrew configuration file (global availability)."
+        tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<EOF
+# check if inside a toolbox container
+if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
+
+    # reference to the Homebrew installation
+    # directory does not exist
+    if [[ ! -d /home/linuxbrew ]]; then
+
+        # create directory
+		sudo mkdir -p /home/linuxbrew
+	fi
+
+    # mount point for Homebrew does not exist
+    if [[ ! \$(mount | grep linuxbrew) ]]; then
+
+        # mount point binding to the existing Homebrew
+        # directory in the host system
+		sudo mount --bind /run/host/var/home/linuxbrew /home/linuxbrew
+	fi
+fi
+
+# disable environment hints
+export HOMEBREW_NO_ENV_HINTS=1
+
+# source the Homebrew configuration
+eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+EOF
+
+    else
+
+        info "Creating Homebrew configuration file (local availability)."
+        tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<EOF
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 
@@ -83,4 +118,5 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 fi
 EOF
 
+    fi
 fi
