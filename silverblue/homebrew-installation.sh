@@ -68,16 +68,16 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     if [[ ! -d /home/linuxbrew ]]; then
 
         # create directory
-		sudo mkdir -p /home/linuxbrew
-	fi
+        sudo mkdir -p /home/linuxbrew
+    fi
 
     # mount point for Homebrew does not exist
     if [[ ! \$(mount | grep linuxbrew) ]]; then
 
         # mount point binding to the existing Homebrew
         # directory in the host system
-		sudo mount --bind /run/host/var/home/linuxbrew /home/linuxbrew
-	fi
+        sudo mount --bind /run/host/var/home/linuxbrew /home/linuxbrew
+    fi
 fi
 
 # disable environment hints
@@ -99,16 +99,16 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     if [[ ! -d /home/linuxbrew ]]; then
 
         # create directory
-		sudo mkdir -p /home/linuxbrew
-	fi
+        sudo mkdir -p /home/linuxbrew
+    fi
 
     # mount point for Homebrew does not exist
     if [[ ! \$(mount | grep linuxbrew) ]]; then
 
         # mount point binding to the existing Homebrew
         # directory in the host system
-		sudo mount --bind /run/host/var/home/linuxbrew /home/linuxbrew
-	fi
+        sudo mount --bind /run/host/var/home/linuxbrew /home/linuxbrew
+    fi
 
     # disable environment hints
     export HOMEBREW_NO_ENV_HINTS=1
