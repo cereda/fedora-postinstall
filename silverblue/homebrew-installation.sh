@@ -54,7 +54,7 @@ if [ $? = 0 ]; then
         text "Please run 'sudo dnf group install development-tools' inside the Homebrew container."
     fi
 
-    question "Should brew be available outside a toolbox environment?"
+    question "Should Homebrew be available outside a toolbox environment?"
 
     if [ $? = 0 ]; then
 
