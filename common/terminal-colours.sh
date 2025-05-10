@@ -28,8 +28,16 @@ bfs, dust and many other tools."
 
 echo
 
-question "Do you want to have custom terminal colours?"
+question "Do you want to have custom terminal colors?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     info "Generating custom colors file."

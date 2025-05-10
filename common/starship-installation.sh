@@ -22,30 +22,39 @@ section "Starship installation and configuration"
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-description "The starship project is an open-source, cross-platform, \
-and highly customizable shell prompt that aims to provide a \
-modern, feature-rich, and efficient user experience for the \
-command line. It is designed to enhance productivity and \
-workflow by offering a wide range of customization options, \
-integration with various tools and services, and a visually \
-appealing display of relevant information."
+description "The starship project is an open source, cross-platform, \
+and highly customizable shell prompt that aims to provide a modern, \
+feature-rich, and efficient user experience for the command line. It \
+is designed to enhance productivity and workflow by offering a wide \
+range of customization options, integration with various tools and \
+services, and a visually appealing display of relevant information."
 
 echo
 
 question "Do you want to install starship?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
     
     info "Preparing the installation directory."
     mkdir -p "${HOME}/.local/bin"
     
+    # starship has its own installation script, setting the target directory
+    # and overriding existing installations via command line flags
     info "Installing starship."
     sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b "${HOME}/.local/bin" -y
 
     info "Preparing the configuration directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/starship"
 
-    info "Creating the configuration file."
+    info "Creating the configuration file for starship."
     tee "${ROOT_DIRECTORY_STRUCTURE}/config/starship/starship.toml" <<EOF
 [character]
 success_symbol = "[➜](bold green)"

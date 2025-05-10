@@ -31,6 +31,14 @@ echo
 
 question "Do you want to disable notifications from GNOME Software?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     info "Disabling download updates."

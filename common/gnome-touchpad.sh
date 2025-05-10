@@ -32,6 +32,14 @@ echo
 
 question "Do you want to configure your laptop touchpad?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     info "Enabling tap to click."

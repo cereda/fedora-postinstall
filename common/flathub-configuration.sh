@@ -32,8 +32,19 @@ echo
 
 question "Do you want to install and configure Flathub?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
+    # the Flathub installation requires two steps: adding the repository as
+    # a remote reference and explicitly enabling it
+    
     info "Installing and configuring Flathub."
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 

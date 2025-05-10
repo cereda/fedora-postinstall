@@ -32,18 +32,36 @@ echo
 
 question "Do you want to install custom fonts?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
-    FONT_VERSION=$(${GUM} input --prompt "Latest version of Nerd Fonts: " --value "${NERD_FONTS_VERSION}")
+    # Note: GitHub may apply rate limits to the API endpoint, which could
+    # cause this section to fail (been there, done that)
 
-    info "Creating local font directory."
+    info "Getting the latest version of Nerd Fonts from GitHub."
+    test -f nerd-fonts.json || wget -q -O nerd-fonts.json https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest
+
+    info "Extracting version of Nerd Fonts from the GitHub API response."
+    NERD_FONTS_VERSION="$(jq -r '.tag_name' nerd-fonts.json)"
+
+    info "Creating local fonts directory."
     mkdir -p "${HOME}/.local/share/fonts"
 
+    # for each font, download it from GitHub and extract it to the local
+    # fonts directory (each font should have its own directory)
     for NERD_FONT in "${!NERD_FONTS[@]}" ; do
-        info "Downloading ${NERD_FONT} from GitHub."
-        wget "https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/${NERD_FONTS[${NERD_FONT}]}.zip"
 
-        info "Extracting file into fonts directory."    
+        info "Downloading ${NERD_FONT} from GitHub."
+        wget -q "https://github.com/ryanoasis/nerd-fonts/releases/download/${NERD_FONTS_VERSION}/${NERD_FONTS[${NERD_FONT}]}.zip"
+
+        info "Extracting file into the local fonts directory."
         unzip "${NERD_FONTS[${NERD_FONT}]}.zip" -d "${HOME}/.local/share/fonts/${NERD_FONT}"
     done
 

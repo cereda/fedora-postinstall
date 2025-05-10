@@ -33,7 +33,18 @@ echo
 
 question "Do you want to install and configure Helix?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
+
+    # Note: GitHub may apply rate limits to the API endpoint, which could
+    # cause this section to fail (been there, done that)
 
     info "Getting latest version of Helix from GitHub."
     test -f helix-editor.json || wget -q -O helix-editor.json https://api.github.com/repos/helix-editor/helix/releases/latest
@@ -50,7 +61,7 @@ if [ $? = 0 ]; then
     info "Moving Helix."
     mv "helix-editor" "${ROOT_DIRECTORY_STRUCTURE}/applications/"
 
-    info "Creating configuration file."
+    info "Creating configuration file for Helix."
     mkdir -p "${HOME}/.config/helix"
     tee "${HOME}/.config/helix/config.toml" <<EOF
 theme = "onedark"
@@ -85,5 +96,9 @@ EOF
     mkdir -p "${HOME}/.local/bin"
     ln -s "${ROOT_DIRECTORY_STRUCTURE}/applications/helix-editor/hx" "${HOME}/.local/bin/hx"
 
-fi
+    echo
 
+    warning "If you don't plan to install vim or neovim, consider creating \
+aliases for vim or nvim that point to Helix (e.g, alias vim='hx')."
+
+fi

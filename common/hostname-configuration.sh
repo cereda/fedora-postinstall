@@ -38,4 +38,6 @@ MACHINE_NAME=$(${GUM} input --prompt "Your machine name: ")
 info "Configuring hostname."
 sudo hostnamectl hostname "${MACHINE_NAME}"
 
+echo
+
 text "Your Fedora ${FEDORA_VERSION} system is now named ${MACHINE_NAME}."

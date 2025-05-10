@@ -22,8 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then
-    echo "This script cannot be executed directly."
+if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then    
+    echo "╭──────────────────────────────────────────╮"
+    echo "│ This script cannot be executed directly. │"
+    echo "╰──────────────────────────────────────────╯"
     exit 1
 fi
 

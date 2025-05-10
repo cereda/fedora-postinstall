@@ -32,6 +32,14 @@ echo
 
 question "Do you want to disable autorun for removable media?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     info "Disabling autorun for removable media."

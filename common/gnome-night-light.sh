@@ -30,6 +30,14 @@ during the evening hours."
 
 echo
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 question "Do you want to enable night light?"
 
 if [ $? = 0 ]; then

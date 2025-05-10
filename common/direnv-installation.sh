@@ -34,9 +34,18 @@ echo
 
 question "Do you want to install and configure direnv?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
+    # direnv has its own installation script, setting the target directory
+    # via environment variable (as described in the documentation)
     info "Installing and configuring direnv."
-    export bin_path="${HOME}/.local/bin" && \
-    curl -sfL https://direnv.net/install.sh | bash
+    export bin_path="${HOME}/.local/bin" && curl -sfL https://direnv.net/install.sh | bash
 fi

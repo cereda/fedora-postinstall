@@ -39,10 +39,9 @@ if [ $? = 0 ]; then
     mkdir -p "${MINICONDA_INSTALLATION_DIRECTORY}"
 
     info "Downloading Miniconda."
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda-linux.sh
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda-linux.sh
 
     info "Installing Miniconda."
     bash miniconda-linux.sh -b -u -p "${MINICONDA_INSTALLATION_DIRECTORY}"
 
-    # TODO check if -m should be added as well
 fi

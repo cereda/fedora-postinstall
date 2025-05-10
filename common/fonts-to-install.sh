@@ -22,11 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-NERD_FONTS_VERSION="3.4.0"
-
 declare -A NERD_FONTS=(
     ["Caskaydia Cove"]="CascadiaCode"
     ["Fira Code"]="FiraCode"
     ["Fura Mono"]="FiraMono"
     ["JetBrains Mono"]="JetBrainsMono"
+    ["Fantasque Sans Mono"]="FantasqueSansMono"
 )

@@ -30,6 +30,12 @@ developers to collaborate on a project."
 
 echo
 
+warning "This configuration uses 'git-delta' as pager and 'vim' as editor. \
+Make sure you have these packages installed on your system, or edit the \
+configuration to use your preferred settings."
+
+echo
+
 GIT_USERNAME=$(${GUM} input --prompt "Your full name: ")
 GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
 

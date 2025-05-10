@@ -23,7 +23,9 @@
 # SOFTWARE.
 
 if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then
-    echo "This script cannot be executed directly."
+    echo "╭──────────────────────────────────────────╮"
+    echo "│ This script cannot be executed directly. │"
+    echo "╰──────────────────────────────────────────╯"
     exit 1
 fi
 

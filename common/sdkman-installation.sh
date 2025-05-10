@@ -33,7 +33,20 @@ echo
 
 question "Do you want to install and configure SDKman?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
+
+    # SDKman has its own installation script, setting the target directory
+    # via environment variable (as described in the documentation); there's
+    # also a URL request parameter that disables modification of shell
+    # configuration files (.bashrc, .zshrc, etc)
     info "Installing the SDKman binary."
     export SDKMAN_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman" && curl -s "https://get.sdkman.io?rcupdate=false" | bash
 
