@@ -1,4 +1,4 @@
-section "Colour configuration for the terminal"
+#!/usr/bin/env bash
 
 # MIT License
 # 
@@ -22,6 +22,8 @@ section "Colour configuration for the terminal"
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+section "Color configuration for the terminal"
+
 description "vivid is a generator for the LS_COLORS environment \
 variable that controls the colorized output of ls, tree, fd, \
 bfs, dust and many other tools."
@@ -40,10 +42,20 @@ question "Do you want to have custom terminal colors?"
 # +----+---------------+
 if [ $? = 0 ]; then
 
+    text "Select the color theme to use in the terminal:"
+
+    echo
+
+    COLOR_THEME=$(${GUM} choose --height 15 --selected='dracula' "${COLOR_THEMES[@]}")
+
+    if [ -z "${COLOR_THEME}" ]; then
+        COLOR_THEME="dracula"
+    fi
+
     info "Generating custom colors file."
     tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/colors.sh" <<EOF
 if [ -x "\$(command -v vivid)" ]; then
-    export LS_COLORS="\$(vivid generate dracula)"
+    export LS_COLORS="\$(vivid generate ${COLOR_THEME})"
 fi
 EOF
 
