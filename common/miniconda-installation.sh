@@ -1,4 +1,4 @@
-section "Miniconda installation"
+#!/usr/bin/env bash
 
 # MIT License
 # 
@@ -21,6 +21,8 @@ section "Miniconda installation"
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
+section "Miniconda installation"
 
 description "Miniconda is a lightweight distribution of the Anaconda Python \
 and R data science platform. It includes the Conda package manager and \

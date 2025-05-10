@@ -30,7 +30,7 @@ bfs, dust and many other tools."
 
 echo
 
-question "Do you want to have custom terminal colors?"
+question "Would you like to apply a color theme to the terminal?"
 
 # $? holds the exit status of the previous command execution; the logic applied
 # throughout the post installation is
@@ -42,12 +42,17 @@ question "Do you want to have custom terminal colors?"
 # +----+---------------+
 if [ $? = 0 ]; then
 
-    text "Select the color theme to use in the terminal:"
+    text "Select the color theme to use for the terminal:"
 
     echo
 
+    # display a list of color themes; the theme list is generated via:
+    #
+    # $ vivid themes
     COLOR_THEME=$(${GUM} choose --height 15 --selected='dracula' "${COLOR_THEMES[@]}")
 
+    # fallback in case the user does not select a color theme, based on the
+    # -z check -- a test operator that checks if a string is null
     if [ -z "${COLOR_THEME}" ]; then
         COLOR_THEME="dracula"
     fi

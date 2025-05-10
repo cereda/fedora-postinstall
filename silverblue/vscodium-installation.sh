@@ -45,6 +45,10 @@ if [ $? = 0 ]; then
     text "Which configuration do you want to apply?"
     VSCODIUM_FLAVOUR=$(${GUM} choose "Simple" "Fancy")
 
+    if [ -z "${VSCODIUM_FLAVOUR}" ]; then
+        VSCODIUM_FLAVOUR="Simple"
+    fi
+
     if [ "${VSCODIUM_FLAVOUR}" = "Simple" ]; then
 
         info "Writing the configuration file (simple)."

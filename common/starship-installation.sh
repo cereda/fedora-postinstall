@@ -1,4 +1,4 @@
-section "Starship installation and configuration"
+#!/usr/bin/env bash
 
 # MIT License
 # 
@@ -21,6 +21,8 @@ section "Starship installation and configuration"
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
+section "starship installation and configuration"
 
 description "The starship project is an open source, cross-platform, \
 and highly customizable shell prompt that aims to provide a modern, \

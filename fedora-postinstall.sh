@@ -67,6 +67,12 @@ Please select which flavour of Fedora you are currently running."
 
     FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
 
+    # fallback in case the user skips selection of flavour, based on the
+    # -z check -- a test operator that checks if a string is null
+    if [ -z "${FEDORA_FLAVOUR}" ]; then
+        FEDORA_FLAVOUR="Workstation"
+    fi
+
     text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"
 
     # load the corresponding post installation script based the flavour of 

@@ -41,6 +41,10 @@ if [ $? = 0 ]; then
     text "Which configuration do you want to apply?"
     NEOVIM_FLAVOUR=$(${GUM} choose "Classic" "Modern")
 
+    if [ -z "${NEOVIM_FLAVOUR}" ]; then
+        NEOVIM_FLAVOUR="Classic"
+    fi
+
     if [ "${NEOVIM_FLAVOUR}" = "Classic" ]; then
 
         info "Installing the plug-in manager for neovim."
