@@ -33,6 +33,14 @@ echo
 
 question "Do you want to install Miniconda?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     MINICONDA_INSTALLATION_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3"
@@ -43,6 +51,12 @@ if [ $? = 0 ]; then
     info "Downloading Miniconda."
     wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda-linux.sh
 
+    # Miniconda has its own installation script, run it with the
+    # following flags (as described in the documentation):
+    #
+    # -b: run install in batch mode
+    # -u: update an existing installation
+    # -p: install prefix
     info "Installing Miniconda."
     bash miniconda-linux.sh -b -u -p "${MINICONDA_INSTALLATION_DIRECTORY}"
 

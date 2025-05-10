@@ -34,7 +34,18 @@ echo
 
 question "Do you want to install and configure Zed?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
+
+    # Note: GitHub may apply rate limits to the API endpoint, which could
+    # cause this section to fail (been there, done that)
 
     info "Getting the latest version of Zed from GitHub."
     test -f zed-editor.json || wget -q -O zed-editor.json https://api.github.com/repos/zed-industries/zed/releases/latest
@@ -52,29 +63,29 @@ if [ $? = 0 ]; then
     mkdir -p "${HOME}/.config/zed"
     tee "${HOME}/.config/zed/settings.json" <<EOF
 {
-  "telemetry": {
-    "metrics": false,
-    "diagnostics": false
-  },
-  "ui_font_size": 16,
-  "buffer_font_size": 17,
-  "theme": {
-    "mode": "system",
-    "light": "One Light",
-    "dark": "One Dark"
-  },
-  "autosave": "off",
-  "restore_on_startup": "none",
-  "buffer_font_family": "Cascadia Code",
-  "buffer_font_features": {
-    "calt": true
-  },
-  "confirm_quit": false,
-  "indent_guides": {
-    "enabled": true
-  },
-  "show_whitespaces": "selection",
-  "soft_wrap": "none"
+    "telemetry": {
+        "metrics": false,
+        "diagnostics": false
+    },
+    "ui_font_size": 16,
+    "buffer_font_size": 17,
+    "theme": {
+        "mode": "system",
+        "light": "One Light",
+        "dark": "One Dark"
+    },
+    "autosave": "off",
+    "restore_on_startup": "none",
+    "buffer_font_family": "Cascadia Code",
+    "buffer_font_features": {
+        "calt": true
+    },
+    "confirm_quit": false,
+    "indent_guides": {
+        "enabled": true
+    },
+    "show_whitespaces": "selection",
+    "soft_wrap": "none"
 }
 EOF
 

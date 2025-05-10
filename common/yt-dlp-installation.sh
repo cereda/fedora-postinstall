@@ -34,12 +34,23 @@ echo
 
 question "Do you want to install and configure yt-dlp?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
-    info "Downloading the latest version of yt-dlp from GitHub."
-    wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
+    # Note: GitHub may apply rate limits to the API endpoint, which could
+    # cause this section to fail (been there, done that)
 
-    info "Moving script to the local installation directory."
+    info "Downloading the latest version of yt-dlp from GitHub."
+    wget -q https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
+
+    info "Moving script to the local directory."
     mv yt-dlp "${HOME}/.local/bin"
 
     info "Changing permissions to make it executable."
