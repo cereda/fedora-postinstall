@@ -29,10 +29,12 @@ GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}
 GUM=$(command -v gum || printf "${SCRIPT_PATH}/gum")
 
 if [ ! -x "${GUM}" ]; then
-    echo "This script relies on 'gum' -- a tool that provides ready-to-use"
-    echo "utilities to help users write useful, interactive scripts. Please"
-    echo "wait while the binary is downloaded from GitHub and extracted to"
-    echo "the current directory."
+    echo "╭───────────────────────────────────────────────────────────────────╮"
+    echo "│ This script relies on 'gum' -- a tool that provides ready-to-use  │"
+    echo "│ utilities to help users write useful, interactive scripts. Please │"
+    echo "│ wait while the binary is downloaded from GitHub and extracted to  │"
+    echo "│ the current directory.                                            │"
+    echo "╰───────────────────────────────────────────────────────────────────╯"
     wget -q "${GUM_LINK}" -O gum.tar.gz
     tar xvzf gum.tar.gz --wildcards --no-anchored '*gum' && mv gum_*/gum . && rm -rf gum_*
 fi
