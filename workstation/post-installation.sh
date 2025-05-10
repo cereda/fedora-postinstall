@@ -60,6 +60,7 @@ source "workstation/vim-installation.sh"
 source "workstation/neovim-installation.sh"
 
 source "common/nvm-installation.sh"
+source "common/color-themes.sh"
 source "common/terminal-colors.sh"
 
 source "workstation/packages-to-install.sh"

@@ -55,6 +55,7 @@ source "common/sdkman-installation.sh"
 source "common/rust-installation.sh"
 
 source "common/nvm-installation.sh"
+source "common/color-themes.sh"
 source "common/terminal-colors.sh"
 
 source "common/git-configuration.sh"
