@@ -1,4 +1,4 @@
-section "Flatpak cleanup"
+#!/usr/bin/env bash
 
 # MIT License
 # 
@@ -21,6 +21,8 @@ section "Flatpak cleanup"
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
+section "Flatpak cleanup"
 
 text "Fedora Silverblue comes with several applications installed \
 as flatpaks. Would you like to remove some of them?"
