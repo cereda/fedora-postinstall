@@ -75,10 +75,10 @@ style = "bold blue"
 [java]
 style = "bold green"
 
-[status]
-disabled = false
-symbol = "🔴"
-format = "[\$symbol \$status](\$style) "
+# [status]
+# disabled = false
+# symbol = "🔴"
+# format = "[\$symbol \$status](\$style) "
 EOF
 
 fi
