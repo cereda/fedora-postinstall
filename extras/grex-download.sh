@@ -30,6 +30,9 @@ text and data."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of grex from GitHub."
 test -f grex.json || wget -q -O grex.json https://api.github.com/repos/pemistahl/grex/releases/latest
 

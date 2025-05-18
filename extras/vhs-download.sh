@@ -31,6 +31,9 @@ with others."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of vhs from GitHub."
 test -f vhs.json || wget -q -O vhs.json https://api.github.com/repos/charmbracelet/vhs/releases/latest
 

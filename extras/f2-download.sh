@@ -29,6 +29,9 @@ directories, simplifying common file management tasks."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of f2 from GitHub."
 test -f f2.json || wget -q -O f2.json https://api.github.com/repos/ayoisaiah/f2/releases/latest
 

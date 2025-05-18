@@ -37,26 +37,45 @@ echo
 
 text "Do you want to install any of these command line tools?"
 
+echo
+
+# display a list of command line tools from the the CLI_TOOLS_LIST environment
+# variable set previously (see [extras/tools-list.sh] for reference)
+# and collect the selected entries into a new array
 readarray -t CLI_TOOLS_TO_INSTALL <<< $(${GUM} choose --no-limit --height 15 --selected='*' "${CLI_TOOLS_LIST[@]}")
 
+# no items were selected in the list based on the -z check -- a test operator
+# that checks if a string is null
 if [ -z "${CLI_TOOLS_TO_INSTALL}" ]; then
 
+    # display a message to the user
     text "You haven't selected any items from the list. Moving on."
 else
 
+    # at least one item was selected in the list (variable is not null),
+    # so the script can install the chosen command line tool(s)
+
     text "You've selected ${#CLI_TOOLS_TO_INSTALL[@]} command line tool(s) to install. Please wait."
 
+    # iterate through all the items in the list, display a message and install
+    # each command line tool
     for CLI_TOOL_TO_INSTALL in "${CLI_TOOLS_TO_INSTALL[@]}"; do
         
+        # source each selected item
         source "extras/${CLI_TOOL_TO_INSTALL}-download.sh"
     done
 
+    # unpack all files
     source "extras/tools-unpacking.sh"
 
+    # iterate through all the items in the list, display a message and
+    # source any additional setup for the choosen tool(s), if applicable
     for CLI_TOOL_TO_INSTALL in "${CLI_TOOLS_TO_INSTALL[@]}"; do
         
+        # test if the additional setup exists and source it
         test -f "extras/${CLI_TOOL_TO_INSTALL}-setup.sh" && source "extras/${CLI_TOOL_TO_INSTALL}-setup.sh"
     done
 
+    # deploy all executables
     source "extras/tools-deployment.sh"
 fi

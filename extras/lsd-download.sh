@@ -31,6 +31,9 @@ navigating directories from the terminal more intuitive."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of lsd from GitHub."
 test -f lsd.json || wget -q -O lsd.json https://api.github.com/repos/lsd-rs/lsd/releases/latest
 

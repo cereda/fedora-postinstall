@@ -30,6 +30,9 @@ and customizable settings."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of hexyl from GitHub."
 test -f hexyl.json || wget -q -O hexyl.json https://api.github.com/repos/sharkdp/hexyl/releases/latest
 

@@ -32,6 +32,9 @@ wide range of network endpoints."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of pingu from GitHub."
 test -f pingu.json || wget -q -O pingu.json https://api.github.com/repos/sheepla/pingu/releases/latest
 

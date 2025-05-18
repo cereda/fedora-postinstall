@@ -30,6 +30,9 @@ content directly from the terminal."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of glow from GitHub."
 test -f glow.json || wget -q -O glow.json https://api.github.com/repos/charmbracelet/glow/releases/latest
 

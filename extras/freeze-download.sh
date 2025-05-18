@@ -30,6 +30,9 @@ illustrations of their programming work."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of freeze from GitHub."
 test -f freeze.json || wget -q -O freeze.json https://api.github.com/repos/charmbracelet/freeze/releases/latest
 

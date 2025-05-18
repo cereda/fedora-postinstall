@@ -30,6 +30,9 @@ without the need for a separate database server."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of duckdb from GitHub."
 test -f duckdb.json || wget -q -O duckdb.json https://api.github.com/repos/duckdb/duckdb/releases/latest
 

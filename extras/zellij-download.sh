@@ -31,6 +31,9 @@ efficiently."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of Zellij from GitHub."
 test -f zellij.json || wget -q -O zellij.json https://api.github.com/repos/zellij-org/zellij/releases/latest
 

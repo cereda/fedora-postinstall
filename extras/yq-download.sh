@@ -30,6 +30,9 @@ syntax similar to jq, which is a popular tool for working with JSON data."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of yq from GitHub."
 test -f yq.json || wget -q -O yq.json https://api.github.com/repos/mikefarah/yq/releases/latest
 

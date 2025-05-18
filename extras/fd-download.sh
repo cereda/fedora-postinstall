@@ -30,6 +30,9 @@ directories on the file system."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of fd from GitHub."
 test -f fd.json || wget -q -O fd.json https://api.github.com/repos/sharkdp/fd/releases/latest
 

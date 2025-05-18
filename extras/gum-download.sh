@@ -31,6 +31,9 @@ more engaging and intuitive command-line applications."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of gum from GitHub."
 test -f gum.json || wget -q -O gum.json https://api.github.com/repos/charmbracelet/gum/releases/latest
 

@@ -31,6 +31,9 @@ deployment."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of caddy from GitHub."
 test -f caddy.json || wget -q -O caddy.json https://api.github.com/repos/caddyserver/caddy/releases/latest
 

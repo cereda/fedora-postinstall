@@ -30,6 +30,9 @@ the analysis of networking issues."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of Trippy from GitHub."
 test -f trippy.json || wget -q -O trippy.json https://api.github.com/repos/fujiapple852/trippy/releases/latest
 

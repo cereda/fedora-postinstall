@@ -31,6 +31,9 @@ metrics."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of bottom from GitHub."
 test -f bottom.json || wget -q -O bottom.json https://api.github.com/repos/ClementTsang/bottom/releases/latest
 

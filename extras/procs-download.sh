@@ -30,6 +30,9 @@ understanding running processes and their resource usage."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of procs from GitHub."
 test -f procs.json || wget -q -O procs.json https://api.github.com/repos/dalance/procs/releases/latest
 

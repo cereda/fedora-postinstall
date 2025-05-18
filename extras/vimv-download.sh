@@ -30,5 +30,8 @@ interface for batch file management tasks."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of vimv from GitHub."
 wget -q -O vimv https://raw.githubusercontent.com/thameera/vimv/master/vimv

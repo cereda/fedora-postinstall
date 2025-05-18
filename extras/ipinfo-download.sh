@@ -31,6 +31,9 @@ security analysis."
 
 echo
 
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
 info "Getting latest version of ipinfo from GitHub."
 test -f ipinfo.json || wget -q -O ipinfo.json https://api.github.com/repos/ipinfo/cli/releases/latest
 
