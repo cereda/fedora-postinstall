@@ -31,6 +31,7 @@ contained, reproducible container, without affecting the host system."
 
 echo
 
+# ask user input for the toolbox container name
 TOOLBOX_NAME=$(${GUM} input --prompt "Your toolbox container name: " --value "f${FEDORA_VERSION}-dev")
 
 info "Creating and configuring toolbox."

@@ -59,5 +59,4 @@ if [ $? = 0 ]; then
     # -p: install prefix
     info "Installing Miniconda."
     bash miniconda-linux.sh -b -u -p "${MINICONDA_INSTALLATION_DIRECTORY}"
-
 fi

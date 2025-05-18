@@ -34,20 +34,36 @@ echo
 
 question "Do you want to install and configure neovim?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
+
     info "Installing neovim as an RPM package."
     sudo dnf install neovim -y
 
     text "Which configuration do you want to apply?"
+
+    echo
+
     NEOVIM_FLAVOUR=$(${GUM} choose "Classic" "Modern")
 
+    # fallback in case the user does not select a configuration, based on
+    # the -z check -- a test operator that checks if a string is null
     if [ -z "${NEOVIM_FLAVOUR}" ]; then
         NEOVIM_FLAVOUR="Classic"
     fi
 
+    # the classic configuration does not require any external command line
+    # tools, whereas the modern configuration relies on the LazyVim framework
     if [ "${NEOVIM_FLAVOUR}" = "Classic" ]; then
 
-        info "Installing the plug-in manager for neovim."
+        info "Installing the plug-in manager for neovim (classic)."
         curl -fLo "${HOME}/.local/share/nvim/site/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
         info "Creating configuration directory for neovim."
@@ -122,13 +138,17 @@ set viminfo=""
 EOF
 
     else
-        info "Cloning the bootstrap template (modern)." 
+
+        # the modern configuration relies on the LazyVim framework and
+        # requires external command lines tools
+
+        info "Cloning the starter template (modern)." 
         git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
 
-        info "Cleaning the template (modern)."
+        info "Cleaning the starter template (modern)."
         rm -rf "${HOME}/.config/nvim/.git"
 
-        info "Adding custom options to the template."
+        info "Adding custom options to the starter template."
         tee --append "${HOME}/.config/nvim/lua/config/options.lua" <<EOF
 
 -- ****************************************
@@ -150,22 +170,22 @@ EOF
 -- Paulo's personal configuration
 -- ****************************************
 return {
-  "snacks.nvim",
-  opts = {
-    dashboard = {
-      -- dashboard configuration
-      preset = {
-        header = [[
+    "snacks.nvim",
+    opts = {
+        dashboard = {
+            -- dashboard configuration
+            preset = {
+                header = [[
 ██████╗ ██╗   ██╗ ██████╗██╗  ██╗███████╗██╗
 ██╔══██╗██║   ██║██╔════╝██║ ██╔╝██╔════╝██║
 ██║  ██║██║   ██║██║     █████╔╝ ███████╗██║
 ██║  ██║██║   ██║██║     ██╔═██╗ ╚════██║╚═╝
 ██████╔╝╚██████╔╝╚██████╗██║  ██╗███████║██╗
 ╚═════╝  ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝
-        ]],
-      },
+                ]],
+            },
+        },
     },
-  },
 }
 -- ****************************************
 EOF

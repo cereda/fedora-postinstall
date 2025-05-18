@@ -34,7 +34,17 @@ echo
 
 question "Do you want to install and configure VSCodium?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
+
+    # VSCodium is available as a third-party repository
 
     info "Adding the corresponding RPM repository (provided by Pavlo Rudyi)."
     sudo tee "/etc/yum.repos.d/vscodium.repo" <<EOF
@@ -55,12 +65,20 @@ EOF
     mkdir -p "${HOME}/.config/VSCodium/User"
 
     text "Which configuration do you want to apply?"
+
+    echo
+
+    # the simple configuration includes basic settings, whereas the fancy
+    # configuration provides additional settings to the workspace
     VSCODIUM_FLAVOUR=$(${GUM} choose "Simple" "Fancy")
 
+    # fallback in case the user does not select a color theme, based on the
+    # -z check -- a test operator that checks if a string is null
     if [ -z "${VSCODIUM_FLAVOUR}" ]; then
-        VSCODIUM_FLAVOUR="Simple
+        VSCODIUM_FLAVOUR="Simple"
     fi
 
+    # the simple configuration includes basic settings
     if [ "${VSCODIUM_FLAVOUR}" = "Simple" ]; then
 
         info "Writing the configuration file (simple)."
@@ -78,6 +96,8 @@ EOF
 EOF
 
     else
+
+        # fancy configuration
 
         info "Writing the configuration file (fancy)."
         tee "${HOME}/.config/VSCodium/User/settings.json" <<EOF

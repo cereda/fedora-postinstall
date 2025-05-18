@@ -31,8 +31,21 @@ and stability."
 
 echo
 
+warning "In case this action fails, please run 'flatpak pin <runtime> \
+--remove' to unpin the Flatpak runtimes."
+
+echo
+
 question "Do you want to unpin the platform runtimes?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     info "Unpinning platform runtimes."

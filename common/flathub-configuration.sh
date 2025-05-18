@@ -43,7 +43,8 @@ question "Do you want to install and configure Flathub?"
 if [ $? = 0 ]; then
 
     # the Flathub installation requires two steps: adding the repository as
-    # a remote reference and explicitly enabling it
+    # a remote reference and explicitly enabling it (as described in the
+    # documentation)
     
     info "Installing and configuring Flathub."
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo

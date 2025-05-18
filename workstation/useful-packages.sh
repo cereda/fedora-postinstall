@@ -35,18 +35,43 @@ echo
 
 question "Do you want to install some useful packages?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
-
+    
     text "Select which packages you want to install."
+
+    echo
+
+    # display a list of packages from the PACKAGES_TO_INSTALL environment variable
+    # set previously (see [workstation/packages-to-install.sh] for reference) and
+    # collect the selected entries into a new array
     readarray -t SELECTED_PACKAGES <<< $(${GUM} choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}")
 
+    # no items were selected in the list based on the -z check -- a test operator
+    # that checks if a string is null
     if [ -z "${SELECTED_PACKAGES}" ]; then
+
+        # display a message to the user
         text "You haven't selected any items from the list. Moving on."
     else
 
+        # at least one item was selected in the list (variable is not null),
+        # so the script can install the chosen package(s)
+
+        text "You've selected ${#SELECTED_PACKAGES[@]} package(s) to install. Please wait."
+
+        # join all items into a string using space as separator
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
         PACKAGE_INSTALL_LIST="${PACKAGE_INSTALL_LIST:1}"
-        
+
+        # install packages
         info "Installing packages."
         sudo dnf install ${PACKAGE_INSTALL_LIST} -y
     fi

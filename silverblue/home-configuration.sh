@@ -33,27 +33,44 @@ echo
 
 question "Do you want to use a hidden directory structure? [recommended]"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
+    # the root directory will be defined based on the HOME
+    # directory + .<machine name> (hidden structure)
     ROOT_DIRECTORY_STRUCTURE="${HOME}/.${MACHINE_NAME}"
 else
 
-    ${GUM} style --width ${GUM_TEXT_WIDTH} \
-"Please select a directory. You can navigate between \
-directories using the left and right arrow keys, and \
-select one with the Enter key."
+    # ask user to select a directory to store applications, scripts,
+    # settings, profile, and other relevant files
+
+    text "Please select a directory. You can navigate \
+between directories using the left and right arrow keys, \
+and select one with the Enter key."
 
     SELECT_DIRECTORY=null
 
+    # the script will loop until the user selects a directory
     while [ ! -d "${SELECT_DIRECTORY}" ]; do
 
+        # show the directory chooser
         SELECT_DIRECTORY=$(${GUM} file --all --permissions --directory)
     done
 
+    # the selected directory will be the root directory
     ROOT_DIRECTORY_STRUCTURE="${SELECT_DIRECTORY}"
 fi
 
 text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE}."
+
+echo
 
 info "Creating root directory."
 mkdir -p "${ROOT_DIRECTORY_STRUCTURE}"

@@ -36,6 +36,7 @@ configuration to use your preferred settings."
 
 echo
 
+# ask for user input (name and e-mail address)
 GIT_USERNAME=$(${GUM} input --prompt "Your full name: ")
 GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
 

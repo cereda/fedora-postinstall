@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-GUM_TEXT_WIDTH=75
+GUM_TEXT_WIDTH=80
 
 function chapter {
     ${GUM} style --border double \
@@ -58,13 +58,13 @@ function question {
 
 function text {
     ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    "$1"    
+        "$1"    
 }
 
 function description {
     ${GUM} style --width ${GUM_TEXT_WIDTH} \
-    --italic \
-    "$1"
+        --italic \
+        "$1"
 }
 
 function info {

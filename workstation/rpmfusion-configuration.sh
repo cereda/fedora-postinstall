@@ -34,6 +34,14 @@ echo
 
 question "Do you want to install and configure the RPMFusion repositories?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     info "Configuring the free repository."
@@ -42,6 +50,7 @@ if [ $? = 0 ]; then
     info "Configuring the non-free repository."
     sudo dnf install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm -y
 
+    # check if ffmpeg is already installed
     if [ "$(rpm -qa | grep -i ffmpeg)" ]; then
 
         section "ffmpeg configuration"
@@ -57,6 +66,14 @@ work with a wider range of media formats."
 
         question "Do you want to replace Fedora's ffmpeg by RPMFusion's?"
 
+        # $? holds the exit status of the previous command execution; the
+        # logic applied throughout the post installation is
+        # +----+---------------+
+        # | $? | Semantics     |
+        # +----+---------------+
+        # | 0  | yes / success |
+        # | 1  | no / failure  |
+        # +----+---------------+
         if [ $? = 0 ]; then
             
             info "Replacing Fedora's ffmpeg."

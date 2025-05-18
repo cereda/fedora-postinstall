@@ -33,18 +33,37 @@ echo
 
 question "Do you want to install Homebrew?"
 
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
 if [ $? = 0 ]; then
 
     info "Installing Homebrew."
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
+    # get the Homebrew toolbox container name
     TOOLBOX_HOMEBREW_NAME=$(${GUM} input --prompt "Your Homebrew container name: " --value "f${FEDORA_VERSION}-homebrew")
 
     info "Creating and configuring the Homebrew container."
     toolbox create ${TOOLBOX_HOMEBREW_NAME}
 
+    echo
+
     question "Homebrew requires the development tools group. Do you want to install them now?"
 
+    # $? holds the exit status of the previous command execution; the logic
+    # applied throughout the post installation is
+    # +----+---------------+
+    # | $? | Semantics     |
+    # +----+---------------+
+    # | 0  | yes / success |
+    # | 1  | no / failure  |
+    # +----+---------------+
     if [ $? = 0 ]; then
 
         info "Installing the development tools group."
@@ -54,9 +73,25 @@ if [ $? = 0 ]; then
         text "Please run 'sudo dnf group install development-tools' inside the Homebrew container."
     fi
 
+    echo
+
     question "Should Homebrew be available outside a toolbox environment?"
 
+    # $? holds the exit status of the previous command execution; the logic
+    # applied throughout the post installation is
+    # +----+---------------+
+    # | $? | Semantics     |
+    # +----+---------------+
+    # | 0  | yes / success |
+    # | 1  | no / failure  |
+    # +----+---------------+
     if [ $? = 0 ]; then
+
+        # Homebrew will be available outside a toolbox environment; this means
+        # all command line tools installed via brew will be visible system-wide
+
+        # Caveat emptor: don't run brew outside a toolbox environment, as it
+        # requires development tools that are not available system-wide
 
         info "Creating Homebrew configuration file (global availability)."
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<EOF
@@ -88,6 +123,10 @@ eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 EOF
 
     else
+
+        # Homebrew will be available only inside a toolbox environment; this
+        # means all command line tools installed via brew will not be visible
+        # system-wide
 
         info "Creating Homebrew configuration file (local availability)."
         tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<EOF
