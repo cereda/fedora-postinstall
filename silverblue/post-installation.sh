@@ -29,11 +29,13 @@ if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then
     exit 1
 fi
 
+# flatpaks
 source "common/flathub-configuration.sh"
 source "silverblue/flatpak-unpin.sh"
 source "silverblue/flatpak-cleanup.sh"
 source "common/flatpaks-installation.sh"
 
+# GNOME configuration
 source "common/gnome-font-rendering.sh"
 source "common/gnome-clock.sh"
 source "common/gnome-autorun.sh"
@@ -45,38 +47,63 @@ source "common/gnome-night-light.sh"
 source "common/gnome-software.sh"
 source "common/gnome-logo-gdm.sh"
 
+# hostname configuration
 source "common/hostname-configuration.sh"
 
+# custom home configuration
 source "silverblue/home-configuration.sh"
+
+# useful command line tools
 source "common/starship-installation.sh"
 source "common/carapace-installation.sh"
 source "common/uv-installation.sh"
 source "common/sdkman-installation.sh"
 source "common/rust-installation.sh"
-
 source "common/nvm-installation.sh"
+
+# color themes for the terminal
 source "common/color-themes.sh"
 source "common/terminal-colors.sh"
 
+# git configuration
 source "common/git-configuration.sh"
+
+# VSCodium
 source "silverblue/vscodium-installation.sh"
 
+# Distrobox
 source "common/distrobox-installation.sh"
+
+# fonts
 source "common/fonts-installation.sh"
 source "common/cascadia-code-installation.sh"
+
+# yt-dlp
 source "common/yt-dlp-installation.sh"
 
+# Nix
 source "silverblue/nix-installation.sh"
+
+# direnv
 source "common/direnv-installation.sh"
+
+# Helix and Zed editors
 source "common/helix-installation.sh"
 source "common/zed-installation.sh"
 
+# toolbox configuration
 source "silverblue/toolbox-configuration.sh"
 source "silverblue/packages-to-install.sh"
 source "silverblue/useful-packages.sh"
 
+# neovim
 source "silverblue/neovim-installation.sh"
+
+# Miniconda
 source "common/miniconda-installation.sh"
+
+# Homebrew
 source "silverblue/homebrew-installation.sh"
 
+# profile photo
 source "common/profile-photo.sh"
