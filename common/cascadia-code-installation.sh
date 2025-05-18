@@ -49,10 +49,10 @@ if [ $? = 0 ]; then
     test -f cascadia-code.json || wget -q -O cascadia-code.json https://api.github.com/repos/microsoft/cascadia-code/releases/latest
 
     info "Downloading Cascadia Code from GitHub."
-    wget -q $(jq -r '.assets[] | select(.name | endswith("zip")).browser_download_url' cascadia-code.json)
+    wget -q -O cascadia-code.zip $(jq -r '.assets[] | select(.name | endswith("zip")).browser_download_url' cascadia-code.json)
 
     info "Extracting file."
-    unzip -j *.zip *.ttf -d "Cascadia Code"
+    unzip -j cascadia-code.zip *.ttf -d "Cascadia Code"
 
     info "Creating local font directory."
     mkdir -p "${HOME}/.local/share/fonts"
