@@ -40,6 +40,7 @@ declare -t SUGGESTED_FLATPAKS=(
     "org.audacityteam.Audacity"
     "org.bleachbit.BleachBit"
     "org.chromium.Chromium"
+    "org.freedesktop.Platform.ffmpeg-full"
     "org.frescobaldi.Frescobaldi"
     "org.gimp.GIMP"
     "org.gnome.Boxes"
