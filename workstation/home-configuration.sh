@@ -449,7 +449,15 @@ function audio-to-ogg {
 #     done
 # }
 #
-# # wrap yt-dlp into a function to support browser cookies
+# # wrap yt-dlp into a function to support browser cookies; the script
+# # relies on a Python virtual environment, the setup is as follows:
+# #
+# # python -m venv "${ROOT_DIRECTORY_STRUCTURE}/environments/python/youtube"
+# # source "${ROOT_DIRECTORY_STRUCTURE}/environments/python/youtube/bin/activate"
+# # python -m pip install SecretStorage
+# #
+# # yt-dlp requires SecretStorage to extract cookies from Chromium-based
+# # browsers; if used with Firefox, the library is not needed
 # function yt-dlp-cookies {
 #     echo "Activating environment."
 #     source "${ROOT_DIRECTORY_STRUCTURE}/environments/python/youtube/bin/activate"
