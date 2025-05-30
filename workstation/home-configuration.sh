@@ -146,12 +146,8 @@ fi
 # hook zoxide into the shell
 if [ -x "\$(command -v zoxide)" ]; then
 
-    # check if data directory exists
-    if [ -d "${ROOT_DIRECTORY_STRUCTURE}/data/zoxide" ]; then
-
-        # the zoxide database will be stored here
-        export _ZO_DATA_DIR="${ROOT_DIRECTORY_STRUCTURE}/data/zoxide"
-    end
+    # the zoxide database will be stored here
+    export _ZO_DATA_DIR="${ROOT_DIRECTORY_STRUCTURE}/data/zoxide"
 
     # activate zoxide
     eval "\$(zoxide init bash)"
