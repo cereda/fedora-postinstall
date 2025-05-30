@@ -23,7 +23,7 @@
 # SOFTWARE.
 
 # fixed version
-GUM_VERSION="0.16.0"
+GUM_VERSION="0.16.1"
 
 # fixed release link
 GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_Linux_x86_64.tar.gz"
