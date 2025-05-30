@@ -104,6 +104,9 @@ source "common/direnv-installation.sh"
 source "common/helix-installation.sh"
 source "common/zed-installation.sh"
 
+# tmux
+source "workstation/tmux-installation.sh"
+
 # Miniconda
 source "common/miniconda-installation.sh"
 

@@ -96,6 +96,9 @@ source "silverblue/toolbox-configuration.sh"
 source "silverblue/packages-to-install.sh"
 source "silverblue/useful-packages.sh"
 
+# tmux
+source "silverblue/tmux-installation.sh"
+
 # neovim
 source "silverblue/neovim-installation.sh"
 
