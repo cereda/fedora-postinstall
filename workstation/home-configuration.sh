@@ -59,6 +59,9 @@ mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/applications"
 info "Creating directory for config files."
 mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config"
 
+info "Creating directory for data files."
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/data"
+
 info "Creating directory for profile."
 mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/profile"
 
@@ -136,8 +139,22 @@ if [ -x "\$(command -v carapace)" ]; then
     # optional, but suggested in the user manual
     export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
 
-    # 
+    # activate carapace-bin
     source <(carapace _carapace)
+fi
+
+# hook zoxide into the shell
+if [ -x "\$(command -v zoxide)" ]; then
+
+    # check if data directory exists
+    if [ -d "${ROOT_DIRECTORY_STRUCTURE}/data/zoxide" ]; then
+
+        # the zoxide database will be stored here
+        export _ZO_DATA_DIR="${ROOT_DIRECTORY_STRUCTURE}/data/zoxide"
+    end
+
+    # activate zoxide
+    eval "\$(zoxide init bash)"
 fi
 EOF
 

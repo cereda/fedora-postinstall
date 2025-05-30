@@ -56,6 +56,7 @@ source "silverblue/home-configuration.sh"
 # useful command line tools
 source "common/starship-installation.sh"
 source "common/carapace-installation.sh"
+source "common/zoxide-installation.sh"
 source "common/uv-installation.sh"
 source "common/sdkman-installation.sh"
 source "common/rust-installation.sh"
