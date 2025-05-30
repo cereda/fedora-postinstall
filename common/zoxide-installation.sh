@@ -42,7 +42,7 @@ question "Do you want to install zoxide?"
 # | 1  | no / failure  |
 # +----+---------------+
 if [ $? = 0 ]; then
-    
+
     # Note: GitHub may apply rate limits to the API endpoint, which could
     # cause this section to fail (been there, done that)
 
