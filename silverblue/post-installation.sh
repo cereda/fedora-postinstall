@@ -61,6 +61,7 @@ source "common/uv-installation.sh"
 source "common/sdkman-installation.sh"
 source "common/rust-installation.sh"
 source "common/nvm-installation.sh"
+source "common/mise-installation.sh"
 
 # color themes for the terminal
 source "common/color-themes.sh"

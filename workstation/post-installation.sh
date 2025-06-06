@@ -63,6 +63,7 @@ source "common/uv-installation.sh"
 source "common/sdkman-installation.sh"
 source "common/rust-installation.sh"
 source "common/nvm-installation.sh"
+source "common/mise-installation.sh"
 
 # vim and neovim editors
 source "workstation/vim-installation.sh"
