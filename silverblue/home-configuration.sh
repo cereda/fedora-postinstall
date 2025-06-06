@@ -179,6 +179,19 @@ if [ -x "\$(command -v zoxide)" ]; then
     # activate zoxide
     eval "\$(zoxide init bash)"
 fi
+
+# hook mise into the shell
+if [ -x "\$(command -v mise)" ]; then
+
+    # binaries will be installed here
+    export MISE_DATA_DIR="${ROOT_DIRECTORY_STRUCTURE}/data/mise"
+
+    # configuration file will be written here
+    export MISE_CONFIG_DIR="${ROOT_DIRECTORY_STRUCTURE}/config/mise"
+
+    # activate mise
+    eval "\$(mise activate bash)"
+fi
 EOF
 
 info "Creating aliases file."
