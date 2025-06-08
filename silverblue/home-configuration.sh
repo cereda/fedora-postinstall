@@ -189,8 +189,8 @@ if [ -x "\$(command -v mise)" ]; then
     # configuration file will be written here
     export MISE_CONFIG_DIR="${ROOT_DIRECTORY_STRUCTURE}/config/mise"
 
-    # activate mise
-    eval "\$(mise activate bash)"
+    # activate mise (optional, uncomment it to enable)
+    # eval "\$(mise activate bash)"
 fi
 EOF
 
@@ -210,13 +210,13 @@ function ${MACHINE_NAME} {
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ upgrade  │ system, starship, tex, sdk, uv, node, youtube  │"
         echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-        echo "│          │ nvim, direnv, brew, world                      │"
+        echo "│          │ nvim, direnv, brew, mise, world                │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ clean    │ flatpak, cache, system                         │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ config   │ menu, toolbox                                  │"
         echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ use      │ sdk, conda, node, server                       │"
+        echo "│ use      │ sdk, conda, node, server, mise                 │"
         echo "╰──────────┴────────────────────────────────────────────────╯"
         return 1
     fi
@@ -336,6 +336,13 @@ function ${MACHINE_NAME} {
                     fi
                 ;;
 
+                mise)
+                    if [ -x "\$(command -v mise)" ]; then
+                        mise self-update --yes
+                        mise upgrade --bump
+                    fi
+                ;;
+
                 brew)
                     if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
                         if [ -x "\$(command -v brew)" ]; then
@@ -360,6 +367,7 @@ function ${MACHINE_NAME} {
                     ${MACHINE_NAME} upgrade nvim
                     ${MACHINE_NAME} upgrade conda
                     ${MACHINE_NAME} upgrade uv
+                    ${MACHINE_NAME} upgrade mise
                     ${MACHINE_NAME} upgrade brew
                     ${MACHINE_NAME} clean flatpak
                     ${MACHINE_NAME} clean cache
@@ -371,7 +379,7 @@ function ${MACHINE_NAME} {
                     echo "╭──────────┬────────────────────────────────────────────────╮"
                     echo "│ upgrade  │ system, starship, tex, sdk, uv, node, youtube  │"
                     echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-                    echo "│          │ nvim, direnv, brew, world                      │"
+                    echo "│          │ nvim, direnv, brew, mise, world                │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -484,11 +492,17 @@ function ${MACHINE_NAME} {
                     fi
                 ;;
 
+                mise)
+                    if [ -x "\$(command -v mise)" ]; then
+                        eval "\$(mise activate bash)"
+                    fi
+                ;;
+
                 *)
                     echo "I don't know this target."
                     echo
                     echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ use      │ sdk, conda, node, server                       │"
+                    echo "│ use      │ sdk, conda, node, server, mise                 │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -502,13 +516,13 @@ function ${MACHINE_NAME} {
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ upgrade  │ system, starship, tex, sdk, uv, node, youtube  │"
             echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-            echo "│          │ nvim, direnv, brew, world                      │"
+            echo "│          │ nvim, direnv, brew, mise, world                │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ clean    │ flatpak, cache, system                         │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ config   │ menu, toolbox                                  │"
             echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ use      │ sdk, conda, node, server                       │"
+            echo "│ use      │ sdk, conda, node, server, mise                 │"
             echo "╰──────────┴────────────────────────────────────────────────╯"
         ;;
     esac
@@ -605,7 +619,7 @@ _${MACHINE_NAME}()
         2)
             case \${prev} in
                 upgrade)
-                    COMPREPLY=(\$(compgen -W "system starship tex sdk nvim node youtube rust deno bun flatpak conda distrobox uv direnv brew world" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "system starship tex sdk nvim node youtube rust deno bun flatpak conda distrobox uv direnv brew mise world" -- \${cur}))
                 ;;
 
                 clean)
@@ -617,7 +631,7 @@ _${MACHINE_NAME}()
                 ;;
 
                 use)
-                    COMPREPLY=(\$(compgen -W "sdk conda node server" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "sdk conda node server mise" -- \${cur}))
                 ;;
             esac
         ;;
