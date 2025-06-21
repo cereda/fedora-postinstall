@@ -32,7 +32,7 @@ users to manage their home environment as code."
 echo
 
 # ask user input for the toolbox container name
-NIX_TOOLBOX_NAME=$(${GUM} input --prompt "Your toolbox container name: " --value "nix-toolbox-${FEDORA_VERSION}")
+NIX_TOOLBOX_NAME=$(${GUM} input --prompt "Your Nix Toolbox container name: " --value "nix-toolbox-${FEDORA_VERSION}")
 
-info "Creating and configuring toolbox."
+info "Creating and configuring Nix Toolbox."
 toolbox create --image ghcr.io/thrix/nix-toolbox:${FEDORA_VERSION} ${NIX_TOOLBOX_NAME}
