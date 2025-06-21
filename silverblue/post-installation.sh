@@ -86,6 +86,9 @@ source "common/yt-dlp-installation.sh"
 # Nix
 source "silverblue/nix-installation.sh"
 
+# Nix toolbox
+source "common/nix-toolbox-configuration.sh"
+
 # direnv
 source "common/direnv-installation.sh"
 
