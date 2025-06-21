@@ -58,9 +58,21 @@ if [ $? = 0 ]; then
     info "Moving Go to the local applications directory."
     mv go "${ROOT_DIRECTORY_STRUCTURE}/applications/"
 
+    info "Creating environment."
+    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments/go"
+
     tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/go.sh" <<EOF
 #!/bin/bash
+
+# this is my personal variable and not related to GOROOT or any other
+# environment variable used by Go (also, setting GOROOT is discouraged
+# according to the documentation)
 export GO_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/go"
+
+# while the use of GOPATH is not mandatory since the introduction of Go
+# modules, it's still relevant in certain contexts and can be useful for
+# specific workflows
+export GOPATH="${ROOT_DIRECTORY_STRUCTURE}/environments/go"
 
 pathmunge () {
     if ! echo \$PATH | /bin/grep -E -q "(^|:)\$1($|:)" ; then
