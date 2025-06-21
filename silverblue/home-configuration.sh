@@ -132,6 +132,11 @@ if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh"
 fi
 
+# load the Go config
+if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/go.sh" ]; then
+    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/go.sh"
+fi
+
 # load the toolbox config
 if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh"
