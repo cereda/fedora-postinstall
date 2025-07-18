@@ -343,6 +343,11 @@ function ${MACHINE_NAME} {
                     sudo rm -f /var/log/dnf.rpm.log.*
                     sudo rm -f /var/log/hawkey.log-*
                     sudo rm -f /var/log/tuned/tuned.log.*
+                    sudo rm -f /var/log/cron-*
+                    sudo rm -f /var/log/maillog-*
+                    sudo rm -f /var/log/messages-*
+                    sudo rm -f /var/log/secure-*
+                    sudo rm -f /var/log/spooler-*
                 ;;
 
                 cache)
