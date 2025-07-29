@@ -259,6 +259,7 @@ function ${MACHINE_NAME} {
                 sdk)
                     if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" ]; then
                         source "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh"
+                        sdk selfupdate
                         sdk upgrade
                         sdk update
                     fi
