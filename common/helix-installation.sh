@@ -24,7 +24,7 @@
 
 section "Helix installation and configuration"
 
-description "Helix is an open-source, modal code editor that aims to \
+description "Helix is an open source, modal code editor that aims to \
 provide a modern, efficient, and customizable text editing experience. \
 It's designed to be fast, lightweight, and highly extensible, with a \
 focus on productivity and developer experience."

@@ -24,7 +24,7 @@
 
 section "VSCodium installation and configuration"
 
-description "VSCodium is an open-source, binary distribution of Microsoft's \
+description "VSCodium is an open source, binary distribution of Microsoft's \
 Visual Studio Code (VS Code) editor, without the telemetry and proprietary \
 features. It provides the same core functionality as VS Code, but with a \
 focus on privacy and transparency by removing the Microsoft-specific branding \

@@ -24,7 +24,7 @@
 
 section "Homebrew installation and configuration"
 
-description "Homebrew is a free and open-source package manager for macOS \
+description "Homebrew is a free and open source package manager for macOS \
 and Linux. It simplifies the installation and management of software on \
 these operating systems by automating the process of downloading, compiling, \
 and installing various applications and libraries."

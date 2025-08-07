@@ -24,7 +24,7 @@
 
 section "yt-dlp installation and configuration"
 
-description "yt-dlp is an open-source command-line tool that allows \
+description "yt-dlp is an open source command line tool that allows \
 users to download videos and audio from a wide range of online \
 platforms, including YouTube, Vimeo, and many others. It is a \
 fork of the popular youtube-dl project, with additional features \

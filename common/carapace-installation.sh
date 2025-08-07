@@ -24,8 +24,8 @@
 
 section "carapace-bin installation"
 
-description "carapace-bin is a command-line tool that generates shell \
-completion scripts for various command-line tools and applications. \
+description "carapace-bin is a command line tool that generates shell \
+completion scripts for various command line tools and applications. \
 It helps users easily set up tab completion for their favorite CLI \
 tools, improving productivity and user experience."
 

@@ -24,7 +24,7 @@
 
 section "Distrobox installation and configuration"
 
-description "Distrobox is an open-source project that enables users \
+description "Distrobox is an open source project that enables users \
 to run different Linux distributions as isolated containers within \
 their host operating system, providing a flexible and convenient \
 way to access a variety of tools and applications across multiple \

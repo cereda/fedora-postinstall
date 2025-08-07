@@ -24,7 +24,7 @@
 
 section "direnv installation and configuration"
 
-description "direnv is an open-source environment variable management tool \
+description "direnv is an open source environment variable management tool \
 that automatically loads and unloads environment variables based on the \
 current directory. It helps developers manage project-specific configurations \
 and dependencies, making it easier to switch between different development \

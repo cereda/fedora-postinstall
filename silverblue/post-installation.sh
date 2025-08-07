@@ -60,6 +60,7 @@ source "common/zoxide-installation.sh"
 source "common/uv-installation.sh"
 source "common/sdkman-installation.sh"
 source "common/rust-installation.sh"
+source "common/go-installation.sh"
 source "common/nvm-installation.sh"
 source "common/mise-installation.sh"
 

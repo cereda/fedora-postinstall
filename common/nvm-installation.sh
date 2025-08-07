@@ -24,7 +24,7 @@
 
 section "nvm installation and configuration"
 
-description "nvm (Node Version Manager) is an open-source tool that \
+description "nvm (Node Version Manager) is an open source tool that \
 allows developers to easily install, manage, and switch between \
 different versions of the Node.js runtime on their local machines. \
 It provides a convenient way to work with multiple Node.js \

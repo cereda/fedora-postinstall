@@ -24,7 +24,7 @@
 
 section "Zed installation and configuration"
 
-description "Zed is an open-source, cross-platform code editor \
+description "Zed is an open source, cross-platform code editor \
 that aims to provide a modern, efficient, and customizable text \
 editing experience. It is designed to be fast, lightweight, \
 and highly extensible, allowing developers to tailor the \

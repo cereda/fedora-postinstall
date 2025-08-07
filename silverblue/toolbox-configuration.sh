@@ -24,7 +24,7 @@
 
 section "Toolbox configuration"
 
-description "Toolbox is a command-line tool that provides a convenient way \
+description "Toolbox is a command line tool that provides a convenient way \
 to create and manage isolated development environments within Fedora \
 Linux. It allows users to install and run applications in a self \
 contained, reproducible container, without affecting the host system."

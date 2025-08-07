@@ -24,7 +24,7 @@
 
 section "SDKman installation and configuration"
 
-description "SDKman is an open-source tool for managing multiple Software \
+description "SDKman is an open source tool for managing multiple Software \
 Development Kits (SDKs) on Unix-based systems, including macOS and \
 Linux. It allows users to easily install, manage, and switch between \
 different versions of Java Virtual Machines, Gradle, Maven, and other \

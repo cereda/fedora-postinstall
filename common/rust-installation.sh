@@ -24,11 +24,11 @@
 
 section "Rust installation and configuration"
 
-description "Rust is an open-source, systems programming language \
+description "Rust is an open source, systems programming language \
 that focuses on performance, safety, and concurrency. It is \
 designed to be a safe, concurrent, and practical language, \
 suitable for a wide range of applications, from low-level \
-system programming to high-level web development and beyond."
+system programming to high level web development and beyond."
 
 echo
 

@@ -24,8 +24,8 @@
 
 section "vim installation and configuration"
 
-description "vim is a highly configurable, open-source text editor known for \
-its powerful and efficient command-line-based interface. It is designed to \
+description "vim is a highly configurable, open source text editor known for \
+its powerful and efficient interface based on command line. It is designed to \
 provide a streamlined and customizable editing experience, with a focus on \
 productivity and keyboard-centric workflows."
 

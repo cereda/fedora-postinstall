@@ -24,7 +24,7 @@
 
 section "RPMFusion installation and configuration"
 
-description "RPMFusion is an open-source project that provides a repository \
+description "RPMFusion is an open source project that provides a repository \
 of additional software packages for various Linux distributions that use \
 the RPM package management system, such as Fedora and CentOS. It offers \
 access to a wide range of multimedia codecs, drivers, and other software \

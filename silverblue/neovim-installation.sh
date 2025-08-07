@@ -24,7 +24,7 @@
 
 section "neovim installation and configuration"
 
-description "neovim is an open-source, community-driven, and highly \
+description "neovim is an open source, community-driven, and highly \
 customizable fork of the Vim text editor. It aims to improve upon the \
 original vim by providing a modern, extensible, and efficient text \
 editing experience, with a focus on developer productivity and the \

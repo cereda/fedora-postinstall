@@ -28,7 +28,7 @@ section "Useful packages"
 
 description "This section will help you install a collection of useful \
 packages. This includes tools like ack (a fast alternative to grep), \
-hyperfine (a command-line benchmarking tool), delta (a syntax \
+hyperfine (a command line benchmarking tool), delta (a syntax \
 highlighting diff viewer), as well as the Java Development Kit (JDK) and \
 various archiving utilities such as unrar and p7zip. These packages can \
 provide additional functionality for your command line workflow. These \

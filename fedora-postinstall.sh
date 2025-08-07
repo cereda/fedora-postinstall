@@ -35,7 +35,7 @@ FEDORA_VERSION=$(rpm -E %fedora)
 
 chapter "Paulo's Fedora ${FEDORA_VERSION} post installation script"
 
-description "Fedora Linux is a free and open-source operating system \
+description "Fedora Linux is a free and open source operating system \
 sponsored by Red Hat, focused on innovation, security, and community \
 collaboration. It provides a stable, cutting-edge platform for \
 developers, enthusiasts, and users seeking a modern, reliable Linux \
