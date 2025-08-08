@@ -55,11 +55,11 @@ A lot of things, actually. The following table summarizes the tasks:
 | Nerd Fonts (install) | Installs fonts from Nerd Fonts, a project that provides patched versions of popular programming fonts. | Yes | Yes |
 | Cascadia Code font (install) | Installs Cascadia Code, a monospaced font designed for programming. | Yes | Yes |
 | `yt-dlp` (install) | Installs `yt-dlp`, a tool that allows users to download videos and audio from a wide range of online platforms. | Yes | Yes |
-| Nix (install) | Installs Nix, a functional package manager and build system that provides a declarative and reproducible approach to software deployment and configuration management. | Yes | Yes |
+| Nix (install) | Installs Nix, a functional package manager and build system that provides a declarative and reproducible approach to software deployment and configuration management. | Yes (Linux planner) | Yes (OSTree planner) |
 | Nix Toolbox (config) | Configures Nix Toolbox, a project that enhances the Fedora Toolbox container image by integrating the Nix package manager and optionally Home Manager. | Yes | Yes |
 | Distrobox (install) | Installs Distrobox, a tool that enables users to run different Linux distributions as isolated containers within their host operating system. | Yes | Yes |
 | Toolbox (config) | Configures Toolbox, a tool that provides a convenient way to create and manage isolated development environments within Fedora. | No | Yes |
-| Homebrew (install) | Installs Homebrew, a package manager for macOS and Linux. | No | Yes |
+| Homebrew (install) | Installs Homebrew, a package manager for macOS and Linux. | No | Yes (inside a toolbox) |
 | `direnv` (install) | Installs `direnv`, an environment variable management tool that automatically loads and unloads environment variables based on the current directory. | Yes | Yes |
 | Helix (install) | Installs Helix, an open source, modal code editor. | Yes | Yes |
 | Zed Editor (install) | Installs Zed, a code editor for Rust. | Yes | Yes |
