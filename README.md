@@ -45,10 +45,10 @@ A lot of things, actually. The following table summarizes the tasks:
 | Go (install) | Installs Go, a programming language developed by Google. | Yes | Yes |
 | Node Version Manager (install) | Installs Node Version Manager, a tool that allows developers to easily install, manage, and switch between different versions of the Node.js runtime on their local machines. | Yes | Yes |
 | `mise` (install) | Installs `mise`, a command line tool designed for setting up and managing development environments. | Yes | Yes |
-| vim (install) | Installs vim, a highly configurable, open-source text editor known for its powerful and efficient command-line interface. | Yes | No |
-| neovim (install) | Installs neovim, an open-source, community-driven, and highly customizable fork of the vim text editor. | Yes | Yes (inside a toolbox) |
+| vim (install) | Installs vim, a highly configurable, open source text editor known for its powerful and efficient command-line interface. | Yes | No |
+| neovim (install) | Installs neovim, an open source, community-driven, and highly customizable fork of the vim text editor. | Yes | Yes (inside a toolbox) |
 | Terminal colors | Configures the colorized output of `ls`, `tree`, `fd`, `bfs`, `dust`, and many other tools. | Yes | Yes |
-| Useful packages (install) | Installs a collection of useful packages that can provide additional functionality for your command-line workflow. | Yes | Yes (inside a toolbox) |
+| Useful packages (install) | Installs a collection of useful packages that can provide additional functionality for your command line workflow. | Yes | Yes (inside a toolbox) |
 | Git (config) | Configures Git, adding the user name and email, as well as defining the editor and diff viewer. | Yes | Yes |
 | VSCodium (install) | Installs VSCodium, a binary distribution of Microsoft's Visual Studio Code editor, without the telemetry and proprietary features. | Yes (RPM package) | Yes (Flatpak) |
 | TeX Live (configuration) | Configures a script for TeX Live, a comprehensive distribution of the TeX typesetting system. | Yes | No |
