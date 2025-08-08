@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+# MIT License
+# 
+# Copyright (c) 2025, Paulo Cereda
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+section "Helix installation and configuration"
+
+description "Helix is an open source, modal code editor that aims to \
+provide a modern, efficient, and customizable text editing experience. \
+It's designed to be fast, lightweight, and highly extensible, with a \
+focus on productivity and developer experience."
+
+echo
+
+question "Do you want to install and configure Helix?"
+
+# $? holds the exit status of the previous command execution; the logic applied
+# throughout the post installation is
+# +----+---------------+
+# | $? | Semantics     |
+# +----+---------------+
+# | 0  | yes / success |
+# | 1  | no / failure  |
+# +----+---------------+
+if [ $? = 0 ]; then
+
+    # Note: GitHub may apply rate limits to the API endpoint, which could
+    # cause this section to fail (been there, done that)
+
+    info "Getting latest version of Helix from GitHub."
+    test -f helix-editor.json || wget -q -O helix-editor.json https://api.github.com/repos/helix-editor/helix/releases/latest
+
+    info "Downloading Helix from GitHub."
+    wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux")).browser_download_url' helix-editor.json)
+
+    info "Extracting Helix."
+    tar xJf helix-*-x86_64-linux.tar.xz
+
+    info "Renaming application directory."
+    mv helix-*-linux helix-editor
+
+    info "Moving Helix."
+    mv "helix-editor" "${ROOT_DIRECTORY_STRUCTURE}/applications/"
+
+    info "Creating configuration file for Helix."
+    mkdir -p "${HOME}/.config/helix"
+    tee "${HOME}/.config/helix/config.toml" <<EOF
+theme = "onedark"
+
+[editor]
+line-number = "relative"
+cursorline = true
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.file-picker]
+hidden = false
+
+[editor.indent-guides]
+render = true
+
+[keys.normal]
+F1 = ":set whitespace.render none"
+F2 = ":set whitespace.render all"
+F3 = ":w"
+F4 = ":wq"
+F5 = ":q!"
+
+[editor.soft-wrap]
+enable = true
+EOF
+
+    info "Creating symbolic link to make Helix available."
+    mkdir -p "${HOME}/.local/bin"
+    ln -s "${ROOT_DIRECTORY_STRUCTURE}/applications/helix-editor/hx" "${HOME}/.local/bin/hx"
+
+    echo
+
+    warning "If you don't plan to install vim or neovim, consider creating \
+aliases for vim or nvim that point to Helix (e.g, alias vim='hx')."
+
+fi

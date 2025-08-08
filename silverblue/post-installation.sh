@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+
+# MIT License
+# 
+# Copyright (c) 2025, Paulo Cereda
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then    
+    echo "╭──────────────────────────────────────────╮"
+    echo "│ This script cannot be executed directly. │"
+    echo "╰──────────────────────────────────────────╯"
+    exit 1
+fi
+
+# flatpaks
+source "common/flathub-configuration.sh"
+source "silverblue/flatpak-unpin.sh"
+source "silverblue/flatpak-cleanup.sh"
+source "common/flatpaks-installation.sh"
+
+# GNOME configuration
+source "common/gnome-font-rendering.sh"
+source "common/gnome-clock.sh"
+source "common/gnome-autorun.sh"
+source "common/gnome-touchpad.sh"
+source "common/gnome-notification-banners.sh"
+source "common/gnome-technical-reports.sh"
+source "common/gnome-nautilus.sh"
+source "common/gnome-night-light.sh"
+source "common/gnome-software.sh"
+source "common/gnome-logo-gdm.sh"
+
+# hostname configuration
+source "common/hostname-configuration.sh"
+
+# custom home configuration
+source "silverblue/home-configuration.sh"
+
+# useful command line tools
+source "common/starship-installation.sh"
+source "common/carapace-installation.sh"
+source "common/zoxide-installation.sh"
+source "common/uv-installation.sh"
+source "common/sdkman-installation.sh"
+source "common/rust-installation.sh"
+source "common/go-installation.sh"
+source "common/nvm-installation.sh"
+source "common/mise-installation.sh"
+
+# color themes for the terminal
+source "common/color-themes.sh"
+source "common/terminal-colors.sh"
+
+# git configuration
+source "common/git-configuration.sh"
+
+# VSCodium
+source "silverblue/vscodium-installation.sh"
+
+# Distrobox
+source "common/distrobox-installation.sh"
+
+# fonts
+source "common/fonts-installation.sh"
+source "common/cascadia-code-installation.sh"
+
+# yt-dlp
+source "common/yt-dlp-installation.sh"
+
+# Nix
+source "silverblue/nix-installation.sh"
+
+# Nix toolbox
+source "common/nix-toolbox-configuration.sh"
+
+# direnv
+source "common/direnv-installation.sh"
+
+# Helix and Zed editors
+source "common/helix-installation.sh"
+source "common/zed-installation.sh"
+
+# toolbox configuration
+source "silverblue/toolbox-configuration.sh"
+source "silverblue/packages-to-install.sh"
+source "silverblue/useful-packages.sh"
+
+# tmux
+source "silverblue/tmux-installation.sh"
+
+# neovim
+source "silverblue/neovim-installation.sh"
+
+# Miniconda
+source "common/miniconda-installation.sh"
+
+# Homebrew
+source "silverblue/homebrew-installation.sh"
+
+# profile photo
+source "common/profile-photo.sh"
