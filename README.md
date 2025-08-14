@@ -31,7 +31,8 @@ A lot of things, actually. The following table summarizes the tasks:
 | Flatpaks (cleanup) | Removes several applications that come with Fedora, installed as Flatpaks (user selection). | No | Yes |
 | Packages (cleanup) | Removes several packages that come with Fedora (user selection). | Yes | No |
 | RPMFusion (config) | Configures RPMFusion, a project that provides a repository of additional software packages for Fedora. | Yes | No |
-| `ffmpeg` (config) | Replaces Fedora's `ffmpeg` with the version available in the RPMFusion repositories. | Yes | No | 
+| `ffmpeg` (config) | Replaces Fedora's `ffmpeg` with the version available in the RPMFusion repositories. | Yes | No |
+| Terra (install) | Installs Terra, a rolling RPM repository for Fedora. | Yes | No |
 | Flatpaks (install) | Installs several applications as Flatpaks (user selection). | Yes | Yes |
 | GNOME (config) | Configures and tweaks GNOME (see the table below). | Yes | Yes |
 | Hostname (config) | Configures the machine hostname. | Yes | Yes |

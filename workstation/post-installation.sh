@@ -34,6 +34,7 @@ source "common/flathub-configuration.sh"
 source "workstation/packages-to-remove.sh"
 source "workstation/package-cleanup.sh"
 source "workstation/rpmfusion-configuration.sh"
+source "workstation/terra-installation.sh"
 source "common/flatpaks-installation.sh"
 
 # GNOME configuration
