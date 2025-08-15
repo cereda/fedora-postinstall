@@ -78,6 +78,7 @@ style = "bold green"
 # [status]
 # disabled = false
 # symbol = "🔴"
+# symbol = "🟥"
 # format = "[\$symbol \$status](\$style) "
 EOF
 
