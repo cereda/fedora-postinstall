@@ -119,6 +119,7 @@ Additional command line tools (deployed in `${HOME}/.local/bin`):
 | `trippy` | A network diagnostic tool. |
 | `trivy` | Scans container images, file systems, and Git repositories for known vulnerabilities. |
 | `ttyd` | Shares terminal sessions over the web. |
+| `unimatrix` | Python script to simulate the display from "The Matrix" in terminal. |
 | `vhs` | Records and plays back terminal sessions. |
 | `vimv` | Renames files and directories. |
 | `vivid` | Generates color themes for the terminal. |
