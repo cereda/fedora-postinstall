@@ -22,41 +22,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t CLI_TOOLS_LIST=(
-    "binsider"
-    "bottom"
-    "bun"
-    "caddy"
-    "deno"
-    "duckdb"
-    "duf"
-    "f2"
-    "fd"
-    "freeze"
-    "fx"
-    "glow"
-    "gping"
-    "grex"
-    "gum"
-    "hexyl"
-    "ipinfo"
-    "jless"
-    "lapce"
-    "lsd"
-    "ouch"
-    "picocrypt"
-    "pingu"
-    "procs"
-    "ripgrep"
-    "surreal"
-    "trdsql"
-    "trippy"
-    "trivy"
-    "ttyd"
-    "unimatrix"
-    "vhs"
-    "vimv"
-    "vivid"
-    "yq"
-    "zellij"
-)
+tool-section "unimatrix"
+
+description "unimatrix is a Python script to simulate the display from \
+'The Matrix' in terminal. It uses half-width katakana unicode characters \
+by default, but can use custom character sets. It also accepts keyboard \
+controls while running."
+
+echo
+
+info "Downloading latest version of unimatrix from GitHub."
+wget -q https://raw.githubusercontent.com/will8211/unimatrix/master/unimatrix.py

@@ -22,41 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t CLI_TOOLS_LIST=(
-    "binsider"
-    "bottom"
-    "bun"
-    "caddy"
-    "deno"
-    "duckdb"
-    "duf"
-    "f2"
-    "fd"
-    "freeze"
-    "fx"
-    "glow"
-    "gping"
-    "grex"
-    "gum"
-    "hexyl"
-    "ipinfo"
-    "jless"
-    "lapce"
-    "lsd"
-    "ouch"
-    "picocrypt"
-    "pingu"
-    "procs"
-    "ripgrep"
-    "surreal"
-    "trdsql"
-    "trippy"
-    "trivy"
-    "ttyd"
-    "unimatrix"
-    "vhs"
-    "vimv"
-    "vivid"
-    "yq"
-    "zellij"
-)
+tool-section "unimatrix (setup)"
+
+info "Renaming executable file."
+mv unimatrix.py deploys/unimatrix
+
+info "Setting the execute permissions."
+chmod +x deploys/unimatrix
