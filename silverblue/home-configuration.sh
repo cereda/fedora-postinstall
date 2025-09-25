@@ -591,10 +591,23 @@ function audio-to-ogg {
 #     deactivate
 # }
 #
-# check packages from the previous Fedora release that are still installed
+# # check packages from the previous Fedora release that are still installed
 # function release-pkg-cheker {
 #     local hits=\$(rpm -qa | grep "fc\$((\$(rpm -E %fedora) - 1))" | grep -v "kernel" | wc -l)
 #     echo "Packages found: \$hits"
+# }
+#
+# # create a zip file with the current timestamp appended to the file name
+# function zip-date {
+#     if [ -d "\$1" ]; then
+#         local DIR_NAME="\${1%/}"
+#         local TIMESTAMP=\$(date +"%Y%m%d-%H%M%S")
+#         local ZIP_FILE="\${DIR_NAME}-\${TIMESTAMP}.zip"
+#         zip -r "\${ZIP_FILE}" "\${DIR_NAME}"
+#         echo "Created ZIP file: \${ZIP_FILE}"
+#     else
+#         echo "Error: Directory '\$1' does not exist."
+#     fi
 # }
 # **********************************************************************
 
