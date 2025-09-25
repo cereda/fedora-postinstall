@@ -80,6 +80,13 @@ style = "bold green"
 # symbol = "🔴"
 # symbol = "🟥"
 # format = "[\$symbol \$status](\$style) "
+#
+# [time]
+# disabled = false
+#
+# [[battery.display]]
+# threshold = 100
+# style = "bold red"
 EOF
 
 fi
