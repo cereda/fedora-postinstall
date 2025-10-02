@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 # MIT License
-# 
+#
 # Copyright (c) 2025, Paulo Cereda
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -203,7 +203,7 @@ info "Creating aliases file."
 tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<EOF
 # wrapper around some tools and commands I typically use in this computer
 function ${MACHINE_NAME} {
-    
+
     local PAULO_ICON_SYSTEM="💻"
     local PAULO_ICON_TOOLBOX="📦"
 
@@ -217,7 +217,7 @@ function ${MACHINE_NAME} {
         echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
         echo "│          │ nvim, direnv, brew, mise, world                │"
         echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ clean    │ flatpak, cache, system                         │"
+        echo "│ clean    │ flatpak, cache, system, permissions            │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ config   │ menu, toolbox                                  │"
         echo "├──────────┼────────────────────────────────────────────────┤"
@@ -255,7 +255,7 @@ function ${MACHINE_NAME} {
                         echo "\${PAULO_ICON_SYSTEM} No TeX distro manager available."
                     fi
                 ;;
-                
+
                 sdk)
                     if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" ]; then
                         source "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh"
@@ -355,12 +355,12 @@ function ${MACHINE_NAME} {
                             echo "\${PAULO_ICON_TOOLBOX} Upgrading formulas (via brew)."
                             brew update
                             brew upgrade
-                        fi  
+                        fi
                     else
                         echo "\${PAULO_ICON_SYSTEM} brew is not available."
                     fi
                 ;;
-                
+
                 world)
                     ${MACHINE_NAME} upgrade flatpak
                     ${MACHINE_NAME} upgrade tex
@@ -424,14 +424,22 @@ function ${MACHINE_NAME} {
                     shutdown -h now
                 ;;
 
+                permissions)
+                    flatpak permissions | awk -F'\t' '{print \$1, \$2}' | while read entry1 entry2; do
+                        if [ -n "\${entry1}" ] && [ -n "\${entry2}" ]; then
+                            flatpak permission-remove "\${entry1}" "\${entry2}" 2>/dev/null || true
+                        fi
+                    done
+                ;;
+
                 *)
                     echo "I don't know this target."
                     echo
                     echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ config   │ flatpak, cache, system                         │"
+                    echo "│ config   │ flatpak, cache, system, permissions            │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
-            esac       
+            esac
         ;;
 
         config)
@@ -524,7 +532,7 @@ function ${MACHINE_NAME} {
             echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
             echo "│          │ nvim, direnv, brew, mise, world                │"
             echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ clean    │ flatpak, cache, system                         │"
+            echo "│ clean    │ flatpak, cache, system, permissions            │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ config   │ menu, toolbox                                  │"
             echo "├──────────┼────────────────────────────────────────────────┤"
@@ -642,7 +650,7 @@ _${MACHINE_NAME}()
                 ;;
 
                 clean)
-                    COMPREPLY=(\$(compgen -W "flatpak cache system" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "flatpak cache system permissions" -- \${cur}))
                 ;;
 
                 config)
@@ -668,7 +676,7 @@ EOF
     tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-    
+
     # add any toolbox-specific configuration inside this block,
     # e.g, path to TeX Live from the host system:
     #

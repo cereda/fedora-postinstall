@@ -186,7 +186,7 @@ function ${MACHINE_NAME} {
         echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
         echo "│          │ uv, direnv, mise, world                        │"
         echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ clean    │ flatpak, files, cache, system                  │"
+        echo "│ clean    │ flatpak, files, cache, system, permissions     │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ config   │ menu                                           │"
         echo "├──────────┼────────────────────────────────────────────────┤"
@@ -214,7 +214,7 @@ function ${MACHINE_NAME} {
                         tlmgr update --self --all --reinstall-forcibly-removed
                     fi
                 ;;
-                
+
                 sdk)
                     if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" ]; then
                         source "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh"
@@ -297,7 +297,7 @@ function ${MACHINE_NAME} {
                         mise upgrade --bump
                     fi
                 ;;
-                
+
                 world)
                     ${MACHINE_NAME} upgrade flatpak
                     ${MACHINE_NAME} upgrade tex
@@ -366,14 +366,22 @@ function ${MACHINE_NAME} {
                     shutdown -h now
                 ;;
 
+                permissions)
+                    flatpak permissions | awk -F'\t' '{print \$1, \$2}' | while read entry1 entry2; do
+                        if [ -n "\${entry1}" ] && [ -n "\${entry2}" ]; then
+                            flatpak permission-remove "\${entry1}" "\${entry2}" 2>/dev/null || true
+                        fi
+                    done
+                ;;
+
                 *)
                     echo "I don't know this target."
                     echo
                     echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ clean    │ flatpak, files, cache, system                  │"
+                    echo "│ clean    │ flatpak, files, cache, system, permissions     │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
-            esac       
+            esac
         ;;
 
         config)
@@ -451,7 +459,7 @@ function ${MACHINE_NAME} {
             echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
             echo "│          │ uv, direnv, mise, world                        │"
             echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ clean    │ flatpak, files, cache, system                  │"
+            echo "│ clean    │ flatpak, files, cache, system, permissions     │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ config   │ menu                                           │"
             echo "├──────────┼────────────────────────────────────────────────┤"
@@ -560,7 +568,7 @@ _${MACHINE_NAME}()
                 ;;
 
                 clean)
-                    COMPREPLY=(\$(compgen -W "flatpak files cache system" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "flatpak files cache system permissions" -- \${cur}))
                 ;;
 
                 config)
@@ -586,7 +594,7 @@ info "Creating toolbox file."
 tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
-    
+
     # add any toolbox-specific configuration inside this block,
     # e.g, path to TeX Live from the host system:
     #
