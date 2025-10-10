@@ -544,6 +544,47 @@ function audio-to-ogg {
 #         echo "Error: Directory '\$1' does not exist."
 #     fi
 # }
+#
+# # set a JDK based on user selection
+# function cafebabe() {
+#
+#     # set the directory containing JDKs
+#     local JDK_DIR="/home/paulo/.jdks"
+#
+#     # function to get the current PATH update and remove existing JDK paths
+#     reset_path() {
+#
+#         # remove existing JDK paths from the PATH, ensuring delimiters are preserved
+#         export PATH=\$(echo "\${PATH}" | sed -E 's|:*/home/paulo/.jdks/[^:]+/bin||g; s|^/home/paulo/.jdks/[^:]+/bin:||g; s|^:||; s|:\$||')
+#
+#     }
+#
+#     # build the list of directories under JDK_DIR
+#     local JDK_LIST=\$(ls -1 "\${JDK_DIR}")
+#
+#     # append the "Reset path" option
+#     local OPTIONS=\$(printf "%s\n" \${JDK_LIST} "Reset path")
+
+#     # prompt user to choose a JDK version or reset path
+#     local CHOSEN=\$(echo "\${OPTIONS}" | gum choose --header "Choose a JDK version:")
+
+#     # check if the user selected "Reset path"
+#     if [[ "\${CHOSEN}" == "Reset path" ]]; then
+#         reset_path
+#         echo "PATH has been reset to the original state."
+#     else
+
+#         # remove any existing JDK path from PATH
+#         reset_path
+        
+#         # set the new JDK path
+#         export PATH="\${JDK_DIR}/\${CHOSEN}/bin:\${PATH}"
+#         echo "Updated PATH to include: \${JDK_DIR}/\${CHOSEN}/bin"
+#     fi
+
+#     # unset the reset function
+#     unset -f reset_path
+# }
 # **********************************************************************
 EOF
 
