@@ -184,7 +184,7 @@ function ${MACHINE_NAME} {
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
         echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-        echo "│          │ uv, direnv, mise, world                        │"
+        echo "│          │ nvim, uv, direnv, mise, world                  │"
         echo "├──────────┼────────────────────────────────────────────────┤"
         echo "│ clean    │ flatpak, files, cache, system, permissions     │"
         echo "├──────────┼────────────────────────────────────────────────┤"
@@ -227,6 +227,13 @@ function ${MACHINE_NAME} {
                 vim)
                     if [ -x "\$(command -v vim)" ]; then
                         vim -c "PlugUpgrade" -c "PlugUpdate" -c "q" -c "q"
+                    fi
+                ;;
+
+                nvim)
+                    if [ -x "\$(command -v nvim)" ]; then
+                        echo "\${PAULO_ICON_TOOLBOX} Upgrading neovim."
+                        nvim --headless "+Lazy! sync" +qa
                     fi
                 ;;
 
@@ -303,6 +310,7 @@ function ${MACHINE_NAME} {
                     ${MACHINE_NAME} upgrade tex
                     ${MACHINE_NAME} upgrade sdk
                     ${MACHINE_NAME} upgrade vim
+                    ${MACHINE_NAME} upgrade nvim
                     ${MACHINE_NAME} upgrade node
                     ${MACHINE_NAME} upgrade youtube
                     ${MACHINE_NAME} upgrade rust
@@ -321,7 +329,7 @@ function ${MACHINE_NAME} {
                     echo "╭──────────┬────────────────────────────────────────────────╮"
                     echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
                     echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-                    echo "│          │ uv, direnv, mise, world                        │"
+                    echo "│          │ nvim, uv, direnv, mise, world                  │"
                     echo "╰──────────┴────────────────────────────────────────────────╯"
                 ;;
             esac
@@ -457,7 +465,7 @@ function ${MACHINE_NAME} {
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
             echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-            echo "│          │ uv, direnv, mise, world                        │"
+            echo "│          │ nvim, uv, direnv, mise, world                  │"
             echo "├──────────┼────────────────────────────────────────────────┤"
             echo "│ clean    │ flatpak, files, cache, system, permissions     │"
             echo "├──────────┼────────────────────────────────────────────────┤"
@@ -605,7 +613,7 @@ _${MACHINE_NAME}()
         2)
             case \${prev} in
                 upgrade)
-                    COMPREPLY=(\$(compgen -W "system starship tex sdk vim node youtube rust deno bun flatpak conda distrobox uv direnv mise world" -- \${cur}))
+                    COMPREPLY=(\$(compgen -W "system starship tex sdk vim nvim node youtube rust deno bun flatpak conda distrobox uv direnv mise world" -- \${cur}))
                 ;;
 
                 clean)
