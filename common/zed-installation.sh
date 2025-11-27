@@ -112,4 +112,7 @@ Exec=${ROOT_DIRECTORY_STRUCTURE}/applications/zed.app/bin/zed --new %U
 Name=Open a new workspace
 EOF
 
+    info "Removing archive file."
+    rm -f zed-linux-x86_64.tar.gz
+
 fi
