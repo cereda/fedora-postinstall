@@ -232,7 +232,6 @@ function ${MACHINE_NAME} {
 
                 nvim)
                     if [ -x "\$(command -v nvim)" ]; then
-                        echo "\${PAULO_ICON_TOOLBOX} Upgrading neovim."
                         nvim --headless "+Lazy! sync" +qa
                     fi
                 ;;
