@@ -87,4 +87,7 @@ pathmunge \${GO_HOME}/bin after
 unset pathmunge
 EOF
 
+    info "Removing archive file."
+    rm -f go*.tar.gz
+
 fi
