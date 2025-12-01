@@ -71,6 +71,9 @@ source "common/mise-installation.sh"
 source "workstation/vim-installation.sh"
 source "workstation/neovim-installation.sh"
 
+# taskwarrior
+source "workstation/taskwarrior-installation.sh"
+
 # color themes for the terminal
 source "common/color-themes.sh"
 source "common/terminal-colors.sh"

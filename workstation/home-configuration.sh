@@ -120,6 +120,11 @@ if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh"
 fi
 
+# load the taskwarrior config
+if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/taskwarrior.sh" ]; then
+    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/taskwarrior.sh"
+fi
+
 # set starship as default prompt
 if [ -x "\$(command -v starship)" ]; then
 
