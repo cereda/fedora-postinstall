@@ -639,20 +639,29 @@ function audio-to-ogg {
 #     local OPTIONS=\$(printf "%s\n" \${JDK_LIST} "Reset path")
 #
 #     # prompt user to choose a JDK version or reset path
-#     local CHOSEN=\$(echo "\${OPTIONS}" | gum choose --header "Choose a JDK version:")
+#     local CHOSEN=\$(echo "\${OPTIONS}" | gum choose --header "Choose a JDK version:" --cursor="☕ " --selected "Reset path")
 #
-#     # check if the user selected "Reset path"
-#     if [[ "\${CHOSEN}" == "Reset path" ]]; then
-#         reset_path
-#         echo "PATH has been reset to the original state."
+#     # check if user selected an option
+#     if [ -z "\${CHOSEN}" ]; then
+#
+#         # simply warn user
+#         echo "You haven't selected a JDK version. Keeping PATH as is."
+#
 #     else
 #
-#         # remove any existing JDK path from PATH
-#         reset_path
-#        
-#         # set the new JDK path
-#         export PATH="\${JDK_DIR}/\${CHOSEN}/bin:\${PATH}"
-#         echo "Updated PATH to include: \${JDK_DIR}/\${CHOSEN}/bin"
+#         # check if the user selected "Reset path"
+#         if [[ "\${CHOSEN}" == "Reset path" ]]; then
+#             reset_path
+#             echo "PATH has been reset to the original state."
+#         else
+#
+#             # remove any existing JDK path from PATH
+#             reset_path
+#
+#             # set the new JDK path
+#             export PATH="\${JDK_DIR}/\${CHOSEN}/bin:\${PATH}"
+#             echo "Updated PATH to include: \${JDK_DIR}/\${CHOSEN}/bin"
+#         fi
 #     fi
 #
 #     # unset the reset function
