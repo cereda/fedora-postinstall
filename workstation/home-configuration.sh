@@ -175,6 +175,13 @@ if [ -x "\$(command -v mise)" ]; then
     # activate mise (optional, uncomment it to enable)
     # eval "\$(mise activate bash)"
 fi
+
+# hook fzf into the shell
+if [ -x "\$(command -v fzf)" ]; then
+
+    # shell integration for fzf
+    eval "\$(fzf --bash)"
+fi
 EOF
 
 info "Creating aliases file."
