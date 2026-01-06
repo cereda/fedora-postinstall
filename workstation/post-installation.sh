@@ -74,6 +74,9 @@ source "workstation/neovim-installation.sh"
 # taskwarrior
 source "workstation/taskwarrior-installation.sh"
 
+# forgit
+source "workstation/forgit-installation.sh"
+
 # color themes for the terminal
 source "common/color-themes.sh"
 source "common/terminal-colors.sh"

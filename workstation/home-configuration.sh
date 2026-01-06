@@ -125,6 +125,11 @@ if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/taskwarrior.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/taskwarrior.sh"
 fi
 
+# load the forgit config
+if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/forgit.sh" ]; then
+    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/forgit.sh"
+fi
+
 # set starship as default prompt
 if [ -x "\$(command -v starship)" ]; then
 
