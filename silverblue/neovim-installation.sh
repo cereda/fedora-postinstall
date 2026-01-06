@@ -154,12 +154,15 @@ EOF
 -- Paulo's personal configuration
 -- ****************************************
 local opt = vim.opt
+local global = vim.g
 
 opt.autoindent = true
 opt.expandtab = true
 opt.softtabstop = 4
 opt.shiftwidth = 4
 opt.shiftround = true
+
+global.autoformat = false
 -- ****************************************
 EOF
 
