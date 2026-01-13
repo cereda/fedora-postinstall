@@ -192,5 +192,19 @@ return {
 -- ****************************************
 EOF
 
+        info "Adding custom plugin configuration [2]."
+        tee "${HOME}/.config/nvim/lua/plugins/blink.lua" <<EOF
+-- ****************************************
+-- Paulo's personal configuration
+-- ****************************************
+return {
+    {
+        "saghen/blink.cmp",
+        enabled = false,
+    },
+}
+-- ****************************************
+EOF
+
     fi
 fi

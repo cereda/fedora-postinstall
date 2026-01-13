@@ -167,7 +167,7 @@ global.autoformat = false
 -- ****************************************
 EOF
 
-        info "Adding custom plugin configuration."
+        info "Adding custom plugin configuration [1]."
         tee "${HOME}/.config/nvim/lua/plugins/logo.lua" <<EOF
 -- ****************************************
 -- Paulo's personal configuration
@@ -188,6 +188,20 @@ return {
                 ]],
             },
         },
+    },
+}
+-- ****************************************
+EOF
+
+        info "Adding custom plugin configuration [2]."
+        tee "${HOME}/.config/nvim/lua/plugins/blink.lua" <<EOF
+-- ****************************************
+-- Paulo's personal configuration
+-- ****************************************
+return {
+    {
+        "saghen/blink.cmp",
+        enabled = false,
     },
 }
 -- ****************************************
