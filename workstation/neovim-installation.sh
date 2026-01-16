@@ -164,6 +164,9 @@ opt.shiftwidth = 4
 opt.shiftround = true
 
 global.autoformat = false
+
+-- Disable auto pairs
+-- global.minipairs_disable = true
 -- ****************************************
 EOF
 
