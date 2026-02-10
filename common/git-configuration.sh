@@ -40,14 +40,33 @@ echo
 GIT_USERNAME=$(${GUM} input --prompt "Your full name: ")
 GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
 
+# XDG-based configuration
+GIT_CONFIG_LOCATION="${HOME}/.config/git"
+
+# legacy configuration
+# GIT_CONFIG_LOCATION="${HOME}"
+
+# XDG-based configuration file
+GIT_CONFIG_FILE="config"
+
+# legacy configuration file
+# GIT_CONFIG_FILE=".gitconfig"
+
+# ensure XDG-based path exists
+mkdir -p "${GIT_CONFIG_LOCATION}"
+
+# ensure the hooks path exists
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/git/hooks"
+
 info "Generating configuration file for Git."
-tee "${HOME}/.gitconfig" <<EOF
+tee "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" <<EOF
 [user]
 	name = ${GIT_USERNAME}
 	email = ${GIT_EMAIL}
 [core]
 	editor = vim
 	pager = delta
+	hooksPath = "${ROOT_DIRECTORY_STRUCTURE}/config/git/hooks"
 [push]
 	default = simple
 [interactive]
