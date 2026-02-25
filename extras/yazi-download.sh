@@ -22,42 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t CLI_TOOLS_LIST=(
-    "binsider"
-    "bottom"
-    "bun"
-    "caddy"
-    "deno"
-    "duckdb"
-    "duf"
-    "f2"
-    "fd"
-    "freeze"
-    "fx"
-    "glow"
-    "gping"
-    "grex"
-    "gum"
-    "hexyl"
-    "ipinfo"
-    "jless"
-    "lapce"
-    "lsd"
-    "ouch"
-    "picocrypt"
-    "pingu"
-    "procs"
-    "ripgrep"
-    "surreal"
-    "trdsql"
-    "trippy"
-    "trivy"
-    "ttyd"
-    "unimatrix"
-    "vhs"
-    "vimv"
-    "vivid"
-    "yazi"
-    "yq"
-    "zellij"
-)
+tool-section "yazi"
+
+description "yazi is a blazing fast terminal file manager written in Rust,\
+based on async I/O. It can be optionally extended with other command line\
+tools to enable additional features."
+
+echo
+
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
+info "Getting latest version of yazi from GitHub."
+test -f yazi.json || wget -q -O yazi.json https://api.github.com/repos/sxyazi/yazi/releases/latest
+
+info "Downloading yazi from GitHub."
+wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("zip")).browser_download_url' yazi.json)
