@@ -54,6 +54,7 @@ declare -t CLI_TOOLS_LIST=(
     "trivy"
     "ttyd"
     "unimatrix"
+    "usage"
     "vhs"
     "vimv"
     "vivid"

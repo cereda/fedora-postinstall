@@ -22,19 +22,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-tool-section "yazi"
+tool-section "usage"
 
-description "yazi is a blazing fast terminal file manager written in Rust,\
-based on async I/O. It can be optionally extended with other command line\
-tools to enable additional features."
+description "usage is a spec and CLI for defining CLI tools. Recommended\
+if mise is installed and activated."
 
 echo
 
 # Note: GitHub may apply rate limits to the API endpoint, which could
 # cause this section to fail (been there, done that)
 
-info "Getting latest version of yazi from GitHub."
-test -f yazi.json || wget -q -O yazi.json https://api.github.com/repos/sxyazi/yazi/releases/latest
+info "Getting latest version of usage from GitHub."
+test -f usage.json || wget -q -O usage.json https://api.github.com/repos/jdx/usage/releases/latest
 
-info "Downloading yazi from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("zip")).browser_download_url' yazi.json)
+info "Downloading usage from GitHub."
+wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("tar.gz")).browser_download_url' usage.json)
