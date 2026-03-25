@@ -77,6 +77,9 @@ source "workstation/taskwarrior-installation.sh"
 # Ghostty
 source "workstation/ghostty-installation.sh"
 
+# yazi
+source "workstation/yazi-installation.sh"
+
 # forgit
 source "workstation/forgit-installation.sh"
 

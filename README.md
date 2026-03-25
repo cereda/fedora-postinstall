@@ -51,6 +51,7 @@ A lot of things, actually. The following table summarizes the tasks:
 | Taskwarrior (install) | Installs Taskwarrior, a flexible and powerful open source task management software. | Yes | No |
 | `forgit` (install) | Installs `forgit`, a command line tool that combines Git and `fzf`. | Yes | No |
 | Ghostty (install) | Installs Ghostty, a terminal emulator that uses platform-native UI and GPU acceleration. | Yes | No |
+| `yazi` (install) | Installs `yazi`, a blazing fast terminal file manager. | Yes | No |
 | Terminal colors | Configures the colorized output of `ls`, `tree`, `fd`, `bfs`, `dust`, and many other tools. | Yes | Yes |
 | Useful packages (install) | Installs a collection of useful packages that can provide additional functionality for your command line workflow. | Yes | Yes (inside a toolbox) |
 | Git (config) | Configures Git, adding the user name and email, as well as defining the editor and diff viewer. | Yes | Yes |
@@ -127,7 +128,7 @@ Additional command line tools (deployed in `${HOME}/.local/bin`):
 | `vhs` | Records and plays back terminal sessions. |
 | `vimv` | Renames files and directories. |
 | `vivid` | Generates color themes for the terminal. |
-| `yazi` | A blazing fast terminal file manager. |
+| `yazi` | A blazing fast terminal file manager. _(standalone binary)_ |
 | `yq` | Manipulates YAML files. |
 | `zellij` | A modern, feature-rich terminal multiplexer. |
 
