@@ -48,6 +48,9 @@ A lot of things, actually. The following table summarizes the tasks:
 | `mise` (install) | Installs `mise`, a command line tool designed for setting up and managing development environments. | Yes | Yes |
 | vim (install) | Installs vim, a highly configurable, open source text editor known for its powerful and efficient command-line interface. | Yes | No |
 | neovim (install) | Installs neovim, an open source, community-driven, and highly customizable fork of the vim text editor. | Yes | Yes (inside a toolbox) |
+| Taskwarrior (install) | Installs Taskwarrior, a flexible and powerful open source task management software. | Yes | No |
+| `forgit` (install) | Installs `forgit`, a command line tool that combines Git and `fzf`. | Yes | No |
+| Ghostty (install) | Installs Ghostty, a terminal emulator that uses platform-native UI and GPU acceleration. | Yes | No |
 | Terminal colors | Configures the colorized output of `ls`, `tree`, `fd`, `bfs`, `dust`, and many other tools. | Yes | Yes |
 | Useful packages (install) | Installs a collection of useful packages that can provide additional functionality for your command line workflow. | Yes | Yes (inside a toolbox) |
 | Git (config) | Configures Git, adding the user name and email, as well as defining the editor and diff viewer. | Yes | Yes |
@@ -120,9 +123,11 @@ Additional command line tools (deployed in `${HOME}/.local/bin`):
 | `trivy` | Scans container images, file systems, and Git repositories for known vulnerabilities. |
 | `ttyd` | Shares terminal sessions over the web. |
 | `unimatrix` | Python script to simulate the display from "The Matrix" in terminal. |
+| `usage` | A spec and CLI for defining CLI tools. |
 | `vhs` | Records and plays back terminal sessions. |
 | `vimv` | Renames files and directories. |
 | `vivid` | Generates color themes for the terminal. |
+| `yazi` | A blazing fast terminal file manager. |
 | `yq` | Manipulates YAML files. |
 | `zellij` | A modern, feature-rich terminal multiplexer. |
 
