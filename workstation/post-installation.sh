@@ -74,6 +74,9 @@ source "workstation/neovim-installation.sh"
 # taskwarrior
 source "workstation/taskwarrior-installation.sh"
 
+# Ghostty
+source "workstation/ghostty-installation.sh"
+
 # forgit
 source "workstation/forgit-installation.sh"
 
