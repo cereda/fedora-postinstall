@@ -31,9 +31,10 @@ declare -t EXISTING_PACKAGES=(
     "gnome-user-docs"
     "gnome-weather"
     "libreoffice*"
-    "rhythmbox"
     "simple-scan"
-    "totem"
     "gnome-boxes"
     "mediawriter"
+    "showtime"
+    "decibels"
+    "gnome-tour"
 )
