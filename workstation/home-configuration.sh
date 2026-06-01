@@ -546,7 +546,7 @@ function audio-to-ogg {
 #     echo "Activating environment."
 #     source "${ROOT_DIRECTORY_STRUCTURE}/environments/python/youtube/bin/activate"
 #     local USER_AGENT="<user agent>"
-#     yt-dlp --cookies-from-browser <browser>:<location> --user-agent "${USER_AGENT}" "$\@"
+#     yt-dlp --cookies-from-browser <browser>:<location> --user-agent "${USER_AGENT}" "\$@"
 #     echo "Deactivating environment."
 #     deactivate
 # }
