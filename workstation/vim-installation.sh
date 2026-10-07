@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 # MIT License
-# 
+#
 # Copyright (c) 2025, Paulo Cereda
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -47,16 +47,17 @@ if [ $? = 0 ]; then
     sudo dnf install vim -y
 
     info "Installing the plug-in manager for vim (vim-plug)."
-    curl -fLo "${HOME}/.vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    curl -fLo "${HOME}/.config/vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
     info "Creating the configuration file."
-    tee "${HOME}/.vimrc" <<EOF
-call plug#begin('~/.vim/plugged')
+    tee "${HOME}/.config/vim/vimrc" <<EOF
+call plug#begin('~/.config/vim/plugged')
 
 Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'
 Plug 'sheerun/vim-polyglot'
-Plug 'sainnhe/edge'
+" Plug 'sainnhe/edge'
+Plug 'sainnhe/everforest'
 Plug 'preservim/nerdtree'
 Plug 'psliwka/vim-smoothie'
 Plug 'mhinz/vim-startify'
@@ -105,9 +106,14 @@ let g:edge_style = 'aura'
 let g:edge_enable_italic = 0
 let g:edge_disable_italic_comment = 1
 
-let g:lightline = {'colorscheme' : 'edge'}
+" let g:lightline = {'colorscheme' : 'edge'}
+" colorscheme edge
 
-colorscheme edge
+set background=dark
+let g:everforest_background = 'medium' " hard, medium, soft
+let g:everforest_better_performance = 1
+let g:lightline = {'colorscheme' : 'everforest'}
+colorscheme everforest
 
 let g:startify_fortune_use_unicode = 1
 let g:startify_custom_footer =

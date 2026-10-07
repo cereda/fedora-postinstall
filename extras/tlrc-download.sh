@@ -2,7 +2,7 @@
 
 # MIT License
 #
-# Copyright (c) 2025, Paulo Cereda
+# Copyright (c) 2026, Paulo Cereda
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,25 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t PACKAGES_TO_INSTALL=(
-    "ack"
-    "bat"
-    "bleachbit"
-    "chafa"
-    "fdupes"
-    "ffmpeg"
-    "file-roller"
-    "fortune-mod"
-    "fzf"
-    "git-delta"
-    "git-filter-repo"
-    "git-lfs"
-    "gnome-tweaks"
-    "hyperfine"
-    "java-latest-openjdk-devel"
-    "p7zip"
-    "p7zip-plugins"
-    "papirus-icon-theme"
-    "rdfind"
-    "unrar"
-)
+tool-section "tlrc"
+
+description "tlrc is the official tldr client written in Rust, a command line \
+tool that provides concise, practical examples for Linux commands, making man \
+pages easier to understand. Instead of lengthy documentation, it shows common \
+ways to use a command and what its options do."
+
+echo
+
+# Note: GitHub may apply rate limits to the API endpoint, which could
+# cause this section to fail (been there, done that)
+
+info "Getting latest version of tlrc from GitHub."
+test -f tlrc.json || wget -q -O tlrc.json https://api.github.com/repos/tldr-pages/tlrc/releases/latest
+
+info "Downloading tlrc from GitHub."
+wget -q $(jq -r '.assets[] | select(.name | contains("x86_64-unknown-linux-gnu") and endswith("tar.gz")).browser_download_url' tlrc.json)
