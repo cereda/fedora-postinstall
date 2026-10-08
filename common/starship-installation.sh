@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 # MIT License
-# 
+#
 # Copyright (c) 2025, Paulo Cereda
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -44,10 +44,10 @@ question "Do you want to install starship?"
 # | 1  | no / failure  |
 # +----+---------------+
 if [ $? = 0 ]; then
-    
+
     info "Preparing the installation directory."
     mkdir -p "${HOME}/.local/bin"
-    
+
     # starship has its own installation script, setting the target directory
     # and overriding existing installations via command line flags
     info "Installing starship."
@@ -57,14 +57,14 @@ if [ $? = 0 ]; then
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/starship"
 
     info "Creating the configuration file for starship."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/config/starship/starship.toml" <<EOF
+    tee "${ROOT_DIRECTORY_STRUCTURE}/config/starship/starship.toml" <<'EOF'
 [character]
 success_symbol = "[➜](bold green)"
 error_symbol = "[➜](bold red)"
 
 [username]
 show_always = true
-format = "[\$user](\$style) at "
+format = "[$user]($style) at "
 style_root = "bold red"
 style_user = "bold yellow"
 
@@ -79,7 +79,7 @@ style = "bold green"
 # disabled = false
 # symbol = "🔴"
 # symbol = "🟥"
-# format = "[\$symbol \$status](\$style) "
+# format = "[$symbol $status]($style) "
 #
 # [time]
 # disabled = false
@@ -87,6 +87,20 @@ style = "bold green"
 # [[battery.display]]
 # threshold = 100
 # style = "bold red"
+#
+# [custom.git_server]
+# description = "Display symbol for the remote Git hosting provider"
+# when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
+# shell = ["sh"]
+# command = '''
+# remote=$(git remote get-url origin 2>/dev/null) || remote=
+# case "$remote" in
+#     *github.com:*|*github.com/*|*github.com) printf "\\uF113 GitHub " ;;
+#     *gitlab.com:*|*gitlab.com/*|*gitlab.com) printf "\\uF296 GitLab " ;;
+#     *) printf "\\uE702 Git " ;;
+# esac
+# '''
+# style = "bright-blue bold"
 EOF
 
 fi
