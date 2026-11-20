@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+# SPDX-License-Identifier: MIT
+
 load "${BATS_TEST_DIRNAME}/../helpers/assertions"
 
 setup() {

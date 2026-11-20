@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# SPDX-License-Identifier: MIT
+
 section "Paulo's custom configuration for the home directory"
 
 description "A custom home directory setup provides improved \

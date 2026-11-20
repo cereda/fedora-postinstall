@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 common/flatpaks-to-install.sh|read-only|
 common/fonts-to-install.sh|read-only|
 common/flathub-configuration.sh|mutating|

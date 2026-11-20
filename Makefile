@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 SHELL := /bin/bash
 
 BATS ?= bats
@@ -7,7 +8,7 @@ SHELLCHECK ?= shellcheck
 SHFMT ?= shfmt
 SHFMT_FLAGS ?= -i 4
 
-.PHONY: help check test syntax shellcheck format format-check python json diff-check
+.PHONY: help check test syntax shellcheck format format-check python json license diff-check
 
 help:
 	@printf '%s\n' \
@@ -20,9 +21,10 @@ help:
 		'  format        Format tracked Shell scripts' \
 		'  python        Compile the Python helpers' \
 		'  json          Validate tracked JSON files' \
+		'  license       Validate SPDX license headers' \
 		'  diff-check    Check the working tree for whitespace errors'
 
-check: format-check syntax shellcheck python json test diff-check
+check: format-check syntax shellcheck python json license test diff-check
 
 test:
 	@$(BATS) --print-output-on-failure tests/unit
@@ -52,6 +54,9 @@ json:
 	if [ -n "$$files" ]; then \
 		while IFS= read -r file; do $(JQ) empty "$$file"; done <<< "$$files"; \
 	fi
+
+license:
+	@$(PYTHON) tools/check-spdx.py
 
 diff-check:
 	@git diff --check

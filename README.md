@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # Fedora post installation guide
 
 Welcome to my personal Fedora post installation guide. This repository describes most of the tasks I perform after a clean install of this awesome Linux distribution. Ideas and suggestions were collected from various sources, as well as from personal experience and preference. Use this guide at your own risk, and have fun with Fedora!

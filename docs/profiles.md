@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # Profiles
 
 Profiles provide a repeatable **selection** of post-installation modules and additional command-line tools. They are intentionally not configuration files: a profile cannot run commands, override download URLs or checksums, change archive types, select deployment targets, or provide arbitrary script paths.
