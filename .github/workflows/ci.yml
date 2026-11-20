@@ -34,7 +34,7 @@ jobs:
         run: |
           curl --fail --location --silent --show-error \
             --output /tmp/shfmt \
-            "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION#v}_linux_amd64"
+            "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
           printf '%s  %s\n' "${SHFMT_SHA256}" /tmp/shfmt | sha256sum --check -
           sudo install --mode=0755 /tmp/shfmt /usr/local/bin/shfmt
           rm -f /tmp/shfmt
