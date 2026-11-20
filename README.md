@@ -20,6 +20,16 @@ $ cd fedora-postinstall
 $ CLI_TOOLS_ONLY=1 bash fedora-postinstall.sh
 ```
 
+### Prerequisites
+
+The script requires Fedora with `rpm`, plus the following commands: `bash`, `curl`, `git`, `jq`, `realpath`, `tar`, `unzip`, and `wget`. On Fedora, install the missing tools with:
+
+```bash
+$ sudo dnf install curl git jq realpath tar unzip wget
+```
+
+The script also requires an interactive terminal and a working `sudo` session for the system configuration steps.
+
 ## What does this script do?
 
 A lot of things, actually. The following table summarizes the tasks:

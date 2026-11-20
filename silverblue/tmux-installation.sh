@@ -44,7 +44,7 @@ question "Do you want to install and configure tmux?"
 if [ $? = 0 ]; then
 
     info "Installing tmux as an RPM package."
-    toolbox --container ${TOOLBOX_NAME} run sudo dnf install tmux
+    toolbox --container "${TOOLBOX_NAME}" run sudo dnf install tmux
 
     info "Creating the configuration directories for tmux."
     mkdir -p "${HOME}/.config/tmux/plugins"

@@ -31,6 +31,9 @@ permissions to their specific needs."
 
 echo
 
+# use a shell-safe command name independent from the host name
+COMMAND_NAME="host_${MACHINE_NAME//[^A-Za-z0-9_]/_}"
+
 question "Do you want to use a hidden directory structure? [recommended]"
 
 # $? holds the exit status of the previous command execution; the logic applied
@@ -57,15 +60,27 @@ and select one with the Enter key."
 
     SELECT_DIRECTORY=null
 
-    # the script will loop until the user selects a directory
-    while [ ! -d "${SELECT_DIRECTORY}" ]; do
+    # the script will loop until the user selects a safe directory
+    while true; do
 
         # show the directory chooser
         SELECT_DIRECTORY=$(${GUM} file --all --permissions --directory)
-    done
 
-    # the selected directory will be the root directory
-    ROOT_DIRECTORY_STRUCTURE="${SELECT_DIRECTORY}"
+        if [ -z "${SELECT_DIRECTORY}" ]; then
+            continue
+        fi
+
+        ROOT_DIRECTORY_STRUCTURE=$(realpath -e -- "${SELECT_DIRECTORY}") || continue
+
+        if validate_root_directory "${ROOT_DIRECTORY_STRUCTURE}"; then
+            break
+        fi
+    done
+fi
+
+if ! validate_root_directory "${ROOT_DIRECTORY_STRUCTURE}"; then
+    text "The selected configuration directory is not safe to use. Aborting."
+    exit 1
 fi
 
 text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE}."
@@ -202,13 +217,13 @@ EOF
 info "Creating aliases file."
 tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<EOF
 # wrapper around some tools and commands I typically use in this computer
-function ${MACHINE_NAME} {
+function ${COMMAND_NAME} {
 
     local PAULO_ICON_SYSTEM="💻"
     local PAULO_ICON_TOOLBOX="📦"
 
     if [ "\$#" -ne 2 ]; then
-        echo "Usage: ${MACHINE_NAME} <action> <target>" >&2
+        echo "Usage: ${COMMAND_NAME} <action> <target>" >&2
         echo
         echo "╭──────────┬────────────────────────────────────────────────╮"
         echo "│ Actions  │ Targets                                        │"
@@ -362,21 +377,21 @@ function ${MACHINE_NAME} {
                 ;;
 
                 world)
-                    ${MACHINE_NAME} upgrade flatpak
-                    ${MACHINE_NAME} upgrade tex
-                    ${MACHINE_NAME} upgrade sdk
-                    ${MACHINE_NAME} upgrade node
-                    ${MACHINE_NAME} upgrade youtube
-                    ${MACHINE_NAME} upgrade rust
-                    ${MACHINE_NAME} upgrade deno
-                    ${MACHINE_NAME} upgrade bun
-                    ${MACHINE_NAME} upgrade nvim
-                    ${MACHINE_NAME} upgrade conda
-                    ${MACHINE_NAME} upgrade uv
-                    ${MACHINE_NAME} upgrade mise
-                    ${MACHINE_NAME} upgrade brew
-                    ${MACHINE_NAME} clean flatpak
-                    ${MACHINE_NAME} clean cache
+                    ${COMMAND_NAME} upgrade flatpak
+                    ${COMMAND_NAME} upgrade tex
+                    ${COMMAND_NAME} upgrade sdk
+                    ${COMMAND_NAME} upgrade node
+                    ${COMMAND_NAME} upgrade youtube
+                    ${COMMAND_NAME} upgrade rust
+                    ${COMMAND_NAME} upgrade deno
+                    ${COMMAND_NAME} upgrade bun
+                    ${COMMAND_NAME} upgrade nvim
+                    ${COMMAND_NAME} upgrade conda
+                    ${COMMAND_NAME} upgrade uv
+                    ${COMMAND_NAME} upgrade mise
+                    ${COMMAND_NAME} upgrade brew
+                    ${COMMAND_NAME} clean flatpak
+                    ${COMMAND_NAME} clean cache
                 ;;
 
                 *)
@@ -420,7 +435,7 @@ function ${MACHINE_NAME} {
                 ;;
 
                 system)
-                    ${MACHINE_NAME} clean cache
+                    ${COMMAND_NAME} clean cache
                     shutdown -h now
                 ;;
 
@@ -681,7 +696,7 @@ EOF
 
 info "Creating completion file."
 tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<EOF
-_${MACHINE_NAME}()
+_${COMMAND_NAME}()
 {
     local cur prev
 
@@ -719,7 +734,7 @@ _${MACHINE_NAME}()
     esac
 }
 
-complete -F _${MACHINE_NAME} ${MACHINE_NAME}
+complete -F _${COMMAND_NAME} ${COMMAND_NAME}
 EOF
 
     info "Creating toolbox file."

@@ -48,10 +48,16 @@ question "Do you want to unpin the platform runtimes?"
 # +----+---------------+
 if [ $? = 0 ]; then
 
-    # currently, it should unpin the following runtimes:
-    # - runtime/org.fedoraproject.Platform/x86_64/f${FEDORA_VERSION}
-    # - runtime/org.fedoraproject.Platform.GL.default/x86_64/f${FEDORA_VERSION}
+    # unpin only the Fedora platform runtimes for the current architecture and
+    # release; other pins may have been created intentionally by the user
+    FLATPAK_ARCH=$(uname -m)
+    FEDORA_RUNTIME_PINS=(
+        "runtime/org.fedoraproject.Platform/${FLATPAK_ARCH}/f${FEDORA_VERSION}"
+        "runtime/org.fedoraproject.Platform.GL.default/${FLATPAK_ARCH}/f${FEDORA_VERSION}"
+    )
 
-    info "Unpinning platform runtimes."
-    flatpak pin | xargs -L 1 flatpak pin --remove
+    info "Unpinning Fedora platform runtimes."
+    for FEDORA_RUNTIME_PIN in "${FEDORA_RUNTIME_PINS[@]}"; do
+        flatpak pin --remove "${FEDORA_RUNTIME_PIN}"
+    done
 fi

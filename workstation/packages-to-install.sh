@@ -38,6 +38,7 @@ declare -t PACKAGES_TO_INSTALL=(
     "gnome-tweaks"
     "hyperfine"
     "java-latest-openjdk-devel"
+    "jq"
     "p7zip"
     "p7zip-plugins"
     "papirus-icon-theme"

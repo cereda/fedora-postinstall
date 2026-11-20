@@ -47,10 +47,10 @@ if [ $? = 0 ]; then
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
     # get the Homebrew toolbox container name
-    TOOLBOX_HOMEBREW_NAME=$(${GUM} input --prompt "Your Homebrew container name: " --value "f${FEDORA_VERSION}-homebrew")
+    TOOLBOX_HOMEBREW_NAME=$(prompt_valid_container_name "Your Homebrew container name: " "f${FEDORA_VERSION}-homebrew")
 
     info "Creating and configuring the Homebrew container."
-    toolbox create ${TOOLBOX_HOMEBREW_NAME}
+    toolbox create "${TOOLBOX_HOMEBREW_NAME}"
 
     echo
 
@@ -67,7 +67,7 @@ if [ $? = 0 ]; then
     if [ $? = 0 ]; then
 
         info "Installing the development tools group."
-        toolbox --container ${TOOLBOX_HOMEBREW_NAME} run sudo dnf group install development-tools
+        toolbox --container "${TOOLBOX_HOMEBREW_NAME}" run sudo dnf group install development-tools
     else
 
         text "Please run 'sudo dnf group install development-tools' inside the Homebrew container."

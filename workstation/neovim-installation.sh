@@ -71,7 +71,7 @@ if [ $? = 0 ]; then
 
         info "Creating configuration file for neovim (classic)."
         tee "${HOME}/.config/nvim/init.vim" <<EOF
-call plug#begin('~/.vim/plugged')
+call plug#begin('~/.local/share/nvim/plugged')
 
 Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'
