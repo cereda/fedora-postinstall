@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 # MIT License
-# 
+#
 # Copyright (c) 2025, Paulo Cereda
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -38,7 +38,7 @@ echo
 # variable set previously (see [common/flatpaks-to-install.sh] for reference)
 # and collect the selected entries into a new array
 runtime_capture_output FLATPAKS_SELECTION "${GUM}" choose --no-limit --height 15 "${SUGGESTED_FLATPAKS[@]}" || return 1
-readarray -t FLATPAKS_TO_INSTALL <<< "${FLATPAKS_SELECTION}"
+readarray -t FLATPAKS_TO_INSTALL <<<"${FLATPAKS_SELECTION}"
 
 # no items were selected in the list based on the -z check -- a test operator
 # that checks if a string is null
@@ -79,7 +79,7 @@ else
     # which ones should keep cache during a system cleanup, collecting the
     # selected entries in a new array
     runtime_capture_output FLATPAKS_CACHE_SELECTION "${GUM}" choose --no-limit --selected="com.github.tchx84.Flatseal" --height 15 "${FLATPAKS_TO_INSTALL[@]}" || return 1
-    readarray -t FLATPAKS_TO_KEEP_CACHE <<< "${FLATPAKS_CACHE_SELECTION}"
+    readarray -t FLATPAKS_TO_KEEP_CACHE <<<"${FLATPAKS_CACHE_SELECTION}"
 
     # no items were selected in the list (-z check, null string)
     if [ -z "${FLATPAKS_TO_KEEP_CACHE}" ]; then

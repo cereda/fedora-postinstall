@@ -42,8 +42,8 @@ declare -ga RUNTIME_MODULE_STACK=()
 
 function runtime_is_true {
     case "${1:-}" in
-        1|true|TRUE|yes|YES|on|ON) return 0 ;;
-        *) return 1 ;;
+    1 | true | TRUE | yes | YES | on | ON) return 0 ;;
+    *) return 1 ;;
     esac
 }
 
@@ -122,14 +122,14 @@ function runtime_module_error_end {
     runtime_local_stack_length="${#RUNTIME_MODULE_ERROR_STACK[@]}"
     if [ "${runtime_local_stack_length}" -gt 0 ]; then
         runtime_local_baseline="${RUNTIME_MODULE_ERROR_STACK[runtime_local_stack_length - 1]}"
-        RUNTIME_MODULE_ERROR_STACK=("${RUNTIME_MODULE_ERROR_STACK[@]:0:runtime_local_stack_length - 1}")
+        RUNTIME_MODULE_ERROR_STACK=("${RUNTIME_MODULE_ERROR_STACK[@]:0:runtime_local_stack_length-1}")
     else
         runtime_local_baseline="${RUNTIME_MODULE_ERROR_COUNT}"
     fi
 
     runtime_local_stack_length="${#RUNTIME_MODULE_STACK[@]}"
     if [ "${runtime_local_stack_length}" -gt 0 ]; then
-        RUNTIME_MODULE_STACK=("${RUNTIME_MODULE_STACK[@]:0:runtime_local_stack_length - 1}")
+        RUNTIME_MODULE_STACK=("${RUNTIME_MODULE_STACK[@]:0:runtime_local_stack_length-1}")
     fi
     if [ "${RUNTIME_MODULE_ACTIVE_DEPTH}" -gt 0 ]; then
         RUNTIME_MODULE_ACTIVE_DEPTH=$((RUNTIME_MODULE_ACTIVE_DEPTH - 1))
@@ -148,7 +148,7 @@ function runtime_initialize {
     fi
 
     if [ -z "${SCRIPT_PATH:-}" ]; then
-        SCRIPT_PATH=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &> /dev/null && pwd -P) || return 1
+        SCRIPT_PATH=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &>/dev/null && pwd -P) || return 1
     fi
 
     if [ -z "${POSTINSTALL_STATE_FILE:-}" ]; then
@@ -177,7 +177,7 @@ function runtime_register_cleanup {
         return 1
     fi
 
-    if ! declare -F "${runtime_local_callback}" > /dev/null; then
+    if ! declare -F "${runtime_local_callback}" >/dev/null; then
         printf 'runtime: cleanup callback does not exist: %s\n' "${runtime_local_callback}" >&2
         return 1
     fi
@@ -240,7 +240,7 @@ function runtime_leave_critical_section {
     if [ "${RUNTIME_CRITICAL_DEPTH}" -eq 0 ] && [ "${RUNTIME_PENDING_SIGNAL_STATUS}" -ne 0 ]; then
         runtime_local_status="${RUNTIME_PENDING_SIGNAL_STATUS}"
         if [ -n "${runtime_local_callback}" ]; then
-            if ! declare -F "${runtime_local_callback}" > /dev/null; then
+            if ! declare -F "${runtime_local_callback}" >/dev/null; then
                 printf 'runtime: critical section callback does not exist: %s\n' \
                     "${runtime_local_callback}" >&2
             elif ! "${runtime_local_callback}"; then
@@ -292,7 +292,7 @@ function runtime_cleanup {
     for ((runtime_local_index = ${#RUNTIME_CLEANUP_ORDER[@]} - 1; runtime_local_index >= 0; runtime_local_index--)); do
         runtime_local_name="${RUNTIME_CLEANUP_ORDER[runtime_local_index]}"
         runtime_local_callback="${RUNTIME_CLEANUP_CALLBACKS[${runtime_local_name}]:-}"
-        if [ -n "${runtime_local_callback}" ] && declare -F "${runtime_local_callback}" > /dev/null; then
+        if [ -n "${runtime_local_callback}" ] && declare -F "${runtime_local_callback}" >/dev/null; then
             "${runtime_local_callback}" || runtime_log "WARN" "Cleanup callback '${runtime_local_name}' failed."
         fi
     done
@@ -311,12 +311,12 @@ function runtime_append_file {
         printf 'runtime: secure file helper is unavailable\n' >&2
         return 1
     fi
-    if ! command -v python3 > /dev/null 2>&1; then
+    if ! command -v python3 >/dev/null 2>&1; then
         printf 'runtime: python3 is unavailable\n' >&2
         return 1
     fi
 
-    printf '%s' "${runtime_local_content}" | \
+    printf '%s' "${runtime_local_content}" |
         python3 "${runtime_local_helper}" append "${runtime_local_path}"
 }
 
@@ -328,7 +328,7 @@ function runtime_read_file {
         printf 'runtime: secure file helper is unavailable\n' >&2
         return 1
     fi
-    if ! command -v python3 > /dev/null 2>&1; then
+    if ! command -v python3 >/dev/null 2>&1; then
         printf 'runtime: python3 is unavailable\n' >&2
         return 1
     fi
@@ -459,10 +459,10 @@ function runtime_resolve_module {
     fi
 
     case "/${runtime_local_module}/" in
-        */../*)
-            printf 'runtime: invalid module path: %s\n' "${runtime_local_module}" >&2
-            return 1
-            ;;
+    */../*)
+        printf 'runtime: invalid module path: %s\n' "${runtime_local_module}" >&2
+        return 1
+        ;;
     esac
 
     runtime_local_candidate="${SCRIPT_PATH}/${runtime_local_module}"
@@ -489,51 +489,51 @@ function runtime_module_checksum {
     local -a runtime_local_dependencies=()
 
     case "${runtime_local_module}" in
-        common/flatpaks-installation.sh)
-            runtime_local_dependencies=(
-                "${SCRIPT_PATH}/common/flatpaks-to-install.sh"
-            )
-            ;;
-        common/fonts-installation.sh)
-            runtime_local_dependencies=(
-                "${SCRIPT_PATH}/common/fonts-to-install.sh"
-            )
-            ;;
-        common/terminal-colors.sh)
-            runtime_local_dependencies=(
-                "${SCRIPT_PATH}/common/color-themes.sh"
-            )
-            ;;
-        workstation/package-cleanup.sh)
-            runtime_local_dependencies=(
-                "${SCRIPT_PATH}/workstation/packages-to-remove.sh"
-            )
-            ;;
-        workstation/useful-packages.sh)
-            runtime_local_dependencies=(
-                "${SCRIPT_PATH}/workstation/packages-to-install.sh"
-            )
-            ;;
-        silverblue/useful-packages.sh)
-            runtime_local_dependencies=(
-                "${SCRIPT_PATH}/silverblue/packages-to-install.sh"
-            )
-            ;;
-        extras/additional-tools.sh)
-            runtime_local_dependencies=(
-                "${SCRIPT_PATH}/extras/tools-list.sh"
-                "${SCRIPT_PATH}/extras/tools-download.sh"
-                "${SCRIPT_PATH}/extras/tools-unpacking.sh"
-                "${SCRIPT_PATH}/extras/tools-deployment.sh"
-                "${SCRIPT_PATH}/extras/archive-extract.py"
-                "${SCRIPT_PATH}/extras/tools-manifest.json"
-            )
-            for runtime_local_dependency in "${SCRIPT_PATH}/extras/"*-download.sh; do
-                if [ -f "${runtime_local_dependency}" ] && [ ! -L "${runtime_local_dependency}" ]; then
-                    runtime_local_dependencies+=("${runtime_local_dependency}")
-                fi
-            done
-            ;;
+    common/flatpaks-installation.sh)
+        runtime_local_dependencies=(
+            "${SCRIPT_PATH}/common/flatpaks-to-install.sh"
+        )
+        ;;
+    common/fonts-installation.sh)
+        runtime_local_dependencies=(
+            "${SCRIPT_PATH}/common/fonts-to-install.sh"
+        )
+        ;;
+    common/terminal-colors.sh)
+        runtime_local_dependencies=(
+            "${SCRIPT_PATH}/common/color-themes.sh"
+        )
+        ;;
+    workstation/package-cleanup.sh)
+        runtime_local_dependencies=(
+            "${SCRIPT_PATH}/workstation/packages-to-remove.sh"
+        )
+        ;;
+    workstation/useful-packages.sh)
+        runtime_local_dependencies=(
+            "${SCRIPT_PATH}/workstation/packages-to-install.sh"
+        )
+        ;;
+    silverblue/useful-packages.sh)
+        runtime_local_dependencies=(
+            "${SCRIPT_PATH}/silverblue/packages-to-install.sh"
+        )
+        ;;
+    extras/additional-tools.sh)
+        runtime_local_dependencies=(
+            "${SCRIPT_PATH}/extras/tools-list.sh"
+            "${SCRIPT_PATH}/extras/tools-download.sh"
+            "${SCRIPT_PATH}/extras/tools-unpacking.sh"
+            "${SCRIPT_PATH}/extras/tools-deployment.sh"
+            "${SCRIPT_PATH}/extras/archive-extract.py"
+            "${SCRIPT_PATH}/extras/tools-manifest.json"
+        )
+        for runtime_local_dependency in "${SCRIPT_PATH}/extras/"*-download.sh; do
+            if [ -f "${runtime_local_dependency}" ] && [ ! -L "${runtime_local_dependency}" ]; then
+                runtime_local_dependencies+=("${runtime_local_dependency}")
+            fi
+        done
+        ;;
     esac
 
     for runtime_local_dependency in "${runtime_local_dependencies[@]}"; do
@@ -582,11 +582,11 @@ function runtime_state_append_record {
     local runtime_local_entry
 
     case "${runtime_local_type}" in
-        module|value) ;;
-        *)
-            printf 'runtime: invalid state record type: %s\n' "${runtime_local_type}" >&2
-            return 1
-            ;;
+    module | value) ;;
+    *)
+        printf 'runtime: invalid state record type: %s\n' "${runtime_local_type}" >&2
+        return 1
+        ;;
     esac
 
     if [ -z "${runtime_local_key}" ] || [ -z "${runtime_local_value}" ]; then
@@ -652,7 +652,7 @@ function runtime_state_is_complete {
             [ "${runtime_local_state_key}" = "${runtime_local_key}" ]; then
             runtime_local_latest_checksum="${runtime_local_state_value}"
         fi
-    done <<< "${runtime_local_content}"
+    done <<<"${runtime_local_content}"
 
     if [ -n "${runtime_local_latest_checksum}" ] &&
         [ "${runtime_local_latest_checksum}" = "${runtime_local_checksum}" ]; then
@@ -719,7 +719,7 @@ function runtime_restore_module_state {
                 runtime_local_latest_value="${runtime_local_state_value}"
                 runtime_local_found=1
             fi
-        done <<< "${runtime_local_content}"
+        done <<<"${runtime_local_content}"
 
         if [ "${runtime_local_found}" -ne 1 ]; then
             printf 'runtime: saved state for %s is missing\n' "${runtime_local_name}" >&2
@@ -747,7 +747,7 @@ function runtime_capture_module_state {
             printf 'runtime: invalid state variable name: %s\n' "${runtime_local_name}" >&2
             return 1
         fi
-        if ! declare -p "${runtime_local_name}" > /dev/null 2>&1; then
+        if ! declare -p "${runtime_local_name}" >/dev/null 2>&1; then
             printf 'runtime: state variable %s was not initialized\n' "${runtime_local_name}" >&2
             return 1
         fi
@@ -821,11 +821,11 @@ function runtime_run_module {
     fi
 
     case "${runtime_local_effect}" in
-        mutating|read-only|orchestrator) ;;
-        *)
-            printf 'runtime: invalid module effect: %s\n' "${runtime_local_effect}" >&2
-            runtime_module_fail 1 "${runtime_local_module}" || return $?
-            ;;
+    mutating | read-only | orchestrator) ;;
+    *)
+        printf 'runtime: invalid module effect: %s\n' "${runtime_local_effect}" >&2
+        runtime_module_fail 1 "${runtime_local_module}" || return $?
+        ;;
     esac
 
     if ! runtime_local_path=$(runtime_resolve_module "${runtime_local_module}"); then

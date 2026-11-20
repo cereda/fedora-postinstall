@@ -43,11 +43,11 @@ text "Do you want to install any of these command line tools?"
 echo
 
 function extras_cleanup_workspace {
-    if declare -F extras_cleanup_deployment_temporaries > /dev/null; then
+    if declare -F extras_cleanup_deployment_temporaries >/dev/null; then
         extras_cleanup_deployment_temporaries
     fi
 
-    if declare -F extras_rollback_deployment > /dev/null &&
+    if declare -F extras_rollback_deployment >/dev/null &&
         [ "${EXTRAS_DEPLOYMENT_COMPLETE:-0}" -ne 1 ]; then
         if ! extras_rollback_deployment; then
             text "The command line tool deployment could not be fully rolled back. Recovery backups were preserved in ${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}."
@@ -108,7 +108,7 @@ done < <(printf '%s\n' "${selection}")
 
 if [ "${#CLI_TOOLS_TO_INSTALL[@]}" -eq 0 ]; then
     text "You haven't selected any items from the list. Moving on."
-    return 0 2> /dev/null || exit 0
+    return 0 2>/dev/null || exit 0
 fi
 
 text "You've selected ${#CLI_TOOLS_TO_INSTALL[@]} command line tool(s) to install. Please wait."
@@ -151,7 +151,7 @@ if ! mkdir -p \
 fi
 EXTRAS_ARTIFACT_LEDGER="${EXTRAS_WORKSPACE}/artifacts.tsv"
 EXTRAS_STAGE_LEDGER="${EXTRAS_WORKSPACE}/staged.tsv"
-if ! : > "${EXTRAS_ARTIFACT_LEDGER}" || ! : > "${EXTRAS_STAGE_LEDGER}"; then
+if ! : >"${EXTRAS_ARTIFACT_LEDGER}" || ! : >"${EXTRAS_STAGE_LEDGER}"; then
     text "Unable to initialize the command line tool ledgers."
     return 1
 fi

@@ -739,8 +739,8 @@ _${COMMAND_NAME}()
 complete -F _${COMMAND_NAME} ${COMMAND_NAME}
 EOF
 
-    info "Creating toolbox file."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
+info "Creating toolbox file."
+tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 

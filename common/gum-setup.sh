@@ -33,18 +33,18 @@ function cleanup_gum_bootstrap {
 # gum is not available, so download a pinned, checksum-verified release into an
 # isolated temporary directory. The directory is removed when the installer exits.
 if [ -z "${GUM}" ]; then
-    if ! command -v curl > /dev/null 2>&1 || ! command -v sha256sum > /dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1 || ! command -v sha256sum >/dev/null 2>&1; then
         printf 'gum is required, but curl and sha256sum are unavailable\n' >&2
         return 1
     fi
 
     case "$(uname -m)" in
-        x86_64|amd64) GUM_ARCHITECTURE="x86_64" ;;
-        aarch64|arm64) GUM_ARCHITECTURE="aarch64" ;;
-        *)
-            printf 'gum does not publish a release for architecture %s\n' "$(uname -m)" >&2
-            return 1
-            ;;
+    x86_64 | amd64) GUM_ARCHITECTURE="x86_64" ;;
+    aarch64 | arm64) GUM_ARCHITECTURE="aarch64" ;;
+    *)
+        printf 'gum does not publish a release for architecture %s\n' "$(uname -m)" >&2
+        return 1
+        ;;
     esac
 
     GUM_MANIFEST_FILE="${SCRIPT_PATH}/extras/tools-manifest.json"
@@ -60,9 +60,9 @@ if [ -z "${GUM}" ]; then
     fi
 
     GUM_VERSION=$(jq -r '.tools.gum.version' "${GUM_MANIFEST_FILE}")
-    GUM_LINK=$(jq -r '.url' <<< "${GUM_ENTRY}")
-    GUM_CHECKSUM=$(jq -r '.sha256' <<< "${GUM_ENTRY}")
-    GUM_MEMBER=$(jq -r '.files | keys[0]' <<< "${GUM_ENTRY}")
+    GUM_LINK=$(jq -r '.url' <<<"${GUM_ENTRY}")
+    GUM_CHECKSUM=$(jq -r '.sha256' <<<"${GUM_ENTRY}")
+    GUM_MEMBER=$(jq -r '.files | keys[0]' <<<"${GUM_ENTRY}")
     GUM_ARCHIVE=$(basename -- "${GUM_LINK}")
 
     if [[ ! "${GUM_LINK}" =~ ^https:// ]] ||

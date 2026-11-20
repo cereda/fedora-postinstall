@@ -26,7 +26,7 @@ function require_command {
     local command_name="${1}"
     local purpose="${2:-required by this script}"
 
-    if ! command -v "${command_name}" > /dev/null 2>&1; then
+    if ! command -v "${command_name}" >/dev/null 2>&1; then
         printf "Required command '%s' was not found (%s).\n" \
             "${command_name}" "${purpose}" >&2
         printf 'Install it first, for example with: sudo dnf install %s\n' \
