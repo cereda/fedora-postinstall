@@ -50,13 +50,31 @@ if [ $? = 0 ]; then
     test -f helix-editor.json || wget -q -O helix-editor.json https://api.github.com/repos/helix-editor/helix/releases/latest
 
     info "Downloading Helix from GitHub."
-    wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux")).browser_download_url' helix-editor.json)
+    case "$(runtime_selected_architecture)" in
+    x86_64) HELIX_ASSET_SUFFIX="x86_64-linux.tar.xz" ;;
+    aarch64) HELIX_ASSET_SUFFIX="aarch64-linux.tar.xz" ;;
+    *)
+        text "Unsupported architecture for Helix: $(runtime_selected_architecture)."
+        return 1
+        ;;
+    esac
+    HELIX_ASSET_URL=$(runtime_select_github_asset_by_suffix \
+        helix-editor.json "${HELIX_ASSET_SUFFIX}") || return 1
+    wget -q "${HELIX_ASSET_URL}" -O helix.tar.xz
 
     info "Extracting Helix."
-    tar xJf helix-*-x86_64-linux.tar.xz
+    rm -rf helix-temp
+    mkdir -p helix-temp
+    tar xJf helix.tar.xz -C helix-temp
+    HELIX_SOURCE_DIRECTORY=$(find helix-temp -mindepth 1 -maxdepth 1 -type d -print -quit)
+    if [ -z "${HELIX_SOURCE_DIRECTORY}" ]; then
+        text "The Helix archive does not contain an application directory."
+        return 1
+    fi
 
     info "Renaming application directory."
-    mv helix-*-linux helix-editor
+    rm -rf helix-editor
+    mv "${HELIX_SOURCE_DIRECTORY}" helix-editor
 
     info "Moving Helix."
     mv "helix-editor" "${ROOT_DIRECTORY_STRUCTURE}/applications/"
@@ -100,5 +118,8 @@ EOF
 
     warning "If you don't plan to install vim or neovim, consider creating \
 aliases for vim or nvim that point to Helix (e.g, alias vim='hx')."
+
+    info "Removing archive file."
+    rm -rf helix-temp helix.tar.xz
 
 fi

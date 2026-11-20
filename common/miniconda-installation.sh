@@ -49,7 +49,17 @@ if [ $? = 0 ]; then
     mkdir -p "${MINICONDA_INSTALLATION_DIRECTORY}"
 
     info "Downloading Miniconda."
-    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda-linux.sh
+    case "$(runtime_selected_architecture)" in
+    x86_64) MINICONDA_ARCHITECTURE="x86_64" ;;
+    aarch64) MINICONDA_ARCHITECTURE="aarch64" ;;
+    *)
+        text "Unsupported architecture for Miniconda: $(runtime_selected_architecture)."
+        return 1
+        ;;
+    esac
+    wget -q \
+        "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${MINICONDA_ARCHITECTURE}.sh" \
+        -O miniconda-linux.sh
 
     # Miniconda has its own installation script, run it with the
     # following flags (as described in the documentation):
@@ -59,4 +69,7 @@ if [ $? = 0 ]; then
     # -p: install prefix
     info "Installing Miniconda."
     bash miniconda-linux.sh -b -u -p "${MINICONDA_INSTALLATION_DIRECTORY}"
+
+    info "Removing installer file."
+    rm -f miniconda-linux.sh
 fi

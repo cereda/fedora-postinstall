@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "name": "default",
+  "description": "Run every module in the selected Fedora flavor and use the interactive extras chooser.",
+  "flavors": [
+    "workstation",
+    "silverblue"
+  ],
+  "modules": {
+    "include": [],
+    "exclude": []
+  }
+}

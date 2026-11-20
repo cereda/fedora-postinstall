@@ -47,13 +47,25 @@ if [ $? = 0 ]; then
 
     # get the latest version
     info "Getting the latest version of Go."
-    GO_LATEST_VERSION="$(wget -q -O - https://go.dev/dl/ | grep -oP 'dl/[^"]*linux-amd64\.tar\.gz' | head -n 1)"
+    case "$(runtime_selected_architecture)" in
+    x86_64) GO_ARCHITECTURE="linux-amd64" ;;
+    aarch64) GO_ARCHITECTURE="linux-arm64" ;;
+    *)
+        text "Unsupported architecture for Go: $(runtime_selected_architecture)."
+        return 1
+        ;;
+    esac
+    if ! GO_LATEST_VERSION=$(wget -q -O - https://go.dev/dl/ |
+        runtime_select_latest_go_release "${GO_ARCHITECTURE}"); then
+        text "Unable to select a Go release for ${GO_ARCHITECTURE}."
+        return 1
+    fi
 
     info "Downloading Go."
-    wget -q "https://go.dev/${GO_LATEST_VERSION}"
+    wget -q "https://go.dev/${GO_LATEST_VERSION}" -O go.tar.gz
 
     info "Extracting Go."
-    tar xzf go*.tar.gz
+    tar xzf go.tar.gz
 
     info "Moving Go to the local applications directory."
     mv go "${ROOT_DIRECTORY_STRUCTURE}/applications/"

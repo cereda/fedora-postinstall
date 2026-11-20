@@ -38,14 +38,11 @@ if [ -z "${GUM}" ]; then
         return 1
     fi
 
-    case "$(uname -m)" in
-    x86_64 | amd64) GUM_ARCHITECTURE="x86_64" ;;
-    aarch64 | arm64) GUM_ARCHITECTURE="aarch64" ;;
-    *)
-        printf 'gum does not publish a release for architecture %s\n' "$(uname -m)" >&2
+    if ! GUM_ARCHITECTURE=$(runtime_selected_architecture); then
+        printf 'gum does not publish a release for architecture %s\n' \
+            "${POSTINSTALL_ARCHITECTURE:-$(uname -m)}" >&2
         return 1
-        ;;
-    esac
+    fi
 
     GUM_MANIFEST_FILE="${SCRIPT_PATH}/extras/tools-manifest.json"
     if [ ! -f "${GUM_MANIFEST_FILE}" ] || [ -L "${GUM_MANIFEST_FILE}" ]; then
@@ -54,7 +51,8 @@ if [ -z "${GUM}" ]; then
     fi
 
     if ! GUM_ENTRY=$(jq -ce --arg architecture "${GUM_ARCHITECTURE}" \
-        '.tools.gum.assets[$architecture] // empty' "${GUM_MANIFEST_FILE}"); then
+        '.tools.gum.assets[$architecture] // .tools.gum.assets.any // empty' \
+        "${GUM_MANIFEST_FILE}"); then
         printf 'gum is not available for architecture %s\n' "${GUM_ARCHITECTURE}" >&2
         return 1
     fi

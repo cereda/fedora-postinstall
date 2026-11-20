@@ -50,11 +50,21 @@ if [ $? = 0 ]; then
     test -f zoxide.json || wget -q -O zoxide.json https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest
 
     info "Downloading zoxide from GitHub."
-    wget -q $(jq -r '.assets[] | select(.name | contains("linux") and contains("x86_64") and endswith("tar.gz")).browser_download_url' zoxide.json)
+    case "$(runtime_selected_architecture)" in
+    x86_64) ZOXIDE_ASSET_SUFFIX="x86_64-unknown-linux-musl.tar.gz" ;;
+    aarch64) ZOXIDE_ASSET_SUFFIX="aarch64-unknown-linux-musl.tar.gz" ;;
+    *)
+        text "Unsupported architecture for zoxide: $(runtime_selected_architecture)."
+        return 1
+        ;;
+    esac
+    ZOXIDE_ASSET_URL=$(runtime_select_github_asset_by_suffix \
+        zoxide.json "${ZOXIDE_ASSET_SUFFIX}") || return 1
+    wget -q "${ZOXIDE_ASSET_URL}" -O zoxide.tar.gz
 
     info "Extracting zoxide."
     mkdir -p zoxide-temp
-    tar xzf zoxide*.tar.gz -C zoxide-temp
+    tar xzf zoxide.tar.gz -C zoxide-temp
 
     info "Preparing the installation directory."
     mkdir -p "${HOME}/.local/bin"
@@ -64,4 +74,7 @@ if [ $? = 0 ]; then
 
     info "Creating data directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/data/zoxide"
+
+    info "Removing archive file."
+    rm -f zoxide.tar.gz
 fi

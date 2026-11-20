@@ -13,7 +13,15 @@ setup() {
     cp -R "${REPO_ROOT}/extras" "${SANDBOX_REPO}/"
     cp -R "${REPO_ROOT}/silverblue" "${SANDBOX_REPO}/"
     cp -R "${REPO_ROOT}/workstation" "${SANDBOX_REPO}/"
+    cp -R "${REPO_ROOT}/profiles" "${SANDBOX_REPO}/"
     cp "${REPO_ROOT}/fedora-postinstall.sh" "${SANDBOX_REPO}/"
+
+    cat > "${TEST_ROOT}/os-release" <<'EOF'
+NAME="Fedora Linux"
+ID=fedora
+VERSION_ID=45
+EOF
+    export POSTINSTALL_OS_RELEASE_FILE="${TEST_ROOT}/os-release"
 
     cat > "${MOCK_BIN}/gum" <<'EOF'
 #!/usr/bin/env bash
@@ -54,6 +62,29 @@ EOF
 
     assert_file_absent "${SANDBOX_REPO}/archives"
     assert_file_absent "${SANDBOX_REPO}/deploys"
+}
+
+@test "the implicit invocation keeps the chooser even when detection is available" {
+    cat > "${TEST_ROOT}/os-release" <<'EOF'
+NAME="Fedora Workstation"
+ID=fedora
+VERSION_ID=45
+VARIANT_ID=workstation
+EOF
+
+    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    assert_failure
+    assert_output_contains "No Fedora flavour was selected"
+}
+
+@test "the implicit invocation keeps the chooser when an environment flavor is set" {
+    run env \
+        POSTINSTALL_FLAVOR=workstation \
+        bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ \
+        "${TEST_ROOT}" "${SANDBOX_REPO}"
+    assert_failure
+    assert_output_contains "No Fedora flavour was selected"
+    refute_output_contains "You are running Fedora Workstation"
 }
 
 @test "a failed flavor chooser aborts even when it printed a flavor" {

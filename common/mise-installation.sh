@@ -52,10 +52,20 @@ if [ $? = 0 ]; then
     test -f mise.json || wget -q -O mise.json https://api.github.com/repos/jdx/mise/releases/latest
 
     info "Downloading mise from GitHub."
-    wget -q $(jq -r '.assets[] | select(.name | contains("linux") and contains("x64") and (contains("musl")|not) and endswith("tar.gz")).browser_download_url' mise.json)
+    case "$(runtime_selected_architecture)" in
+    x86_64) MISE_ASSET_SUFFIX="linux-x64.tar.gz" ;;
+    aarch64) MISE_ASSET_SUFFIX="linux-arm64.tar.gz" ;;
+    *)
+        text "Unsupported architecture for mise: $(runtime_selected_architecture)."
+        return 1
+        ;;
+    esac
+    MISE_ASSET_URL=$(runtime_select_github_asset_by_suffix \
+        mise.json "${MISE_ASSET_SUFFIX}") || return 1
+    wget -q "${MISE_ASSET_URL}" -O mise.tar.gz
 
     info "Extracting mise."
-    tar xzf mise*.tar.gz
+    tar xzf mise.tar.gz
 
     info "Preparing the installation directory."
     mkdir -p "${HOME}/.local/bin"
@@ -68,4 +78,7 @@ if [ $? = 0 ]; then
 
     info "Creating configuration directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/mise"
+
+    info "Removing archive file."
+    rm -f mise.tar.gz
 fi

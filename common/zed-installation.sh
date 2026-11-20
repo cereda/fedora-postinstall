@@ -51,10 +51,20 @@ if [ $? = 0 ]; then
     test -f zed-editor.json || wget -q -O zed-editor.json https://api.github.com/repos/zed-industries/zed/releases/latest
 
     info "Downloading Zed from GitHub."
-    wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux") and (contains("remote")|not)).browser_download_url' zed-editor.json)
+    case "$(runtime_selected_architecture)" in
+    x86_64) ZED_ASSET_SUFFIX="zed-linux-x86_64.tar.gz" ;;
+    aarch64) ZED_ASSET_SUFFIX="zed-linux-aarch64.tar.gz" ;;
+    *)
+        text "Unsupported architecture for Zed: $(runtime_selected_architecture)."
+        return 1
+        ;;
+    esac
+    ZED_ASSET_URL=$(runtime_select_github_asset_by_suffix \
+        zed-editor.json "${ZED_ASSET_SUFFIX}") || return 1
+    wget -q "${ZED_ASSET_URL}" -O zed.tar.gz
 
     info "Extracting Zed into the current directory."
-    tar xzf zed-linux-x86_64.tar.gz
+    tar xzf zed.tar.gz
 
     info "Moving Zed to the local applications directory."
     mv zed.app "${ROOT_DIRECTORY_STRUCTURE}/applications/"
@@ -113,6 +123,6 @@ Name=Open a new workspace
 EOF
 
     info "Removing archive file."
-    rm -f zed-linux-x86_64.tar.gz
+    rm -f zed.tar.gz zed-linux-x86_64.tar.gz zed-linux-aarch64.tar.gz
 
 fi

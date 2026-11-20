@@ -50,7 +50,7 @@ if [ $? = 0 ]; then
 
     # unpin only the Fedora platform runtimes for the current architecture and
     # release; other pins may have been created intentionally by the user
-    FLATPAK_ARCH=$(uname -m)
+    FLATPAK_ARCH=$(runtime_selected_architecture)
     FEDORA_RUNTIME_PINS=(
         "runtime/org.fedoraproject.Platform/${FLATPAK_ARCH}/f${FEDORA_VERSION}"
         "runtime/org.fedoraproject.Platform.GL.default/${FLATPAK_ARCH}/f${FEDORA_VERSION}"
