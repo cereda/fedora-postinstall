@@ -1,0 +1,863 @@
+{
+  "schema_version": 1,
+  "tools": {
+    "binsider": {
+      "version": "v0.3.2",
+      "source": "orhun/binsider",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/orhun/binsider/releases/download/v0.3.2/binsider-0.3.2-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "50c0a365a15faab4acb4dacf94902021823f631f34cfbccb161c64ba4b8a31ea",
+          "type": "tar.gz",
+          "files": {
+            "binsider-0.3.2/binsider": "binsider"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/orhun/binsider/releases/download/v0.3.2/binsider-0.3.2-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "cb58c3c2b18dfacf9cc03e7a11cc31c9de0e9da86815f937e4e5c6fe4216a99a",
+          "type": "tar.gz",
+          "files": {
+            "binsider-0.3.2/binsider": "binsider"
+          }
+        }
+      }
+    },
+    "bottom": {
+      "version": "0.15.0",
+      "source": "ClementTsang/bottom",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/ClementTsang/bottom/releases/download/0.15.0/bottom_x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "051888e0e064aa037728efed3fcf77820714f8f4dc7bea2b0179d40c54400c26",
+          "type": "tar.gz",
+          "files": {
+            "btm": "btm"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/ClementTsang/bottom/releases/download/0.15.0/bottom_aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "93221c07d549750e5cfac2a76f70e5d792c744958ecc466bbeb9d3bef34288b6",
+          "type": "tar.gz",
+          "files": {
+            "btm": "btm"
+          }
+        }
+      }
+    },
+    "bun": {
+      "version": "bun-v1.4.5",
+      "source": "oven-sh/bun",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.5/bun-linux-x64.zip",
+          "sha256": "94559b3b528995a49452f9f2404cec74f2efd7d06e0a000a8cd214b02c3666eb",
+          "type": "zip",
+          "files": {
+            "bun-linux-x64/bun": "bun"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.5/bun-linux-aarch64.zip",
+          "sha256": "18656a3bf0ea5641f5796ae4213b75255579a70a0fded2f337933785568cdf84",
+          "type": "zip",
+          "files": {
+            "bun-linux-aarch64/bun": "bun"
+          }
+        }
+      }
+    },
+    "caddy": {
+      "version": "v2.11.9",
+      "source": "caddyserver/caddy",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_amd64.tar.gz",
+          "sha256": "5b8cb7faf8726a2028ad96a66e54e6e81e8f361bc6175e5d22bbd997cc5177fb",
+          "type": "tar.gz",
+          "files": {
+            "caddy": "caddy"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_arm64.tar.gz",
+          "sha256": "5e377cff994fc9362a6fcf695c53f226cfca3a3ef85bd3a3687cf252d6310165",
+          "type": "tar.gz",
+          "files": {
+            "caddy": "caddy"
+          }
+        }
+      }
+    },
+    "deno": {
+      "version": "v2.9.8",
+      "source": "denoland/deno",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/denoland/deno/releases/download/v2.9.8/deno-x86_64-unknown-linux-gnu.zip",
+          "sha256": "e890975bc2549807bbcc0b584ffafda72cc7c93349dd99c80483dd784f6c4609",
+          "type": "zip",
+          "files": {
+            "deno": "deno"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/denoland/deno/releases/download/v2.9.8/deno-aarch64-unknown-linux-gnu.zip",
+          "sha256": "d49596c20b9788cf8f5d8ddf644103d4bde56ed239753f0bdb92ba9361d51905",
+          "type": "zip",
+          "files": {
+            "deno": "deno"
+          }
+        }
+      }
+    },
+    "duckdb": {
+      "version": "v2.0.0",
+      "source": "duckdb/duckdb",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/duckdb/duckdb/releases/download/v2.0.0/duckdb-cli-linux-amd64.tar.gz",
+          "sha256": "c6507206baf7793c6013dbd82368469a45f20dc0e17a6f92f204602f652ed2bc",
+          "type": "tar.gz",
+          "files": {
+            "duckdb": "duckdb"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/duckdb/duckdb/releases/download/v2.0.0/duckdb-cli-linux-arm64.tar.gz",
+          "sha256": "859e1875d2a9515fbb4bf8871061437a14af82320da68c753f094c4b776348fe",
+          "type": "tar.gz",
+          "files": {
+            "duckdb": "duckdb"
+          }
+        }
+      }
+    },
+    "duf": {
+      "version": "v0.9.1",
+      "source": "muesli/duf",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/muesli/duf/releases/download/v0.9.1/duf_0.9.1_linux_x86_64.tar.gz",
+          "sha256": "5add851e7062c5e56939abb664705e4d14fa2d06289490aff31d51f153832de7",
+          "type": "tar.gz",
+          "files": {
+            "duf": "duf"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/muesli/duf/releases/download/v0.9.1/duf_0.9.1_linux_arm64.tar.gz",
+          "sha256": "22ea0ad29f6610bf443aa351e600de97e47a9b380ef58316606a84bb8f595216",
+          "type": "tar.gz",
+          "files": {
+            "duf": "duf"
+          }
+        }
+      }
+    },
+    "eza": {
+      "version": "v0.23.5",
+      "source": "eza-community/eza",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/eza-community/eza/releases/download/v0.23.5/eza_x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "35c70c5c43c29108075e58b893234c67ef585f0b53a7eaf8e9e7d4eec9f339b4",
+          "type": "tar.gz",
+          "files": {
+            "./eza": "eza"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/eza-community/eza/releases/download/v0.23.5/eza_aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "40b87ae8628aa2ff0f0d2dc24ab52f689631366385c3da630bae745671fd71ec",
+          "type": "tar.gz",
+          "files": {
+            "./eza": "eza"
+          }
+        }
+      }
+    },
+    "f2": {
+      "version": "v2.2.2",
+      "source": "ayoisaiah/f2",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/ayoisaiah/f2/releases/download/v2.2.2/f2_2.2.2_linux_amd64.tar.gz",
+          "sha256": "d44bca9d9a08721655e0fd4a3459f4c2b844abb896de3e6a74551e8bf5f51432",
+          "type": "tar.gz",
+          "files": {
+            "f2": "f2"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/ayoisaiah/f2/releases/download/v2.2.2/f2_2.2.2_linux_arm64.tar.gz",
+          "sha256": "65a38d8fe73a386d86f5163235ba3df04fc6cd45f73a6f67bf90ea02f1b9abfd",
+          "type": "tar.gz",
+          "files": {
+            "f2": "f2"
+          }
+        }
+      }
+    },
+    "fd": {
+      "version": "v10.5.2",
+      "source": "sharkdp/fd",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/sharkdp/fd/releases/download/v10.5.2/fd-v10.5.2-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "985e24041e9ef6e9a38e9e088743405dde23d7220aa96740f091862167d9ff28",
+          "type": "tar.gz",
+          "files": {
+            "fd-v10.5.2-x86_64-unknown-linux-gnu/fd": "fd"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/sharkdp/fd/releases/download/v10.5.2/fd-v10.5.2-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "4b144f38bd7352cd4c95020b58e8e575476e60edcdf1dc5e0733e3d01efba6dd",
+          "type": "tar.gz",
+          "files": {
+            "fd-v10.5.2-aarch64-unknown-linux-gnu/fd": "fd"
+          }
+        }
+      }
+    },
+    "freeze": {
+      "version": "v0.2.2",
+      "source": "charmbracelet/freeze",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/charmbracelet/freeze/releases/download/v0.2.2/freeze_0.2.2_Linux_x86_64.tar.gz",
+          "sha256": "012fdbdd16c0c19570f9052aac34d16d93d7d0d3b565b05374cc59492f53539b",
+          "type": "tar.gz",
+          "files": {
+            "freeze_0.2.2_Linux_x86_64/freeze": "freeze"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/charmbracelet/freeze/releases/download/v0.2.2/freeze_0.2.2_Linux_arm64.tar.gz",
+          "sha256": "ba1164c2e6d573af32df13ddc5868f7cdfc8b9992f26f53695787ca5f4274023",
+          "type": "tar.gz",
+          "files": {
+            "freeze_0.2.2_Linux_arm64/freeze": "freeze"
+          }
+        }
+      }
+    },
+    "fx": {
+      "version": "40.0.1",
+      "source": "antonmedv/fx",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/antonmedv/fx/releases/download/40.0.1/fx_linux_amd64",
+          "sha256": "9f0cc5a29d2940dd28fdc7df7b5e19bf16856d388e60d1c9f1116890967c604a",
+          "type": "none",
+          "files": {
+            "fx_linux_amd64": "fx"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/antonmedv/fx/releases/download/40.0.1/fx_linux_arm64",
+          "sha256": "90377fbdbe3a01f791032a289986867ff1f8fe20ce94b45f20ecb399f7b69411",
+          "type": "none",
+          "files": {
+            "fx_linux_arm64": "fx"
+          }
+        }
+      }
+    },
+    "glow": {
+      "version": "v3.0.0",
+      "source": "charmbracelet/glow",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/charmbracelet/glow/releases/download/v3.0.0/glow_3.0.0_Linux_x86_64.tar.gz",
+          "sha256": "13e05e4b2acc18d2aee44291aefe6325b077ec321b631a0cfa780e8e3bc33f78",
+          "type": "tar.gz",
+          "files": {
+            "glow_3.0.0_Linux_x86_64/glow": "glow"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/charmbracelet/glow/releases/download/v3.0.0/glow_3.0.0_Linux_arm64.tar.gz",
+          "sha256": "810c39f4691feb75e675a5f5f54b9fa091354e7599d9cf9c9fc9b97e47a99759",
+          "type": "tar.gz",
+          "files": {
+            "glow_3.0.0_Linux_arm64/glow": "glow"
+          }
+        }
+      }
+    },
+    "gping": {
+      "version": "gping-v1.21.0",
+      "source": "orf/gping",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/orf/gping/releases/download/gping-v1.21.0/gping-Linux-gnu-x86_64.tar.gz",
+          "sha256": "965d4246cdc6907957199b3f2732e52e36e37a4162a6d15a86f3d26c223a01ef",
+          "type": "tar.gz",
+          "files": {
+            "gping": "gping"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/orf/gping/releases/download/gping-v1.21.0/gping-Linux-gnu-arm64.tar.gz",
+          "sha256": "49af7566b5b3cac2b1692cc0fd12522519a362d9ce3b45daa29ecf6912d9baa6",
+          "type": "tar.gz",
+          "files": {
+            "gping": "gping"
+          }
+        }
+      }
+    },
+    "grex": {
+      "version": "v1.4.6",
+      "source": "pemistahl/grex",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/pemistahl/grex/releases/download/v1.4.6/grex-v1.4.6-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "8f02f4ebe72d9e3098c646b77f7bc53ec8a8c1fb51ed042db06b739d08e56af8",
+          "type": "tar.gz",
+          "files": {
+            "grex": "grex"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/pemistahl/grex/releases/download/v1.4.6/grex-v1.4.6-aarch64-unknown-linux-musl.tar.gz",
+          "sha256": "65ac2010ffc4a02690b091819f2971c0b26081b2ce7cb717a0de3f10409010b9",
+          "type": "tar.gz",
+          "files": {
+            "grex": "grex"
+          }
+        }
+      }
+    },
+    "gum": {
+      "version": "v2.0.2",
+      "source": "charmbracelet/gum",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/charmbracelet/gum/releases/download/v2.0.2/gum_2.0.2_Linux_x86_64.tar.gz",
+          "sha256": "d842e06d93dbed90af48cb8dd10698db6f22e331fc40346bb37bbc753109edc2",
+          "type": "tar.gz",
+          "files": {
+            "gum_2.0.2_Linux_x86_64/gum": "gum"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/charmbracelet/gum/releases/download/v2.0.2/gum_2.0.2_Linux_arm64.tar.gz",
+          "sha256": "8ebf8b54ec1e8c81f2bb58b59ff9b70998186a4d11375f0cf357b80e0ccfa1d5",
+          "type": "tar.gz",
+          "files": {
+            "gum_2.0.2_Linux_arm64/gum": "gum"
+          }
+        }
+      }
+    },
+    "hexyl": {
+      "version": "v0.17.0",
+      "source": "sharkdp/hexyl",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/sharkdp/hexyl/releases/download/v0.17.0/hexyl-v0.17.0-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "71b7463b8716225b4248525066e24b1874e954e87f397096f53e8804e3360189",
+          "type": "tar.gz",
+          "files": {
+            "hexyl-v0.17.0-x86_64-unknown-linux-gnu/hexyl": "hexyl"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/sharkdp/hexyl/releases/download/v0.17.0/hexyl-v0.17.0-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "70b97648935f98801fd3c3e4758ff4e92afcf7e75316ff65d4e4f5d2e321b658",
+          "type": "tar.gz",
+          "files": {
+            "hexyl-v0.17.0-aarch64-unknown-linux-gnu/hexyl": "hexyl"
+          }
+        }
+      }
+    },
+    "ipinfo": {
+      "version": "ipinfo-3.3.4",
+      "source": "ipinfo/cli",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/ipinfo/cli/releases/download/ipinfo-3.3.4/ipinfo_3.3.4_linux_amd64.tar.gz",
+          "sha256": "3f4983cac632486cd0f1f76aff13f3bef522581b5e063e121a4db8c1f13c974f",
+          "type": "tar.gz",
+          "files": {
+            "ipinfo_3.3.4_linux_amd64": "ipinfo"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/ipinfo/cli/releases/download/ipinfo-3.3.4/ipinfo_3.3.4_linux_arm64.tar.gz",
+          "sha256": "0f4bbcb7e2b9fda17b1c7daccbe9d51c778411e0a1124b7366986ecc4b8f94df",
+          "type": "tar.gz",
+          "files": {
+            "ipinfo_3.3.4_linux_arm64": "ipinfo"
+          }
+        }
+      }
+    },
+    "jless": {
+      "version": "v0.9.0",
+      "source": "PaulJuliusMartinez/jless",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/PaulJuliusMartinez/jless/releases/download/v0.9.0/jless-v0.9.0-x86_64-unknown-linux-gnu.zip",
+          "sha256": "a1e0eb63ef347adc649989ac5c7d2dc896df6d494622b953c86e3a248e733a93",
+          "type": "zip",
+          "files": {
+            "jless": "jless"
+          }
+        }
+      }
+    },
+    "lapce": {
+      "version": "v0.4.6",
+      "source": "lapce/lapce",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/lapce/lapce/releases/download/v0.4.6/lapce-linux-amd64.tar.gz",
+          "sha256": "7a0945e6862bbe207316ba05ac5d634fc8a55069b61e4ec8989af632250d0984",
+          "type": "tar.gz",
+          "files": {
+            "Lapce/lapce": "lapce"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/lapce/lapce/releases/download/v0.4.6/lapce-linux-arm64.tar.gz",
+          "sha256": "7a249eb41bc9f8ddbd94abb51ccdc1d233e33927e6eb9c63e103ea1d9c1530ec",
+          "type": "tar.gz",
+          "files": {
+            "Lapce/lapce": "lapce"
+          }
+        }
+      }
+    },
+    "lsd": {
+      "version": "v1.2.0",
+      "source": "lsd-rs/lsd",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/lsd-rs/lsd/releases/download/v1.2.0/lsd-v1.2.0-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "57d3b5859254adcfb8374ce98159cca97a14959997d2ae1176d2cff59556d829",
+          "type": "tar.gz",
+          "files": {
+            "lsd-v1.2.0-x86_64-unknown-linux-gnu/lsd": "lsd"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/lsd-rs/lsd/releases/download/v1.2.0/lsd-v1.2.0-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "48c069cf73a8ed0851f366afeac86e3a9b7db416133f45d033d31d123f819f26",
+          "type": "tar.gz",
+          "files": {
+            "lsd-v1.2.0-aarch64-unknown-linux-gnu/lsd": "lsd"
+          }
+        }
+      }
+    },
+    "ouch": {
+      "version": "0.8.3",
+      "source": "ouch-org/ouch",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/ouch-org/ouch/releases/download/0.8.3/ouch-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "f0664cbb3bf8c5c781637da2c8bb86b4561a8709f7e10ddb1188150e68e619a7",
+          "type": "tar.gz",
+          "files": {
+            "ouch-x86_64-unknown-linux-gnu/ouch": "ouch"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/ouch-org/ouch/releases/download/0.8.3/ouch-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "d3f856069f264a9f43128cd90491666a3344f1743f68a3f56ac8735072697a6f",
+          "type": "tar.gz",
+          "files": {
+            "ouch-aarch64-unknown-linux-gnu/ouch": "ouch"
+          }
+        }
+      }
+    },
+    "picocrypt": {
+      "version": "1.49",
+      "source": "Picocrypt/CLI",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/Picocrypt/CLI/releases/download/1.49/picocrypt-linux-amd64",
+          "sha256": "9ecd432f96374944ae271b1a40cc21d844f6a6f7d6f115a3777338da3772a3e5",
+          "type": "none",
+          "files": {
+            "picocrypt-linux-amd64": "picocrypt"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/Picocrypt/CLI/releases/download/1.49/picocrypt-linux-arm64",
+          "sha256": "bdbdee514a145d11940e6fa4fd1a783df2af02461f1dacc91d7654acdac31d1d",
+          "type": "none",
+          "files": {
+            "picocrypt-linux-arm64": "picocrypt"
+          }
+        }
+      }
+    },
+    "pingu": {
+      "version": "v0.0.5",
+      "source": "sheepla/pingu",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/sheepla/pingu/releases/download/v0.0.5/pingu_0.0.5_Linux_x86_64.tar.gz",
+          "sha256": "bd446cb4c650725215cb3e59632fc152b36a40aff7c77841bd4c08cf23de6418",
+          "type": "tar.gz",
+          "files": {
+            "pingu": "pingu"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/sheepla/pingu/releases/download/v0.0.5/pingu_0.0.5_Linux_arm64.tar.gz",
+          "sha256": "4b38e177c305ed387f1643ba10570b5a6e88bc26d9f0111c4b8312de36293cc1",
+          "type": "tar.gz",
+          "files": {
+            "pingu": "pingu"
+          }
+        }
+      }
+    },
+    "procs": {
+      "version": "v0.14.12",
+      "source": "dalance/procs",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/dalance/procs/releases/download/v0.14.12/procs-v0.14.12-x86_64-linux.zip",
+          "sha256": "81964faf9d5cd0e9f399d5d0954fb6fe4d4d9f7d3cbec4507633df5a45b11713",
+          "type": "zip",
+          "files": {
+            "procs": "procs"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/dalance/procs/releases/download/v0.14.12/procs-v0.14.12-aarch64-linux.zip",
+          "sha256": "74b4f82acc6fe553cbd5af20ba0baac420b42bef9bb0cbb38fef14b8317d9f91",
+          "type": "zip",
+          "files": {
+            "procs": "procs"
+          }
+        }
+      }
+    },
+    "ripgrep": {
+      "version": "15.2.0",
+      "source": "BurntSushi/ripgrep",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c",
+          "type": "tar.gz",
+          "files": {
+            "ripgrep-15.2.0-x86_64-unknown-linux-musl/rg": "rg"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-unknown-linux-musl.tar.gz",
+          "sha256": "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915",
+          "type": "tar.gz",
+          "files": {
+            "ripgrep-15.2.0-aarch64-unknown-linux-musl/rg": "rg"
+          }
+        }
+      }
+    },
+    "surreal": {
+      "version": "v4.0.1",
+      "source": "surrealdb/surrealdb",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/surrealdb/surrealdb/releases/download/v4.0.1/surreal-v4.0.1.linux-amd64.tgz",
+          "sha256": "9d9d26313bf3f1aeffd066def9493932c79053fc9bca8f1b39f83d511f65577d",
+          "type": "tar.gz",
+          "files": {
+            "surreal": "surreal"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/surrealdb/surrealdb/releases/download/v4.0.1/surreal-v4.0.1.linux-arm64.tgz",
+          "sha256": "52b385d8894a61f650679fea21036f0261c4676e3b8e5a84ecb7e4a46baf8f66",
+          "type": "tar.gz",
+          "files": {
+            "surreal": "surreal"
+          }
+        }
+      }
+    },
+    "tlrc": {
+      "version": "v1.13.1",
+      "source": "tldr-pages/tlrc",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/tldr-pages/tlrc/releases/download/v1.13.1/tlrc-v1.13.1-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "a0d7d963f2bced8a4fa7ab1a42f24140abdb40ba6033f0996dea2e826e341819",
+          "type": "tar.gz",
+          "files": {
+            "tldr": "tldr"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/tldr-pages/tlrc/releases/download/v1.13.1/tlrc-v1.13.1-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "b58399caf415f9acf35e1079d404458abea1ca098dcdb273363d1966428363cb",
+          "type": "tar.gz",
+          "files": {
+            "tldr": "tldr"
+          }
+        }
+      }
+    },
+    "trdsql": {
+      "version": "v1.2.3",
+      "source": "noborus/trdsql",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/noborus/trdsql/releases/download/v1.2.3/trdsql_v1.2.3_linux_amd64.zip",
+          "sha256": "812d1e81f98b6a8b6e7c5f1d8ef8e451d6ea75a14bd8a72c1c2334d7c78d9305",
+          "type": "zip",
+          "files": {
+            "trdsql_v1.2.3_linux_amd64/trdsql": "trdsql"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/noborus/trdsql/releases/download/v1.2.3/trdsql_v1.2.3_linux_arm64.zip",
+          "sha256": "a59aadf13ffaf2795893119424ad5991155f993515238b29aedebb1f225ba435",
+          "type": "zip",
+          "files": {
+            "trdsql_v1.2.3_linux_arm64/trdsql": "trdsql"
+          }
+        }
+      }
+    },
+    "trippy": {
+      "version": "0.13.0",
+      "source": "fujiapple852/trippy",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/fujiapple852/trippy/releases/download/0.13.0/trippy-0.13.0-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "c4245db59d3251df3c3045752d931afbed00b97896adeb93be62bf0bf3933f09",
+          "type": "tar.gz",
+          "files": {
+            "trippy-0.13.0-x86_64-unknown-linux-gnu/trip": "trip"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/fujiapple852/trippy/releases/download/0.13.0/trippy-0.13.0-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "0afa3fc574066ff0d91d9e81ec0da012822c83bb39f691f52b562f9b6bbdaae3",
+          "type": "tar.gz",
+          "files": {
+            "trippy-0.13.0-aarch64-unknown-linux-gnu/trip": "trip"
+          }
+        }
+      }
+    },
+    "trivy": {
+      "version": "v0.76.2",
+      "source": "aquasecurity/trivy",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz",
+          "sha256": "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf",
+          "type": "tar.gz",
+          "files": {
+            "trivy": "trivy"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-ARM64.tar.gz",
+          "sha256": "ab9d51f86e6a5fb936f605faff6b593ac51bc378fff4d3e8b9d58358b9c367c3",
+          "type": "tar.gz",
+          "files": {
+            "trivy": "trivy"
+          }
+        }
+      }
+    },
+    "ttyd": {
+      "version": "1.7.7",
+      "source": "tsl0922/ttyd",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64",
+          "sha256": "8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55",
+          "type": "none",
+          "files": {
+            "ttyd.x86_64": "ttyd"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.aarch64",
+          "sha256": "b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165",
+          "type": "none",
+          "files": {
+            "ttyd.aarch64": "ttyd"
+          }
+        }
+      }
+    },
+    "unimatrix": {
+      "version": "dff519f972103f91384f360f270614184de8aa92",
+      "source": "will8211/unimatrix",
+      "assets": {
+        "any": {
+          "url": "https://raw.githubusercontent.com/will8211/unimatrix/dff519f972103f91384f360f270614184de8aa92/unimatrix.py",
+          "sha256": "0bd73f1fc3625aa50402df84c3efd76f5c6929630e00fc6a90c163b645812546",
+          "type": "none",
+          "files": {
+            "unimatrix.py": "unimatrix"
+          }
+        }
+      }
+    },
+    "usage": {
+      "version": "v7.4.0",
+      "source": "jdx/usage",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/jdx/usage/releases/download/v7.4.0/usage-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "c66011f163619cf3946182498eedd16966bf3d32a6c6cf28c73c8034dfe467d6",
+          "type": "tar.gz",
+          "files": {
+            "usage": "usage"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/jdx/usage/releases/download/v7.4.0/usage-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "63ec67fd6bc8c54ad9e2775e95d6eea565565a30568d65c75be8423b3dd842ea",
+          "type": "tar.gz",
+          "files": {
+            "usage": "usage"
+          }
+        }
+      }
+    },
+    "vhs": {
+      "version": "v0.12.1",
+      "source": "charmbracelet/vhs",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/charmbracelet/vhs/releases/download/v0.12.1/vhs_0.12.1_Linux_x86_64.tar.gz",
+          "sha256": "eb33787a5b1cebf91fe0b18bd231e2d71d36c1ff4babd99ddac1a6ab411efd10",
+          "type": "tar.gz",
+          "files": {
+            "vhs_0.12.1_Linux_x86_64/vhs": "vhs"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/charmbracelet/vhs/releases/download/v0.12.1/vhs_0.12.1_Linux_arm64.tar.gz",
+          "sha256": "0b27029809fcc2ca2c381cceb854cbe03479a0f229b963e9bc3a2f2c36ffd3e7",
+          "type": "tar.gz",
+          "files": {
+            "vhs_0.12.1_Linux_arm64/vhs": "vhs"
+          }
+        }
+      }
+    },
+    "vimv": {
+      "version": "0fec5140eeed8bba5637a9d124bf0364f010e612",
+      "source": "thameera/vimv",
+      "assets": {
+        "any": {
+          "url": "https://raw.githubusercontent.com/thameera/vimv/0fec5140eeed8bba5637a9d124bf0364f010e612/vimv",
+          "sha256": "809e74b1dd00bad7a286489cd2e77980452e19cd9fef6d3e9bc98363f439690c",
+          "type": "none",
+          "files": {
+            "vimv": "vimv"
+          }
+        }
+      }
+    },
+    "vivid": {
+      "version": "v0.11.1",
+      "source": "sharkdp/vivid",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/sharkdp/vivid/releases/download/v0.11.1/vivid-v0.11.1-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "7060e45ba1fc5b25d521704e65d2e5d92c1b219c06b7183ec120a87e1fc376d7",
+          "type": "tar.gz",
+          "files": {
+            "vivid-v0.11.1-x86_64-unknown-linux-gnu/vivid": "vivid"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/sharkdp/vivid/releases/download/v0.11.1/vivid-v0.11.1-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "99bf6438b3403bc9255a83363fe5ed49a0f8bd86377a561420836af14dc8e9ee",
+          "type": "tar.gz",
+          "files": {
+            "vivid-v0.11.1-aarch64-unknown-linux-gnu/vivid": "vivid"
+          }
+        }
+      }
+    },
+    "yazi": {
+      "version": "v26.9.1",
+      "source": "sxyazi/yazi",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/sxyazi/yazi/releases/download/v26.9.1/yazi-x86_64-unknown-linux-gnu.zip",
+          "sha256": "a02fe91d3304294048c681f010f1100856872a4e98ecf6927328e888d40a6ad2",
+          "type": "zip",
+          "files": {
+            "yazi-x86_64-unknown-linux-gnu/yazi": "yazi",
+            "yazi-x86_64-unknown-linux-gnu/ya": "ya"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/sxyazi/yazi/releases/download/v26.9.1/yazi-aarch64-unknown-linux-gnu.zip",
+          "sha256": "02807f08d6b589b65b7516a4e259d83f5995d7a23bb12b3a155141385b370b3a",
+          "type": "zip",
+          "files": {
+            "yazi-aarch64-unknown-linux-gnu/yazi": "yazi",
+            "yazi-aarch64-unknown-linux-gnu/ya": "ya"
+          }
+        }
+      }
+    },
+    "yq": {
+      "version": "v4.54.3",
+      "source": "mikefarah/yq",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_amd64.tar.gz",
+          "sha256": "09a25baa0e136b8633949e03117fc82cb9e50d10910f988ef17a1305539ebce4",
+          "type": "tar.gz",
+          "files": {
+            "./yq_linux_amd64": "yq"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_arm64.tar.gz",
+          "sha256": "980de87c439acb5172707560dd137e9fe4a1628af5aaf6f33b293f04c71d4e9d",
+          "type": "tar.gz",
+          "files": {
+            "./yq_linux_arm64": "yq"
+          }
+        }
+      }
+    },
+    "zellij": {
+      "version": "v0.46.0",
+      "source": "zellij-org/zellij",
+      "assets": {
+        "x86_64": {
+          "url": "https://github.com/zellij-org/zellij/releases/download/v0.46.0/zellij-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "0940e467f99ca57aec5a63edcad633450d49cd6f22e8a7d9c686771a0d9f86ae",
+          "type": "tar.gz",
+          "files": {
+            "zellij": "zellij"
+          }
+        },
+        "aarch64": {
+          "url": "https://github.com/zellij-org/zellij/releases/download/v0.46.0/zellij-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "7ce8501136dab30767fea809191f39ca41d66d100082a96534539f49c7a53f0d",
+          "type": "tar.gz",
+          "files": {
+            "zellij": "zellij"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 # MIT License
-# 
-# Copyright (c) 2025, Paulo Cereda
-# 
+#
+# Copyright (c) 2026, Paulo Cereda
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,6 +23,9 @@
 # SOFTWARE.
 
 source "extras/tools-list.sh"
+source "extras/tools-download.sh"
+source "extras/tools-unpacking.sh"
+source "extras/tools-deployment.sh"
 
 section "Additional command line tools"
 
@@ -39,43 +42,114 @@ text "Do you want to install any of these command line tools?"
 
 echo
 
-# display a list of command line tools from the the CLI_TOOLS_LIST environment
-# variable set previously (see [extras/tools-list.sh] for reference)
-# and collect the selected entries into a new array
-readarray -t CLI_TOOLS_TO_INSTALL <<< $(${GUM} choose --no-limit --height 15 --selected='*' "${CLI_TOOLS_LIST[@]}")
+function extras_cleanup_workspace {
+    if [ -n "${EXTRAS_WORKSPACE:-}" ] &&
+        [ -d "${EXTRAS_WORKSPACE}" ] &&
+        [[ "${EXTRAS_WORKSPACE}" == "${EXTRAS_WORKSPACE_ROOT}/fedora-postinstall-extras."* ]]; then
+        rm -rf -- "${EXTRAS_WORKSPACE}"
+    fi
+    if declare -F cleanup_gum_bootstrap > /dev/null; then
+        cleanup_gum_bootstrap
+    fi
+}
 
-# no items were selected in the list based on the -z check -- a test operator
-# that checks if a string is null
-if [ -z "${CLI_TOOLS_TO_INSTALL}" ]; then
+function extras_tool_is_registered {
+    local selected="${1}"
+    local registered
 
-    # display a message to the user
+    for registered in "${CLI_TOOLS_LIST[@]}"; do
+        if [ "${selected}" = "${registered}" ]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+# The list is rendered by gum. Only identifiers from the authoritative registry
+# are accepted; arbitrary user or terminal output must never become a source path.
+selection=$("${GUM}" choose --no-limit --height 15 --selected='*' "${CLI_TOOLS_LIST[@]}")
+CLI_TOOLS_TO_INSTALL=()
+while IFS= read -r selected_tool; do
+    [ -n "${selected_tool}" ] || continue
+    if ! extras_tool_is_registered "${selected_tool}"; then
+        text "Ignoring unknown command line tool '${selected_tool}'."
+        continue
+    fi
+    duplicate=0
+    for registered in "${CLI_TOOLS_TO_INSTALL[@]}"; do
+        if [ "${selected_tool}" = "${registered}" ]; then
+            duplicate=1
+            break
+        fi
+    done
+    if [ "${duplicate}" -eq 0 ]; then
+        CLI_TOOLS_TO_INSTALL+=("${selected_tool}")
+    fi
+done < <(printf '%s\n' "${selection}")
+
+if [ "${#CLI_TOOLS_TO_INSTALL[@]}" -eq 0 ]; then
     text "You haven't selected any items from the list. Moving on."
-else
-
-    # at least one item was selected in the list (variable is not null),
-    # so the script can install the chosen command line tool(s)
-
-    text "You've selected ${#CLI_TOOLS_TO_INSTALL[@]} command line tool(s) to install. Please wait."
-
-    # iterate through all the items in the list, display a message and install
-    # each command line tool
-    for CLI_TOOL_TO_INSTALL in "${CLI_TOOLS_TO_INSTALL[@]}"; do
-        
-        # source each selected item
-        source "extras/${CLI_TOOL_TO_INSTALL}-download.sh"
-    done
-
-    # unpack all files
-    source "extras/tools-unpacking.sh"
-
-    # iterate through all the items in the list, display a message and
-    # source any additional setup for the choosen tool(s), if applicable
-    for CLI_TOOL_TO_INSTALL in "${CLI_TOOLS_TO_INSTALL[@]}"; do
-        
-        # test if the additional setup exists and source it
-        test -f "extras/${CLI_TOOL_TO_INSTALL}-setup.sh" && source "extras/${CLI_TOOL_TO_INSTALL}-setup.sh"
-    done
-
-    # deploy all executables
-    source "extras/tools-deployment.sh"
+    return 0 2> /dev/null || exit 0
 fi
+
+text "You've selected ${#CLI_TOOLS_TO_INSTALL[@]} command line tool(s) to install. Please wait."
+
+require_command "python3" "needed to safely extract downloaded tool archives"
+
+EXTRAS_MANIFEST_FILE="${EXTRAS_MANIFEST_FILE:-${SCRIPT_PATH}/extras/tools-manifest.json}"
+EXTRAS_WORKSPACE_ROOT="${TMPDIR:-/tmp}"
+if ! extras_validate_manifest_file; then
+    text "Unable to load the command line tool manifest."
+    exit 1
+fi
+if ! EXTRAS_ARCHITECTURE=$(extras_detect_architecture); then
+    text "Unsupported architecture for the additional command line tools: $(uname -m)."
+    exit 1
+fi
+
+if ! extras_validate_selected_tools "${CLI_TOOLS_TO_INSTALL[@]}"; then
+    text "Unable to install the selected command line tools on ${EXTRAS_ARCHITECTURE}."
+    exit 1
+fi
+
+if ! EXTRAS_WORKSPACE=$(mktemp -d \
+    "${EXTRAS_WORKSPACE_ROOT}/fedora-postinstall-extras.XXXXXXXX"); then
+    text "Unable to create a temporary workspace for the additional command line tools."
+    exit 1
+fi
+trap 'extras_cleanup_workspace' EXIT
+
+if ! mkdir -p \
+    "${EXTRAS_WORKSPACE}/downloads" \
+    "${EXTRAS_WORKSPACE}/extracted" \
+    "${EXTRAS_WORKSPACE}/staged" \
+    "${EXTRAS_WORKSPACE}/backups"; then
+    text "Unable to prepare the temporary workspace for the additional command line tools."
+    exit 1
+fi
+EXTRAS_ARTIFACT_LEDGER="${EXTRAS_WORKSPACE}/artifacts.tsv"
+EXTRAS_STAGE_LEDGER="${EXTRAS_WORKSPACE}/staged.tsv"
+if ! : > "${EXTRAS_ARTIFACT_LEDGER}" || ! : > "${EXTRAS_STAGE_LEDGER}"; then
+    text "Unable to initialize the command line tool ledgers."
+    exit 1
+fi
+
+for CLI_TOOL_TO_INSTALL in "${CLI_TOOLS_TO_INSTALL[@]}"; do
+    if ! source "extras/${CLI_TOOL_TO_INSTALL}-download.sh"; then
+        text "Unable to download ${CLI_TOOL_TO_INSTALL}. No tools were deployed."
+        exit 1
+    fi
+done
+
+if ! unpack_extras_tools "${CLI_TOOLS_TO_INSTALL[@]}"; then
+    text "Unable to unpack the selected command line tools. No tools were deployed."
+    exit 1
+fi
+
+if ! deploy_extras_tools; then
+    text "Unable to deploy the selected command line tools."
+    exit 1
+fi
+
+info "Deployed ${#EXTRAS_STAGED_BINARIES[@]} executable(s) to ${HOME}/.local/bin."

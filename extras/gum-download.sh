@@ -31,11 +31,4 @@ more engaging and intuitive command line applications."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of gum from GitHub."
-test -f gum.json || wget -q -O gum.json https://api.github.com/repos/charmbracelet/gum/releases/latest
-
-info "Downloading gum from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("Linux") and endswith("tar.gz")).browser_download_url' gum.json)
+download_extras_tool "gum"

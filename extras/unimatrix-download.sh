@@ -31,5 +31,4 @@ controls while running."
 
 echo
 
-info "Downloading latest version of unimatrix from GitHub."
-wget -q https://raw.githubusercontent.com/will8211/unimatrix/master/unimatrix.py
+download_extras_tool "unimatrix"

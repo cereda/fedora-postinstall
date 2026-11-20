@@ -31,11 +31,4 @@ highlighting desired content."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of ripgrep from GitHub."
-test -f ripgrep.json || wget -q -O ripgrep.json https://api.github.com/repos/BurntSushi/ripgrep/releases/latest
-
-info "Downloading ripgrep from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-musl") and endswith("tar.gz")).browser_download_url' ripgrep.json)
+download_extras_tool "ripgrep"

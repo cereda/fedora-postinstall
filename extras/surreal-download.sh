@@ -29,11 +29,4 @@ the SurrealDB distributed database system from the terminal."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of surreal from GitHub."
-test -f surreal.json || wget -q -O surreal.json https://api.github.com/repos/surrealdb/surrealdb/releases/latest
-
-info "Downloading surreal from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux") and endswith("tgz")).browser_download_url' surreal.json)
+download_extras_tool "surreal"

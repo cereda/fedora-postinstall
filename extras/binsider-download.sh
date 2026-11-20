@@ -30,11 +30,4 @@ extracting data from various types of binary data."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of binsider from GitHub."
-test -f binsider.json || wget -q -O binsider.json https://api.github.com/repos/orhun/binsider/releases/latest
-
-info "Downloading binsider from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("tar.gz")).browser_download_url' binsider.json)
+download_extras_tool "binsider"

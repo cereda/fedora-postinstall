@@ -39,7 +39,10 @@ function require_runtime_dependencies {
     require_command "curl" "needed by several installers"
     require_command "tar" "needed to extract downloaded archives"
     require_command "unzip" "needed to extract downloaded ZIP archives"
-    require_command "jq" "needed to inspect GitHub release metadata"
+    require_command "sha256sum" "needed to verify downloaded tools"
+    require_command "install" "needed to deploy command line tools"
+    require_command "mktemp" "needed to create isolated temporary directories"
+    require_command "jq" "needed to inspect the command line tool manifest"
     require_command "git" "needed by several installers"
     require_command "realpath" "needed to validate configuration paths"
 }
