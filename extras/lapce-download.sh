@@ -30,11 +30,4 @@ editing, and managing code directly from the command line."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of Lapce from GitHub."
-test -f lapce.json || wget -q -O lapce.json https://api.github.com/repos/lapce/lapce/releases/latest
-
-info "Downloading Lapce from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux")).browser_download_url' lapce.json)
+download_extras_tool "lapce"

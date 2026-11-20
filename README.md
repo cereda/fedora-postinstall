@@ -22,10 +22,10 @@ $ CLI_TOOLS_ONLY=1 bash fedora-postinstall.sh
 
 ### Prerequisites
 
-The script requires Fedora with `rpm`, plus the following commands: `bash`, `curl`, `git`, `jq`, `realpath`, `tar`, `unzip`, and `wget`. On Fedora, install the missing tools with:
+The script requires Fedora with `rpm`, plus the following commands: `bash`, `coreutils` (including `install`, `mktemp`, and `sha256sum`), `curl`, `findutils`, `git`, `jq`, `python3`, `realpath`, `tar`, `unzip`, and `wget`. On Fedora, install the missing tools with:
 
 ```bash
-$ sudo dnf install curl git jq realpath tar unzip wget
+$ sudo dnf install coreutils curl findutils git jq python3 realpath tar unzip wget
 ```
 
 The script also requires an interactive terminal and a working `sudo` session for the system configuration steps.
@@ -101,10 +101,12 @@ GNOME configurations and tweaks:
 
 Additional command line tools (deployed in `${HOME}/.local/bin`):
 
+Downloads use the pinned URLs and SHA-256 checksums in `extras/tools-manifest.json`. Each selected tool is downloaded and verified in an isolated temporary workspace; only the exact tracked artifact is unpacked, and deployment replaces each executable atomically. Temporary files are removed when the script exits. The manifest provides native x86-64 and AArch64 releases where upstream publishes them (`jless` currently supports x86-64 only).
+
 | Tool | Description |
 |------|-------------|
 | `binsider` | Analyzes the contents of binary files. |
-| `bottom` | System monitoring tool. |
+| `bottom` | System monitoring tool, deployed as `btm`. |
 | `bun` | A fast JavaScript runtime that provides a command line interface for building, testing, and running web applications. |
 | `caddy` | A powerful tool that simplifies the process of setting up and managing web servers. |
 | `deno` | A modern, secure, and fast runtime for executing JavaScript and TypeScript. |
@@ -127,10 +129,11 @@ Additional command line tools (deployed in `${HOME}/.local/bin`):
 | `picocrypt` | A simple and secure way to encrypt and decrypt files. |
 | `pingu` | A modern implementation of the classic `ping` utility. |
 | `procs` | Monitors running processes and their resource usage. |
-| `ripgrep` | Searches text across files and directories. |
+| `ripgrep` | Searches text across files and directories, deployed as `rg`. |
 | `surreal` | An interface for working with the SurrealDB database. |
+| `tlrc` | The official tldr client, deployed as `tldr`. |
 | `trdsql` | Executes SQL queries against various data sources. |
-| `trippy` | A network diagnostic tool. |
+| `trippy` | A network diagnostic tool, deployed as `trip`. |
 | `trivy` | Scans container images, file systems, and Git repositories for known vulnerabilities. |
 | `ttyd` | Shares terminal sessions over the web. |
 | `unimatrix` | Python script to simulate the display from "The Matrix" in terminal. |
@@ -138,7 +141,7 @@ Additional command line tools (deployed in `${HOME}/.local/bin`):
 | `vhs` | Records and plays back terminal sessions. |
 | `vimv` | Renames files and directories. |
 | `vivid` | Generates color themes for the terminal. |
-| `yazi` | A blazing fast terminal file manager. _(standalone binary)_ |
+| `yazi` | A blazing fast terminal file manager, deployed as `yazi` and `ya`. |
 | `yq` | Manipulates YAML files. |
 | `zellij` | A modern, feature-rich terminal multiplexer. |
 

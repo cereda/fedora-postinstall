@@ -31,11 +31,4 @@ security analysis."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of ipinfo from GitHub."
-test -f ipinfo.json || wget -q -O ipinfo.json https://api.github.com/repos/ipinfo/cli/releases/latest
-
-info "Downloading ipinfo from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux") and endswith("tar.gz")).browser_download_url' ipinfo.json)
+download_extras_tool "ipinfo"

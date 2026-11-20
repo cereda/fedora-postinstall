@@ -31,11 +31,4 @@ terminal environment."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of ttyd from GitHub."
-test -f ttyd.json || wget -q -O ttyd.json https://api.github.com/repos/tsl0922/ttyd/releases/latest
-
-info "Downloading ttyd from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64")).browser_download_url' ttyd.json)
+download_extras_tool "ttyd"

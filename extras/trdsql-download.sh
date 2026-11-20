@@ -31,11 +31,4 @@ data from different sources."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of trdsql from GitHub."
-test -f trdsql.json || wget -q -O trdsql.json https://api.github.com/repos/noborus/trdsql/releases/latest
-
-info "Downloading trdsql from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("linux_amd64")).browser_download_url' trdsql.json)
+download_extras_tool "trdsql"

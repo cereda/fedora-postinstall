@@ -31,11 +31,4 @@ targets."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of Trivy from GitHub."
-test -f trivy.json || wget -q -O trivy.json https://api.github.com/repos/aquasecurity/trivy/releases/latest
-
-info "Downloading Trivy from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("Linux") and contains("64bit") and endswith("tar.gz")).browser_download_url' trivy.json)
+download_extras_tool "trivy"

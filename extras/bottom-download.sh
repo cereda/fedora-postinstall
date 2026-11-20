@@ -31,11 +31,4 @@ metrics."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of bottom from GitHub."
-test -f bottom.json || wget -q -O bottom.json https://api.github.com/repos/ClementTsang/bottom/releases/latest
-
-info "Downloading bottom from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux") and endswith("gnu.tar.gz")).browser_download_url' bottom.json)
+download_extras_tool "bottom"

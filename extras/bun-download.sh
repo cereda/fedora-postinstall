@@ -31,11 +31,4 @@ features like server-side rendering and database integration."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of bun from GitHub."
-test -f bun.json || wget -q -O bun.json https://api.github.com/repos/oven-sh/bun/releases/latest
-
-info "Downloading bun from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("linux") and endswith("x64.zip")).browser_download_url' bun.json)
+download_extras_tool "bun"

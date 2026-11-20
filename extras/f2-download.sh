@@ -29,11 +29,4 @@ directories, simplifying common file management tasks."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of f2 from GitHub."
-test -f f2.json || wget -q -O f2.json https://api.github.com/repos/ayoisaiah/f2/releases/latest
-
-info "Downloading f2 from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux") and endswith("tar.gz")).browser_download_url' f2.json)
+download_extras_tool "f2"

@@ -30,11 +30,4 @@ utilization from the terminal."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of duf from GitHub."
-test -f duf.json || wget -q -O duf.json https://api.github.com/repos/muesli/duf/releases/latest
-
-info "Downloading duf from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux") and endswith("tar.gz")).browser_download_url' duf.json)
+download_extras_tool "duf"

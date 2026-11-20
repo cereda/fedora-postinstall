@@ -30,11 +30,4 @@ directories on the file system."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of fd from GitHub."
-test -f fd.json || wget -q -O fd.json https://api.github.com/repos/sharkdp/fd/releases/latest
-
-info "Downloading fd from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("tar.gz")).browser_download_url' fd.json)
+download_extras_tool "fd"

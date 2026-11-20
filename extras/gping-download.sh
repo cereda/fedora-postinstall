@@ -30,11 +30,4 @@ connectivity and latency."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of gping from GitHub."
-test -f gping.json || wget -q -O gping.json https://api.github.com/repos/orf/gping/releases/latest
-
-info "Downloading gping from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("Linux") and endswith("tar.gz")).browser_download_url' gping.json)
+download_extras_tool "gping"

@@ -30,11 +30,4 @@ syntax similar to jq, which is a popular tool for working with JSON data."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of yq from GitHub."
-test -f yq.json || wget -q -O yq.json https://api.github.com/repos/mikefarah/yq/releases/latest
-
-info "Downloading yq from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("linux_amd64") and endswith("tar.gz")).browser_download_url' yq.json)
+download_extras_tool "yq"

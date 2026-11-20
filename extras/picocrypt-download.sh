@@ -30,11 +30,4 @@ solution for quick and private file protection tasks."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of picocrypt from GitHub."
-test -f picocrypt.json || wget -q -O picocrypt.json https://api.github.com/repos/Picocrypt/CLI/releases/latest
-
-info "Downloading picocrypt from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux")).browser_download_url' picocrypt.json)
+download_extras_tool "picocrypt"

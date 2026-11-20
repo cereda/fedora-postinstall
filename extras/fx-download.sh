@@ -30,11 +30,4 @@ query, filter, and transform JSON content from the terminal."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of fx from GitHub."
-test -f fx.json || wget -q -O fx.json https://api.github.com/repos/antonmedv/fx/releases/latest
-
-info "Downloading fx from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("amd64") and contains("linux")).browser_download_url' fx.json)
+download_extras_tool "fx"

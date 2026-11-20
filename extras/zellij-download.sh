@@ -31,11 +31,4 @@ efficiently."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of Zellij from GitHub."
-test -f zellij.json || wget -q -O zellij.json https://api.github.com/repos/zellij-org/zellij/releases/latest
-
-info "Downloading Zellij from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux") and endswith("tar.gz")).browser_download_url' zellij.json)
+download_extras_tool "zellij"

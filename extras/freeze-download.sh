@@ -30,11 +30,4 @@ illustrations of their programming work."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of freeze from GitHub."
-test -f freeze.json || wget -q -O freeze.json https://api.github.com/repos/charmbracelet/freeze/releases/latest
-
-info "Downloading freeze from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("Linux") and endswith("tar.gz")).browser_download_url' freeze.json)
+download_extras_tool "freeze"

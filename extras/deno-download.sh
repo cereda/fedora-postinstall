@@ -30,11 +30,4 @@ focus on improved security and developer experience."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of deno from GitHub."
-test -f deno.json || wget -q -O deno.json https://api.github.com/repos/denoland/deno/releases/latest
-
-info "Downloading deno from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and contains("deno-") and endswith("zip")).browser_download_url' deno.json)
+download_extras_tool "deno"

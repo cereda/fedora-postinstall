@@ -30,11 +30,4 @@ command line interface, making it more visually appealing and easier to use."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of vivid from GitHub."
-test -f vivid.json || wget -q -O vivid.json https://api.github.com/repos/sharkdp/vivid/releases/latest
-
-info "Downloading vivid from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu")).browser_download_url' vivid.json)
+download_extras_tool "vivid"

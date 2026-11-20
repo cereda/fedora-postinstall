@@ -30,11 +30,4 @@ tools to enable additional features."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of yazi from GitHub."
-test -f yazi.json || wget -q -O yazi.json https://api.github.com/repos/sxyazi/yazi/releases/latest
-
-info "Downloading yazi from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("zip")).browser_download_url' yazi.json)
+download_extras_tool "yazi"

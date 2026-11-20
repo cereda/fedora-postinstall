@@ -30,11 +30,4 @@ content directly from the terminal."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of glow from GitHub."
-test -f glow.json || wget -q -O glow.json https://api.github.com/repos/charmbracelet/glow/releases/latest
-
-info "Downloading glow from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("Linux") and endswith("tar.gz")).browser_download_url' glow.json)
+download_extras_tool "glow"

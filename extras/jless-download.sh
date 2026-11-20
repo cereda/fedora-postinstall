@@ -30,11 +30,4 @@ and querying capabilities to simplify working with JSON from the terminal."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of jless from GitHub."
-test -f jless.json || wget -q -O jless.json https://api.github.com/repos/PaulJuliusMartinez/jless/releases/latest
-
-info "Downloading jless from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux")).browser_download_url' jless.json)
+download_extras_tool "jless"

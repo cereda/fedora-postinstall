@@ -29,11 +29,4 @@ if mise is installed and activated."
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of usage from GitHub."
-test -f usage.json || wget -q -O usage.json https://api.github.com/repos/jdx/usage/releases/latest
-
-info "Downloading usage from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu") and endswith("tar.gz")).browser_download_url' usage.json)
+download_extras_tool "usage"

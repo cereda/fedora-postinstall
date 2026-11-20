@@ -30,11 +30,4 @@ formats, making it a versatile tool for managing various types of archived data.
 
 echo
 
-# Note: GitHub may apply rate limits to the API endpoint, which could
-# cause this section to fail (been there, done that)
-
-info "Getting latest version of ouch from GitHub."
-test -f ouch.json || wget -q -O ouch.json https://api.github.com/repos/ouch-org/ouch/releases/latest
-
-info "Downloading ouch from GitHub."
-wget -q $(jq -r '.assets[] | select(.name | contains("x86_64") and contains("linux-gnu")).browser_download_url' ouch.json)
+download_extras_tool "ouch"
