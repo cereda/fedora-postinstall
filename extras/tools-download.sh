@@ -27,12 +27,15 @@ declare -gA EXTRAS_DOWNLOADED_TYPES=()
 declare -gA EXTRAS_DOWNLOADED_FILENAMES=()
 
 function extras_detect_architecture {
+    if declare -F runtime_selected_architecture >/dev/null; then
+        runtime_selected_architecture
+        return $?
+    fi
+
     local machine
-
-    machine=$(uname -m)
-
+    machine=$(uname -m) || return 1
     case "${machine}" in
-    x86_64 | amd64) printf '%s\n' "x86_64" ;;
+    x86_64 | amd64 | x64) printf '%s\n' "x86_64" ;;
     aarch64 | arm64) printf '%s\n' "aarch64" ;;
     *)
         return 1
@@ -44,9 +47,38 @@ function extras_manifest_entry {
     local tool="${1}"
     local architecture="${2}"
 
+    case "${architecture}" in
+    x86_64 | aarch64) ;;
+    *)
+        printf 'extras: unsupported canonical architecture key: %s\n' \
+            "${architecture}" >&2
+        return 1
+        ;;
+    esac
+
     jq -ce --arg tool "${tool}" --arg architecture "${architecture}" \
         '.tools[$tool].assets[$architecture] // .tools[$tool].assets.any // empty' \
         "${EXTRAS_MANIFEST_FILE}"
+}
+
+function extras_available_tools_for_architecture {
+    local extras_local_architecture="${1:-}"
+    local extras_local_tool
+
+    case "${extras_local_architecture}" in
+    x86_64 | aarch64) ;;
+    *)
+        printf 'extras: unsupported canonical architecture key: %s\n' \
+            "${extras_local_architecture}" >&2
+        return 1
+        ;;
+    esac
+
+    for extras_local_tool in "${CLI_TOOLS_LIST[@]}"; do
+        if extras_manifest_entry "${extras_local_tool}" "${extras_local_architecture}" >/dev/null; then
+            printf '%s\n' "${extras_local_tool}"
+        fi
+    done
 }
 
 function extras_manifest_version {
@@ -62,8 +94,17 @@ function extras_validate_manifest_file {
         return 1
     fi
 
-    if ! jq -e '.schema_version == 1 and (.tools | type == "object")' \
-        "${EXTRAS_MANIFEST_FILE}" >/dev/null; then
+    if ! jq -e '
+        .schema_version == 1 and
+        (.tools | type == "object") and
+        all(.tools | to_entries[];
+            (.key | test("^[a-z0-9][a-z0-9-]*$")) and
+            (.value | type == "object") and
+            (.value.assets | type == "object") and
+            (.value.assets | length > 0) and
+            (((.value.assets | keys) - ["x86_64", "aarch64", "any"]) | length == 0)
+        )
+    ' "${EXTRAS_MANIFEST_FILE}" >/dev/null; then
         printf 'extras: invalid command line tool manifest: %s\n' "${EXTRAS_MANIFEST_FILE}" >&2
         return 1
     fi
@@ -183,10 +224,21 @@ function extras_validate_manifest_entry {
 }
 
 function extras_validate_selected_tools {
-    local tool target existing_target entry
+    local tool target existing_target entry registered candidate
     local -A selected_targets=()
 
     for tool in "$@"; do
+        registered=0
+        for candidate in "${CLI_TOOLS_LIST[@]}"; do
+            if [ "${tool}" = "${candidate}" ]; then
+                registered=1
+                break
+            fi
+        done
+        if [ "${registered}" -ne 1 ]; then
+            printf 'extras: unknown tool identifier "%s"\n' "${tool}" >&2
+            return 1
+        fi
         if ! extras_validate_manifest_entry "${tool}" "${EXTRAS_ARCHITECTURE}"; then
             return 1
         fi

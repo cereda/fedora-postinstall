@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "name": "minimal",
+  "description": "Keep core configuration while skipping optional applications, package cleanup, and extra tools.",
+  "flavors": [
+    "workstation",
+    "silverblue"
+  ],
+  "modules": {
+    "include": [],
+    "exclude": [
+      "*-installation.sh",
+      "common/flatpark-configuration.sh",
+      "common/profile-photo.sh",
+      "workstation/package-cleanup.sh",
+      "workstation/useful-packages.sh",
+      "silverblue/flatpak-unpin.sh",
+      "silverblue/flatpak-cleanup.sh",
+      "silverblue/useful-packages.sh",
+      "extras/additional-tools.sh"
+    ]
+  },
+  "extras": {
+    "tools": []
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "name": "developer",
+  "description": "Install common development tools while skipping heavyweight and optional desktop setup.",
+  "flavors": [
+    "workstation",
+    "silverblue"
+  ],
+  "modules": {
+    "include": [],
+    "exclude": [
+      "common/flatpark-configuration.sh",
+      "common/profile-photo.sh",
+      "common/flatpaks-installation.sh",
+      "common/fonts-installation.sh",
+      "common/miniconda-installation.sh",
+      "workstation/package-cleanup.sh",
+      "workstation/ghostty-installation.sh",
+      "workstation/texlive-configuration.sh",
+      "silverblue/flatpak-unpin.sh",
+      "silverblue/flatpak-cleanup.sh",
+      "silverblue/homebrew-installation.sh"
+    ]
+  },
+  "extras": {
+    "tools": [
+      "bottom",
+      "fd",
+      "ripgrep",
+      "yq"
+    ]
+  }
+}

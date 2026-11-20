@@ -79,32 +79,86 @@ function extras_tool_is_registered {
     return 1
 }
 
-# The list is rendered by gum. Only identifiers from the authoritative registry
-# are accepted; arbitrary user or terminal output must never become a source path.
-selection_status=0
-selection=$("${GUM}" choose --no-limit --height 15 --selected='*' "${CLI_TOOLS_LIST[@]}") || selection_status="${?}"
-if [ "${selection_status}" -ne 0 ]; then
-    text "Unable to read the command line tool selection."
+EXTRAS_MANIFEST_FILE="${SCRIPT_PATH}/extras/tools-manifest.json"
+if ! extras_validate_manifest_file; then
+    text "Unable to load the command line tool manifest."
     return 1
 fi
+if ! EXTRAS_ARCHITECTURE=$(extras_detect_architecture); then
+    text "Unsupported architecture for the additional command line tools: ${POSTINSTALL_ARCHITECTURE:-$(uname -m)}."
+    return 1
+fi
+
+CLI_TOOLS_AVAILABLE=()
+while IFS= read -r available_tool; do
+    [ -n "${available_tool}" ] && CLI_TOOLS_AVAILABLE+=("${available_tool}")
+done < <(extras_available_tools_for_architecture "${EXTRAS_ARCHITECTURE}")
+
+# Explicit selections come from the validated CLI/profile layer. The legacy
+# interactive chooser remains the default for the extras flow.
 CLI_TOOLS_TO_INSTALL=()
-while IFS= read -r selected_tool; do
-    [ -n "${selected_tool}" ] || continue
-    if ! extras_tool_is_registered "${selected_tool}"; then
-        text "Ignoring unknown command line tool '${selected_tool}'."
-        continue
+case "${POSTINSTALL_TOOL_SELECTION_MODE:-interactive}" in
+none)
+    CLI_TOOLS_SELECTION="-"
+    text "No command line tools were selected. Moving on."
+    return 0 2>/dev/null || exit 0
+    ;;
+explicit | all)
+    CLI_TOOLS_TO_INSTALL=("${CLI_SELECTED_TOOLS[@]}")
+    ;;
+interactive)
+    if [ "${#CLI_TOOLS_AVAILABLE[@]}" -eq 0 ]; then
+        text "Command line tools are not available for architecture ${EXTRAS_ARCHITECTURE}."
+        return 1
     fi
-    duplicate=0
-    for registered in "${CLI_TOOLS_TO_INSTALL[@]}"; do
-        if [ "${selected_tool}" = "${registered}" ]; then
-            duplicate=1
-            break
+    # The list is rendered by gum. Only identifiers from the authoritative
+    # registry are accepted; arbitrary terminal output never becomes a path.
+    selection_status=0
+    selection=$("${GUM}" choose --no-limit --height 15 --selected='*' "${CLI_TOOLS_AVAILABLE[@]}") ||
+        selection_status="${?}"
+    if [ "${selection_status}" -ne 0 ]; then
+        text "Unable to read the command line tool selection."
+        return 1
+    fi
+    while IFS= read -r selected_tool; do
+        [ -n "${selected_tool}" ] || continue
+        if ! extras_tool_is_registered "${selected_tool}"; then
+            text "Ignoring unknown command line tool '${selected_tool}'."
+            continue
         fi
-    done
-    if [ "${duplicate}" -eq 0 ]; then
-        CLI_TOOLS_TO_INSTALL+=("${selected_tool}")
-    fi
-done < <(printf '%s\n' "${selection}")
+        available=0
+        for available_tool in "${CLI_TOOLS_AVAILABLE[@]}"; do
+            if [ "${selected_tool}" = "${available_tool}" ]; then
+                available=1
+                break
+            fi
+        done
+        if [ "${available}" -ne 1 ]; then
+            text "Ignoring command line tool '${selected_tool}', which is not available for ${EXTRAS_ARCHITECTURE}."
+            continue
+        fi
+        duplicate=0
+        for registered in "${CLI_TOOLS_TO_INSTALL[@]}"; do
+            if [ "${selected_tool}" = "${registered}" ]; then
+                duplicate=1
+                break
+            fi
+        done
+        if [ "${duplicate}" -eq 0 ]; then
+            CLI_TOOLS_TO_INSTALL+=("${selected_tool}")
+        fi
+    done < <(printf '%s\n' "${selection}")
+    ;;
+*)
+    text "Invalid command line tool selection mode '${POSTINSTALL_TOOL_SELECTION_MODE}'."
+    return 1
+    ;;
+esac
+
+CLI_TOOLS_SELECTION="$(printf '%s,' "${CLI_TOOLS_TO_INSTALL[@]}" | sed 's/,$//')"
+if [ -z "${CLI_TOOLS_SELECTION}" ]; then
+    CLI_TOOLS_SELECTION="-"
+fi
 
 if [ "${#CLI_TOOLS_TO_INSTALL[@]}" -eq 0 ]; then
     text "You haven't selected any items from the list. Moving on."
@@ -115,17 +169,7 @@ text "You've selected ${#CLI_TOOLS_TO_INSTALL[@]} command line tool(s) to instal
 
 require_command "python3" "needed to safely extract downloaded tool archives"
 
-EXTRAS_MANIFEST_FILE="${SCRIPT_PATH}/extras/tools-manifest.json"
 EXTRAS_WORKSPACE_ROOT="${TMPDIR:-/tmp}"
-if ! extras_validate_manifest_file; then
-    text "Unable to load the command line tool manifest."
-    return 1
-fi
-if ! EXTRAS_ARCHITECTURE=$(extras_detect_architecture); then
-    text "Unsupported architecture for the additional command line tools: $(uname -m)."
-    return 1
-fi
-
 if ! extras_validate_selected_tools "${CLI_TOOLS_TO_INSTALL[@]}"; then
     text "Unable to install the selected command line tools on ${EXTRAS_ARCHITECTURE}."
     return 1

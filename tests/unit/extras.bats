@@ -37,6 +37,7 @@ EOF
 #!/usr/bin/env bash
 case "${1}" in
     choose)
+        : > "${MOCK_CHOOSE_MARKER}"
         if [ "${MOCK_CHOOSE_FAIL:-0}" = "1" ]; then
             exit 7
         fi
@@ -146,6 +147,7 @@ EOF
         "${MOCK_BIN}/install" \
         "${MOCK_BIN}/mv"
     export MOCK_SELECTED_TOOL="fd"
+    export MOCK_CHOOSE_MARKER="${TEST_ROOT}/gum-choose-called"
     export MOCK_ARCHITECTURE="x86_64"
     export MOCK_CHOOSE_FAIL=0
     export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/fd.tar.gz"
@@ -198,6 +200,14 @@ run_installer() {
         TMPDIR="${TMP_ROOT}" \
         CLI_TOOLS_ONLY=1 \
         bash "${SANDBOX_REPO}/fedora-postinstall.sh"
+}
+
+run_extras_command() {
+    run env \
+        PATH="${MOCK_BIN}:${PATH}" \
+        HOME="${TEST_HOME}" \
+        TMPDIR="${TMP_ROOT}" \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" extras "$@"
 }
 
 @test "extras manifest covers the authoritative tool registry" {
@@ -254,6 +264,25 @@ run_installer() {
     run find "${TMP_ROOT}" -maxdepth 1 -name 'fedora-postinstall-extras.*' -print
     assert_success
     refute_output_contains "fedora-postinstall-extras."
+}
+
+@test "an explicit tool selection bypasses the interactive chooser" {
+    mkdir -p "${TEST_HOME}/.local/bin"
+
+    run_extras_command --tools fd
+    assert_success
+    assert_file_exists "${TEST_HOME}/.local/bin/fd"
+    assert_file_absent "${MOCK_CHOOSE_MARKER}"
+    run grep -Fx 'https://example.test/fd-test-1.tar.gz' "${CURL_LOG}"
+    assert_success
+}
+
+@test "an unknown explicit tool fails before downloading" {
+    run_extras_command --tools not-a-tool
+    assert_failure
+    assert_output_contains "unknown tool identifier"
+    assert_file_absent "${CURL_LOG}"
+    assert_file_absent "${MOCK_CHOOSE_MARKER}"
 }
 
 @test "resume invalidates extras when the manifest changes" {

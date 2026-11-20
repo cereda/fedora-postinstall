@@ -2,45 +2,99 @@
 
 Welcome to my personal Fedora post installation guide. This repository describes most of the tasks I perform after a clean install of this awesome Linux distribution. Ideas and suggestions were collected from various sources, as well as from personal experience and preference. Use this guide at your own risk, and have fun with Fedora!
 
-## How to run this script?
+## Requirements
 
-Open your terminal and type:
-
-```bash
-$ git clone --depth 1 https://github.com/cereda/fedora-postinstall
-$ cd fedora-postinstall
-$ bash fedora-postinstall.sh
-```
-
-If you only want to install some additional command line tools (see the table below), you can define a special environment variable named `CLI_TOOLS_ONLY=1` before running the script:
+The project targets Fedora Workstation and Fedora Silverblue. It requires `rpm` and the following commands: `bash`, `coreutils` (including `install`, `mktemp`, and `sha256sum`), `curl`, `findutils`, `git`, `jq`, `python3`, `realpath`, `tar`, `unzip`, and `wget`. On Fedora, install the missing tools with:
 
 ```bash
-$ git clone --depth 1 https://github.com/cereda/fedora-postinstall
-$ cd fedora-postinstall
-$ CLI_TOOLS_ONLY=1 bash fedora-postinstall.sh
+sudo dnf install coreutils curl findutils git jq python3 realpath tar unzip wget
 ```
 
-`CLI_TOOLS_ONLY` is presence-based: setting it to any value, including `0`, selects this tools-only flow.
+An interactive installation also requires a terminal and a working `sudo` session. The `detect`, `plan`, and `--dry-run` commands do not prompt, download files, or change the system.
 
-### Advanced runtime controls
+## Command-line workflow
 
-The installer runtime also supports the following environment controls:
-
-- `POSTINSTALL_DRY_RUN=1` skips mutating modules while still running modules explicitly classified as read-only.
-- `POSTINSTALL_RESUME=1` reuses the state recorded by an earlier run in `${XDG_STATE_HOME:-${HOME}/.local/state}/fedora-postinstall/state.tsv` and skips unchanged, completed modules. Normal runs also record completion state, so the first run does not need the resume flag. Set `POSTINSTALL_STATE_FILE` to use a different state file.
-- `POSTINSTALL_LOG_FILE=PATH` writes structured runtime events to `PATH`; `POSTINSTALL_LOG_STDOUT=1` also prints those events to standard output.
-
-These controls are intended for automation and recovery. The default interactive invocation remains the recommended way to run the installer. The runtime stops at the first unhandled module failure, runs registered cleanup callbacks, and records only the state needed to resume completed work. State and log files are created with user-only permissions and are rejected when their path or parent directory is unsafe.
-
-### Prerequisites
-
-The script requires Fedora with `rpm`, plus the following commands: `bash`, `coreutils` (including `install`, `mktemp`, and `sha256sum`), `curl`, `findutils`, `git`, `jq`, `python3`, `realpath`, `tar`, `unzip`, and `wget`. On Fedora, install the missing tools with:
+Clone the repository and run the entry point from its root:
 
 ```bash
-$ sudo dnf install coreutils curl findutils git jq python3 realpath tar unzip wget
+git clone --depth 1 https://github.com/cereda/fedora-postinstall
+cd fedora-postinstall
+bash fedora-postinstall.sh help
 ```
 
-The script also requires an interactive terminal and a working `sudo` session for the system configuration steps.
+The available commands are:
+
+| Command | Purpose |
+|---------|---------|
+| `install` | Run the selected Fedora flavor's post-installation modules. |
+| `extras` | Install only the additional command-line tools. |
+| `detect` | Report the detected operating system, flavor, and architecture. |
+| `plan` | Render the effective module and tool plan without running it. |
+| `help` | Show command and option help. |
+
+A plain `bash fedora-postinstall.sh` retains the legacy interactive flavor chooser. `POSTINSTALL_FLAVOR` does not bypass that chooser for an implicit invocation, although it is honored by an explicit `install` command. The explicit `install` command can use automatic flavor detection, while `--flavor workstation` or `--flavor silverblue` always selects the flavor explicitly. Detection never falls back between native architectures: x86-64 and AArch64 use their own manifest assets, with universal assets selected only through an explicit `assets.any` entry.
+
+Useful non-mutating examples are:
+
+```bash
+bash fedora-postinstall.sh detect
+bash fedora-postinstall.sh detect --json
+bash fedora-postinstall.sh plan
+bash fedora-postinstall.sh plan --json --profile developer
+bash fedora-postinstall.sh install --dry-run --json
+```
+
+`--dry-run` is non-interactive and routes through the same plan engine used by `plan`; it does not bootstrap Gum, download release assets, or execute installation modules.
+
+## Additional command-line tools
+
+Select tools explicitly, or select every tool available for the target architecture:
+
+```bash
+bash fedora-postinstall.sh extras --tool fd --tool ripgrep
+bash fedora-postinstall.sh extras --tools fd,ripgrep,yq
+bash fedora-postinstall.sh extras --all-extras
+bash fedora-postinstall.sh extras --dry-run --all-extras
+```
+
+The legacy `CLI_TOOLS_ONLY` environment variable remains supported and is presence-based. Setting it to any value, including `0`, selects the extras-only flow:
+
+```bash
+CLI_TOOLS_ONLY=1 bash fedora-postinstall.sh
+```
+
+The authoritative tool registry is `extras/tools-list.sh`. URLs, versions, checksums, archive types, file mappings, and architecture assets are defined in `extras/tools-manifest.json`; profiles and command-line options can select registered tool identifiers but cannot replace those manifest values.
+
+## Profiles
+
+Profiles are selection-only JSON documents. They can select canonical module names or patterns and registered extra-tool identifiers; they cannot define commands, URLs, checksums, scripts, or arbitrary paths. Bundled profiles are available as `default`, `minimal`, and `developer`:
+
+```bash
+bash fedora-postinstall.sh plan --profile minimal
+bash fedora-postinstall.sh install --profile developer
+bash fedora-postinstall.sh install --profile-file /path/to/profile.json
+```
+
+A user profile under `${XDG_CONFIG_HOME:-$HOME/.config}/fedora-postinstall/profiles/` takes precedence over the bundled profile with the same name. Explicit profile paths and user profiles are resolved before bundled profiles. Module order in a profile is ignored; modules always run in the canonical flavor inventory order. Required providers are included automatically, and excluding one is an error.
+
+See [`docs/profiles.md`](docs/profiles.md) for the profile format and [`docs/profile.schema.json`](docs/profile.schema.json) for the JSON Schema.
+
+## Automation, logging, and recovery
+
+The main runtime controls are available as command-line options and environment equivalents:
+
+| Option | Environment | Purpose |
+|--------|-------------|---------|
+| `--state-file PATH` | `POSTINSTALL_STATE_FILE` | Select the typed TSV resume-state file. |
+| `--resume` | `POSTINSTALL_RESUME` | Reuse compatible completed modules and restored shared context. |
+| `--log-file PATH` | `POSTINSTALL_LOG_FILE` | Write runtime events to a log file. |
+| `--log-format json` | `POSTINSTALL_LOG_FORMAT=json` | Write JSON Lines logs. |
+| `--log-level LEVEL` | `POSTINSTALL_LOG_LEVEL` | Filter events by `debug`, `info`, `warn`, or `error`. |
+| `--log-stdout` | `POSTINSTALL_LOG_STDOUT=1` | Also write logs to standard output; JSON logs are routed to standard error so JSON output remains clean. |
+
+Other environment equivalents include `POSTINSTALL_FLAVOR`, `POSTINSTALL_ARCHITECTURE`, `POSTINSTALL_PROFILE`, `POSTINSTALL_PROFILE_FILE`, `POSTINSTALL_TOOLS`, and `POSTINSTALL_DRY_RUN`. Command-line options take precedence over environment values. Without an explicit command-line profile option, `POSTINSTALL_PROFILE` and `POSTINSTALL_PROFILE_FILE` cannot both be set; `--profile` and `--profile-file` cannot be combined.
+
+The default state file is `${XDG_STATE_HOME:-${HOME}/.local/state}/fedora-postinstall/state.tsv`. State records include the flavor, architecture, profile digest, explicit extras selection, module checksum, and shared values such as `MACHINE_NAME`, `ROOT_DIRECTORY_STRUCTURE`, `COMMAND_NAME`, and `TOOLBOX_NAME`. The runtime stops at the first unhandled module failure, runs cleanup callbacks, and rejects malformed or unsafe state files.
 
 ## What does this script do?
 
