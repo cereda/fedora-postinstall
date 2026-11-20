@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t CLI_TOOLS_LIST=(
+declare -g -t CLI_TOOLS_LIST=(
     "binsider"
     "bottom"
     "bun"

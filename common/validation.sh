@@ -76,7 +76,7 @@ function prompt_valid_hostname {
     local value
 
     while true; do
-        value=$(${GUM} input --prompt "Your machine name: ")
+        value=$("${GUM}" input --prompt "Your machine name: ")
         if is_valid_hostname "${value}"; then
             printf '%s\n' "${value}"
             return 0
@@ -93,9 +93,9 @@ function prompt_valid_container_name {
 
     while true; do
         if [ -n "${default}" ]; then
-            value=$(${GUM} input --prompt "${prompt}" --value "${default}")
+            value=$("${GUM}" input --prompt "${prompt}" --value "${default}")
         else
-            value=$(${GUM} input --prompt "${prompt}")
+            value=$("${GUM}" input --prompt "${prompt}")
         fi
 
         if is_valid_container_name "${value}"; then
@@ -111,7 +111,7 @@ function prompt_valid_git_name {
     local value
 
     while true; do
-        value=$(${GUM} input --prompt "Your full name: ")
+        value=$("${GUM}" input --prompt "Your full name: ")
         if is_valid_git_name "${value}"; then
             printf '%s\n' "${value}"
             return 0
@@ -125,7 +125,7 @@ function prompt_valid_git_email {
     local value
 
     while true; do
-        value=$(${GUM} input --prompt "Your e-mail address: ")
+        value=$("${GUM}" input --prompt "Your e-mail address: ")
         if is_valid_git_email "${value}"; then
             printf '%s\n' "${value}"
             return 0

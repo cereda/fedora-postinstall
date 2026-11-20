@@ -38,7 +38,7 @@ MACHINE_NAME=$(prompt_valid_hostname)
 info "Configuring hostname."
 if ! sudo hostnamectl hostname "${MACHINE_NAME}"; then
     text "Unable to configure the hostname. Aborting before modifying the home directory."
-    exit 1
+    return 1
 fi
 
 echo

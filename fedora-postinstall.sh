@@ -22,17 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+SCRIPT_PATH=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd -P)
 cd "${SCRIPT_PATH}" || exit 1
+
+# Centralize runtime state, cleanup, logging, and module execution.
+source "common/runtime.sh" || exit 1
+runtime_initialize || exit 1
+source "common/gum-functions.sh" || exit 1
+source "common/validation.sh" || exit 1
+source "common/dependencies.sh" || exit 1
+
+require_runtime_dependencies || exit 1
 
 # 'gum' is required, so in case it's not available, the script will download
 # a fixed version from GitHub
-source "common/gum-setup.sh"
-source "common/gum-functions.sh"
-source "common/validation.sh"
-source "common/dependencies.sh"
-
-require_runtime_dependencies
+source "common/gum-setup.sh" || exit 1
 
 # get the current version of Fedora by expanding the '%fedora' macro, which
 # returns an integer
@@ -67,15 +71,18 @@ if [ -z "${CLI_TOOLS_ONLY+x}" ]; then
     # load the list of suggested flatpaks and fonts to install -- since
     # these settings are common to both flavours of Fedora, they are
     # loaded at this stage
-    source "common/flatpaks-to-install.sh"
-    source "common/fonts-to-install.sh"
+    runtime_run_module "common/flatpaks-to-install.sh" read-only
+    runtime_run_module "common/fonts-to-install.sh" read-only
 
     text "Welcome to my post installation script for Fedora! \
 Please select which flavour of Fedora you are currently running."
 
     echo
 
-    FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
+    if ! runtime_capture_output FEDORA_FLAVOUR "${GUM}" choose "Workstation" "Silverblue"; then
+        text "Unable to read the Fedora flavour selection. Aborting."
+        exit 1
+    fi
 
     # a flavour must be selected explicitly; guessing Workstation could apply
     # the wrong package and system operations on Silverblue
@@ -86,11 +93,22 @@ Please select which flavour of Fedora you are currently running."
 
     text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"
 
-    # load the corresponding post installation script based the flavour of 
+    # load the corresponding post installation script based the flavour of
     # Fedora; note to self: in the future, make this check automatic so the
     # script will already know about the underlying operating system
-    [[ "${FEDORA_FLAVOUR}" = "Workstation" ]] && source "workstation/post-installation.sh"
-    [[ "${FEDORA_FLAVOUR}" = "Silverblue" ]] && source "silverblue/post-installation.sh"
+    POSTINSTALL_STATE_NAMESPACE=$(printf '%s' "${FEDORA_FLAVOUR}" | tr '[:upper:]' '[:lower:]')
+    case "${FEDORA_FLAVOUR}" in
+        Workstation)
+            runtime_run_module "workstation/post-installation.sh" orchestrator
+            ;;
+        Silverblue)
+            runtime_run_module "silverblue/post-installation.sh" orchestrator
+            ;;
+        *)
+            text "Invalid Fedora flavour '${FEDORA_FLAVOUR}'. Aborting."
+            exit 1
+            ;;
+    esac
 else
 
     # special environment variable found, so the entire post installation
@@ -103,7 +121,8 @@ fi
 
 # load the script for installing the additional command line tools; it should
 # not have any dependencies on the post installation settings
-source "extras/additional-tools.sh"
+POSTINSTALL_STATE_NAMESPACE="extras"
+runtime_run_module "extras/additional-tools.sh"
 
 echo
 

@@ -29,7 +29,9 @@ declare -gA EXTRAS_DOWNLOADED_FILENAMES=()
 function extras_detect_architecture {
     local machine
 
-    case "${EXTRAS_ARCHITECTURE:-$(uname -m)}" in
+    machine=$(uname -m)
+
+    case "${machine}" in
         x86_64|amd64) printf '%s\n' "x86_64" ;;
         aarch64|arm64) printf '%s\n' "aarch64" ;;
         *)
@@ -96,7 +98,7 @@ function extras_validate_manifest_entry {
     fi
 
     case "/${url}/" in
-        */releases/latest/*|*/master/*|*/main/*)
+        */latest/*|*/master/*|*/main/*|*/HEAD/*)
             printf 'extras: download URL for tool "%s" is not pinned\n' "${tool}" >&2
             return 1
             ;;
@@ -114,6 +116,11 @@ function extras_validate_manifest_entry {
 
     if [ -z "${version}" ] || [ "${version}" = "latest" ]; then
         printf 'extras: invalid version for tool "%s"\n' "${tool}" >&2
+        return 1
+    fi
+
+    if [[ "${url}" != *"${version}"* ]]; then
+        printf 'extras: download URL for tool "%s" does not match its pinned version\n' "${tool}" >&2
         return 1
     fi
 

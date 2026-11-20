@@ -19,7 +19,10 @@ setup() {
 #!/usr/bin/env bash
 case "${1}" in
     confirm) exit 0 ;;
-    choose) exit 0 ;;
+    choose)
+        printf '%s\n' "${MOCK_FLAVOR:-}"
+        exit "${MOCK_CHOOSE_STATUS:-0}"
+        ;;
     style)
         for argument in "$@"; do
             last_argument="${argument}"
@@ -51,4 +54,31 @@ EOF
 
     assert_file_absent "${SANDBOX_REPO}/archives"
     assert_file_absent "${SANDBOX_REPO}/deploys"
+}
+
+@test "a failed flavor chooser aborts even when it printed a flavor" {
+    export MOCK_FLAVOR="Workstation"
+    export MOCK_CHOOSE_STATUS=7
+
+    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    assert_failure
+    assert_output_contains "Unable to read the Fedora flavour selection"
+    refute_output_contains "You are running Fedora Workstation"
+}
+
+@test "an unknown non-empty flavor selection aborts" {
+    export MOCK_FLAVOR="Unknown Fedora"
+
+    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    assert_failure
+    assert_output_contains "Invalid Fedora flavour 'Unknown Fedora'"
+}
+
+@test "a checkout reached through a directory symlink remains usable" {
+    ln -s "${SANDBOX_REPO}" "${TEST_ROOT}/checkout"
+
+    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${TEST_ROOT}/checkout"
+    assert_failure
+    assert_output_contains "No Fedora flavour was selected"
+    refute_output_contains "resolves outside the repository"
 }

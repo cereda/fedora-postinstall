@@ -29,16 +29,31 @@ as flatpaks. Would you like to remove some of them?"
 
 echo
 
-# collect all installed flatpaks into a a new array
-mapfile -t INSTALLED_FLATPAKS < <(flatpak list --app --columns=application)
+# collect all installed flatpaks into a new array
+if ! runtime_capture_output INSTALLED_FLATPAKS_OUTPUT \
+    flatpak list --app --columns=application; then
+    return 1
+fi
+INSTALLED_FLATPAKS=()
+if [ -n "${INSTALLED_FLATPAKS_OUTPUT}" ]; then
+    mapfile -t INSTALLED_FLATPAKS <<< "${INSTALLED_FLATPAKS_OUTPUT}"
+fi
 
 # display a list of installed flatpaks and collect the selected entries
 # into a new array
-readarray -t FLATPAKS_TO_REMOVE <<< $(${GUM} choose --no-limit --height 15 "${INSTALLED_FLATPAKS[@]}")
+FLATPAKS_TO_REMOVE=()
+if [ "${#INSTALLED_FLATPAKS[@]}" -gt 0 ]; then
+    if ! runtime_capture_output FLATPAKS_TO_REMOVE_SELECTION \
+        "${GUM}" choose --no-limit --height 15 "${INSTALLED_FLATPAKS[@]}"; then
+        return 1
+    fi
+    if [ -n "${FLATPAKS_TO_REMOVE_SELECTION}" ]; then
+        mapfile -t FLATPAKS_TO_REMOVE <<< "${FLATPAKS_TO_REMOVE_SELECTION}"
+    fi
+fi
 
-# no items were selected in the list based on the -z check -- a test operator
-# that checks if a string is null
-if [ -z "${FLATPAKS_TO_REMOVE}" ]; then
+# no items were selected in the list
+if [ "${#FLATPAKS_TO_REMOVE[@]}" -eq 0 ]; then
 
     # display a message to the user
     text "You haven't selected any items from the list. Moving on."

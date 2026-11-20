@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -A NERD_FONTS=(
+declare -g -A NERD_FONTS=(
     ["Caskaydia Cove"]="CascadiaCode"
     ["Fira Code"]="FiraCode"
     ["Fura Mono"]="FiraMono"

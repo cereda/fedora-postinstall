@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t EXISTING_PACKAGES=(
+declare -g -t EXISTING_PACKAGES=(
     "gnome-calendar"
     "gnome-clocks"
     "gnome-characters"

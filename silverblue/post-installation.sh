@@ -30,90 +30,90 @@ if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then
 fi
 
 # flatpaks
-source "common/flathub-configuration.sh"
-source "common/flatpark-configuration.sh"
-source "silverblue/flatpak-unpin.sh"
-source "silverblue/flatpak-cleanup.sh"
-source "common/flatpaks-installation.sh"
+runtime_run_module "common/flathub-configuration.sh"
+runtime_run_module "common/flatpark-configuration.sh"
+runtime_run_module "silverblue/flatpak-unpin.sh"
+runtime_run_module "silverblue/flatpak-cleanup.sh"
+runtime_run_module "common/flatpaks-installation.sh"
 
 # GNOME configuration
-source "common/gnome-font-rendering.sh"
-source "common/gnome-clock.sh"
-source "common/gnome-autorun.sh"
-source "common/gnome-touchpad.sh"
-source "common/gnome-notification-banners.sh"
-source "common/gnome-technical-reports.sh"
-source "common/gnome-nautilus.sh"
-source "common/gnome-night-light.sh"
-source "common/gnome-software.sh"
-source "common/gnome-logo-gdm.sh"
+runtime_run_module "common/gnome-font-rendering.sh"
+runtime_run_module "common/gnome-clock.sh"
+runtime_run_module "common/gnome-autorun.sh"
+runtime_run_module "common/gnome-touchpad.sh"
+runtime_run_module "common/gnome-notification-banners.sh"
+runtime_run_module "common/gnome-technical-reports.sh"
+runtime_run_module "common/gnome-nautilus.sh"
+runtime_run_module "common/gnome-night-light.sh"
+runtime_run_module "common/gnome-software.sh"
+runtime_run_module "common/gnome-logo-gdm.sh"
 
 # hostname configuration
-source "common/hostname-configuration.sh"
+runtime_run_module "common/hostname-configuration.sh" mutating MACHINE_NAME
 
 # custom home configuration
-source "silverblue/home-configuration.sh"
+runtime_run_module "silverblue/home-configuration.sh" mutating ROOT_DIRECTORY_STRUCTURE COMMAND_NAME
 
 # useful command line tools
-source "common/starship-installation.sh"
-source "common/carapace-installation.sh"
-source "common/zoxide-installation.sh"
-source "common/uv-installation.sh"
-source "common/sdkman-installation.sh"
-source "common/rust-installation.sh"
-source "common/go-installation.sh"
-source "common/nvm-installation.sh"
-source "common/mise-installation.sh"
+runtime_run_module "common/starship-installation.sh"
+runtime_run_module "common/carapace-installation.sh"
+runtime_run_module "common/zoxide-installation.sh"
+runtime_run_module "common/uv-installation.sh"
+runtime_run_module "common/sdkman-installation.sh"
+runtime_run_module "common/rust-installation.sh"
+runtime_run_module "common/go-installation.sh"
+runtime_run_module "common/nvm-installation.sh"
+runtime_run_module "common/mise-installation.sh"
 
 # color themes for the terminal
-source "common/color-themes.sh"
-source "common/terminal-colors.sh"
+runtime_run_module "common/color-themes.sh" read-only
+runtime_run_module "common/terminal-colors.sh"
 
 # git configuration
-source "common/git-configuration.sh"
+runtime_run_module "common/git-configuration.sh"
 
 # VSCodium
-source "silverblue/vscodium-installation.sh"
+runtime_run_module "silverblue/vscodium-installation.sh"
 
 # Distrobox
-source "common/distrobox-installation.sh"
+runtime_run_module "common/distrobox-installation.sh"
 
 # fonts
-source "common/fonts-installation.sh"
-source "common/cascadia-code-installation.sh"
+runtime_run_module "common/fonts-installation.sh"
+runtime_run_module "common/cascadia-code-installation.sh"
 
 # yt-dlp
-source "common/yt-dlp-installation.sh"
+runtime_run_module "common/yt-dlp-installation.sh"
 
 # Nix
-source "silverblue/nix-installation.sh"
+runtime_run_module "silverblue/nix-installation.sh"
 
 # Nix toolbox
-source "common/nix-toolbox-configuration.sh"
+runtime_run_module "common/nix-toolbox-configuration.sh"
 
 # direnv
-source "common/direnv-installation.sh"
+runtime_run_module "common/direnv-installation.sh"
 
 # Helix and Zed editors
-source "common/helix-installation.sh"
-source "common/zed-installation.sh"
+runtime_run_module "common/helix-installation.sh"
+runtime_run_module "common/zed-installation.sh"
 
 # toolbox configuration
-source "silverblue/toolbox-configuration.sh"
-source "silverblue/packages-to-install.sh"
-source "silverblue/useful-packages.sh"
+runtime_run_module "silverblue/toolbox-configuration.sh" mutating TOOLBOX_NAME
+runtime_run_module "silverblue/packages-to-install.sh" read-only
+runtime_run_module "silverblue/useful-packages.sh"
 
 # tmux
-source "silverblue/tmux-installation.sh"
+runtime_run_module "silverblue/tmux-installation.sh"
 
 # neovim
-source "silverblue/neovim-installation.sh"
+runtime_run_module "silverblue/neovim-installation.sh"
 
 # Miniconda
-source "common/miniconda-installation.sh"
+runtime_run_module "common/miniconda-installation.sh"
 
 # Homebrew
-source "silverblue/homebrew-installation.sh"
+runtime_run_module "silverblue/homebrew-installation.sh"
 
 # profile photo
-source "common/profile-photo.sh"
+runtime_run_module "common/profile-photo.sh"

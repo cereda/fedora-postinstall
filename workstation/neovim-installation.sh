@@ -51,7 +51,7 @@ if [ $? = 0 ]; then
 
     echo
 
-    NEOVIM_FLAVOUR=$(${GUM} choose "Classic" "Modern")
+    NEOVIM_FLAVOUR=$("${GUM}" choose "Classic" "Modern")
 
     # fallback in case the user does not select a configuration, based on
     # the -z check -- a test operator that checks if a string is null

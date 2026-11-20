@@ -44,7 +44,8 @@ question "Do you want to install Homebrew?"
 if [ $? = 0 ]; then
 
     info "Installing Homebrew."
-    bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    runtime_capture_output INSTALLER_SCRIPT curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh || return 1
+    bash -c "${INSTALLER_SCRIPT}"
 
     # get the Homebrew toolbox container name
     TOOLBOX_HOMEBREW_NAME=$(prompt_valid_container_name "Your Homebrew container name: " "f${FEDORA_VERSION}-homebrew")

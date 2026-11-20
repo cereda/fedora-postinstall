@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t PACKAGES_TO_INSTALL=(
+declare -g -t PACKAGES_TO_INSTALL=(
     "ack"
     "bat"
     "fdupes"
