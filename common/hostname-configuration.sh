@@ -33,10 +33,13 @@ infrastructure more effectively."
 
 echo
 
-MACHINE_NAME=$(${GUM} input --prompt "Your machine name: ")
+MACHINE_NAME=$(prompt_valid_hostname)
 
 info "Configuring hostname."
-sudo hostnamectl hostname "${MACHINE_NAME}"
+if ! sudo hostnamectl hostname "${MACHINE_NAME}"; then
+    text "Unable to configure the hostname. Aborting before modifying the home directory."
+    exit 1
+fi
 
 echo
 

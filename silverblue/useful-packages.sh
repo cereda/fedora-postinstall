@@ -76,23 +76,11 @@ if [ $? = 0 ]; then
 
         echo
 
-        question "Should I install them now? It's advisable to do this later."
-
-        echo
-
-        # $? holds the exit status of the previous command execution; the logic
-        # applied throughout the post installation is
-        # +----+---------------+
-        # | $? | Semantics     |
-        # +----+---------------+
-        # | 0  | yes / success |
-        # | 1  | no / failure  |
-        # +----+---------------+
-        if [ $? = 0 ]; then
+        if question "Should I install them now? It's advisable to do this later."; then
 
             # install packages
             info "Installing packages inside the ${TOOLBOX_NAME} toolbox."
-            toolbox --container ${TOOLBOX_NAME} run sudo dnf install ${PACKAGE_INSTALL_LIST}
+            toolbox --container "${TOOLBOX_NAME}" run sudo dnf install ${PACKAGE_INSTALL_LIST}
         fi
     fi
 fi

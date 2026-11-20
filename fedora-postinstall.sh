@@ -23,15 +23,25 @@
 # SOFTWARE.
 
 SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+cd "${SCRIPT_PATH}" || exit 1
 
 # 'gum' is required, so in case it's not available, the script will download
 # a fixed version from GitHub
 source "common/gum-setup.sh"
 source "common/gum-functions.sh"
+source "common/validation.sh"
+source "common/dependencies.sh"
+
+require_runtime_dependencies
 
 # get the current version of Fedora by expanding the '%fedora' macro, which
 # returns an integer
 FEDORA_VERSION=$(rpm -E %fedora)
+
+if ! [[ "${FEDORA_VERSION}" =~ ^[0-9]{1,3}$ ]]; then
+    text "Unable to determine a valid Fedora version from RPM (${FEDORA_VERSION})."
+    exit 1
+fi
 
 chapter "Paulo's Fedora ${FEDORA_VERSION} post installation script"
 
@@ -67,10 +77,11 @@ Please select which flavour of Fedora you are currently running."
 
     FEDORA_FLAVOUR=$(${GUM} choose "Workstation" "Silverblue")
 
-    # fallback in case the user skips selection of flavour, based on the
-    # -z check -- a test operator that checks if a string is null
+    # a flavour must be selected explicitly; guessing Workstation could apply
+    # the wrong package and system operations on Silverblue
     if [ -z "${FEDORA_FLAVOUR}" ]; then
-        FEDORA_FLAVOUR="Workstation"
+        text "No Fedora flavour was selected. Aborting to avoid applying the wrong configuration."
+        exit 1
     fi
 
     text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"

@@ -44,7 +44,7 @@ question "Do you want to install and configure neovim?"
 # +----+---------------+
 if [ $? = 0 ]; then
     info "Installing neovim as an RPM package."
-    toolbox --container ${TOOLBOX_NAME} run sudo dnf install neovim
+    toolbox --container "${TOOLBOX_NAME}" run sudo dnf install neovim
 
     text "Which configuration do you want to apply?"
 
@@ -70,7 +70,7 @@ if [ $? = 0 ]; then
 
         info "Creating configuration file for neovim (classic)."
         tee "${HOME}/.config/nvim/init.vim" <<EOF
-call plug#begin('~/.vim/plugged')
+call plug#begin('~/.local/share/nvim/plugged')
 
 Plug 'godlygeek/tabular'
 Plug 'itchyny/lightline.vim'

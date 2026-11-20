@@ -37,8 +37,8 @@ configuration to use your preferred settings."
 echo
 
 # ask for user input (name and e-mail address)
-GIT_USERNAME=$(${GUM} input --prompt "Your full name: ")
-GIT_EMAIL=$(${GUM} input --prompt "Your e-mail address: ")
+GIT_USERNAME=$(prompt_valid_git_name)
+GIT_EMAIL=$(prompt_valid_git_email)
 
 # XDG-based configuration
 GIT_CONFIG_LOCATION="${HOME}/.config/git"
@@ -59,19 +59,12 @@ mkdir -p "${GIT_CONFIG_LOCATION}"
 mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/git/hooks"
 
 info "Generating configuration file for Git."
-tee "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" <<EOF
-[user]
-	name = ${GIT_USERNAME}
-	email = ${GIT_EMAIL}
-[core]
-	editor = vim
-	pager = delta
-	hooksPath = "${ROOT_DIRECTORY_STRUCTURE}/config/git/hooks"
-[push]
-	default = simple
-[interactive]
-	diffFilter = delta --color-only
-[delta]
-	side-by-side = true
-	line-numbers = true
-EOF
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" user.name "${GIT_USERNAME}"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" user.email "${GIT_EMAIL}"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" core.editor "vim"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" core.pager "delta"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" core.hooksPath "${ROOT_DIRECTORY_STRUCTURE}/config/git/hooks"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" push.default "simple"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" interactive.diffFilter "delta --color-only"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" delta.side-by-side "true"
+git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" delta.line-numbers "true"

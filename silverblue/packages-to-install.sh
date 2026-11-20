@@ -34,6 +34,7 @@ declare -t PACKAGES_TO_INSTALL=(
     "git-lfs"
     "hyperfine"
     "java-latest-openjdk-devel"
+    "jq"
     "lua-devel"
     "luarocks"
     "neovim"

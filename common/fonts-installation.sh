@@ -54,23 +54,26 @@ if [ $? = 0 ]; then
     info "Creating local fonts directory."
     mkdir -p "${HOME}/.local/share/fonts"
 
-    # for each font, download it from GitHub and extract it to the local
-    # fonts directory (each font should have its own directory)
+    # for each font, download it from GitHub and extract it to a dedicated
+    # directory so cleanup never affects unrelated user fonts
     for NERD_FONT in "${!NERD_FONTS[@]}" ; do
 
+        FONT_ARCHIVE="${NERD_FONTS[${NERD_FONT}]}.zip"
+        FONT_TARGET="${HOME}/.local/share/fonts/${NERD_FONT}"
+
         info "Downloading ${NERD_FONT} from GitHub."
-        wget -q "https://github.com/ryanoasis/nerd-fonts/releases/download/${NERD_FONTS_VERSION}/${NERD_FONTS[${NERD_FONT}]}.zip"
+        wget -q -O "${FONT_ARCHIVE}" "https://github.com/ryanoasis/nerd-fonts/releases/download/${NERD_FONTS_VERSION}/${FONT_ARCHIVE}"
 
         info "Extracting file into the local fonts directory."
-        unzip "${NERD_FONTS[${NERD_FONT}]}.zip" -d "${HOME}/.local/share/fonts/${NERD_FONT}"
+        mkdir -p "${FONT_TARGET}"
+        unzip -qo "${FONT_ARCHIVE}" -d "${FONT_TARGET}"
+
+        info "Removing unused files from ${NERD_FONT}."
+        find "${FONT_TARGET}" -type f -not -name "*.ttf" -not -name "*.otf" -delete
+
+        rm -f "${FONT_ARCHIVE}"
     done
 
-    info "Removing unused files."
-    find "${HOME}/.local/share/fonts" -type f -not -name "*.ttf" -not -name "*.otf" -exec rm {} \;
-
     info "Generating font cache."
-    fc-cache -fv "${HOME}/.local/share/fonts"
-
-    info "Regenerating font cache."
     fc-cache -fv "${HOME}/.local/share/fonts"
 fi
