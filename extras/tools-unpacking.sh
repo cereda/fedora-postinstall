@@ -33,7 +33,7 @@ function extras_archive_path_is_safe {
     fi
 
     case "/${path}/" in
-        */../*) return 1 ;;
+    */../*) return 1 ;;
     esac
 
     if [[ "${path}" =~ [[:cntrl:]] ]]; then
@@ -68,7 +68,7 @@ function extras_stage_executable {
     EXTRAS_STAGED_BINARIES["${target_name}"]="${staged_path}"
     EXTRAS_STAGED_TOOLS["${target_name}"]="${tool}"
     if ! printf '%s\t%s\t%s\n' "${target_name}" "${staged_path}" "${tool}" \
-        >> "${EXTRAS_STAGE_LEDGER}"; then
+        >>"${EXTRAS_STAGE_LEDGER}"; then
         printf 'extras: unable to update the staging ledger for tool "%s"\n' "${tool}" >&2
         return 1
     fi
@@ -101,7 +101,7 @@ function unpack_extras_tools {
             members=()
             while IFS=$'\t' read -r source_name target_name; do
                 members+=("${source_name}")
-            done < <(jq -r '.files | to_entries[] | [.key, .value] | @tsv' <<< "${entry}")
+            done < <(jq -r '.files | to_entries[] | [.key, .value] | @tsv' <<<"${entry}")
 
             if [ "${#members[@]}" -eq 0 ]; then
                 printf 'extras: no executables declared for tool "%s"\n' "${tool}" >&2
@@ -132,6 +132,6 @@ function unpack_extras_tools {
             if ! extras_stage_executable "${tool}" "${staged_path}" "${target_name}"; then
                 return 1
             fi
-        done < <(jq -r '.files | to_entries[] | [.key, .value] | @tsv' <<< "${entry}")
+        done < <(jq -r '.files | to_entries[] | [.key, .value] | @tsv' <<<"${entry}")
     done
 }

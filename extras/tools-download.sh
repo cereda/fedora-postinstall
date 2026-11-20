@@ -32,11 +32,11 @@ function extras_detect_architecture {
     machine=$(uname -m)
 
     case "${machine}" in
-        x86_64|amd64) printf '%s\n' "x86_64" ;;
-        aarch64|arm64) printf '%s\n' "aarch64" ;;
-        *)
-            return 1
-            ;;
+    x86_64 | amd64) printf '%s\n' "x86_64" ;;
+    aarch64 | arm64) printf '%s\n' "aarch64" ;;
+    *)
+        return 1
+        ;;
     esac
 }
 
@@ -63,7 +63,7 @@ function extras_validate_manifest_file {
     fi
 
     if ! jq -e '.schema_version == 1 and (.tools | type == "object")' \
-        "${EXTRAS_MANIFEST_FILE}" > /dev/null; then
+        "${EXTRAS_MANIFEST_FILE}" >/dev/null; then
         printf 'extras: invalid command line tool manifest: %s\n' "${EXTRAS_MANIFEST_FILE}" >&2
         return 1
     fi
@@ -87,9 +87,9 @@ function extras_validate_manifest_entry {
         return 1
     fi
 
-    url=$(jq -r '.url // empty' <<< "${entry}")
-    checksum=$(jq -r '.sha256 // empty' <<< "${entry}")
-    archive_type=$(jq -r '.type // empty' <<< "${entry}")
+    url=$(jq -r '.url // empty' <<<"${entry}")
+    checksum=$(jq -r '.sha256 // empty' <<<"${entry}")
+    archive_type=$(jq -r '.type // empty' <<<"${entry}")
     version=$(extras_manifest_version "${tool}")
 
     if ! [[ "${url}" =~ ${url_regex} ]]; then
@@ -98,10 +98,10 @@ function extras_validate_manifest_entry {
     fi
 
     case "/${url}/" in
-        */latest/*|*/master/*|*/main/*|*/HEAD/*)
-            printf 'extras: download URL for tool "%s" is not pinned\n' "${tool}" >&2
-            return 1
-            ;;
+    */latest/* | */master/* | */main/* | */HEAD/*)
+        printf 'extras: download URL for tool "%s" is not pinned\n' "${tool}" >&2
+        return 1
+        ;;
     esac
 
     if ! [[ "${checksum}" =~ ^[0-9a-f]{64}$ ]]; then
@@ -124,7 +124,7 @@ function extras_validate_manifest_entry {
         return 1
     fi
 
-    if ! jq -e '.files | type == "object" and length > 0' <<< "${entry}" > /dev/null; then
+    if ! jq -e '.files | type == "object" and length > 0' <<<"${entry}" >/dev/null; then
         printf 'extras: no executable declared for tool "%s"\n' "${tool}" >&2
         return 1
     fi
@@ -146,7 +146,7 @@ function extras_validate_manifest_entry {
                 return 1
             fi
             normalized_source="${source#./}"
-            IFS='/' read -r -a path_components <<< "${normalized_source}"
+            IFS='/' read -r -a path_components <<<"${normalized_source}"
             for component in "${path_components[@]}"; do
                 if [ -z "${component}" ] || [ "${component}" = "." ] || [ "${component}" = ".." ]; then
                     printf 'extras: unsafe executable member for tool "%s"\n' "${tool}" >&2
@@ -154,10 +154,10 @@ function extras_validate_manifest_entry {
                 fi
             done
         fi
-    done < <(jq -r '.files | to_entries[] | [.key, .value] | @tsv' <<< "${entry}")
+    done < <(jq -r '.files | to_entries[] | [.key, .value] | @tsv' <<<"${entry}")
 
-    if [ "$(jq '.files | to_entries | map(.value) | unique | length' <<< "${entry}")" -ne \
-        "$(jq '.files | length' <<< "${entry}")" ]; then
+    if [ "$(jq '.files | to_entries | map(.value) | unique | length' <<<"${entry}")" -ne \
+        "$(jq '.files | length' <<<"${entry}")" ]; then
         printf 'extras: duplicate executable target for tool "%s"\n' "${tool}" >&2
         return 1
     fi
@@ -169,11 +169,11 @@ function extras_validate_manifest_entry {
     fi
 
     if [ "${archive_type}" = "none" ]; then
-        if [ "$(jq '.files | length' <<< "${entry}")" -ne 1 ]; then
+        if [ "$(jq '.files | length' <<<"${entry}")" -ne 1 ]; then
             printf 'extras: standalone tool "%s" must declare exactly one executable\n' "${tool}" >&2
             return 1
         fi
-        if [ "${filename}" != "$(jq -r '.files | keys[0]' <<< "${entry}")" ]; then
+        if [ "${filename}" != "$(jq -r '.files | keys[0]' <<<"${entry}")" ]; then
             printf 'extras: standalone artifact does not match tool "%s"\n' "${tool}" >&2
             return 1
         fi
@@ -200,7 +200,7 @@ function extras_validate_selected_tools {
                 return 1
             fi
             selected_targets["${target}"]="${tool}"
-        done < <(jq -r '.files | to_entries[].value' <<< "${entry}")
+        done < <(jq -r '.files | to_entries[].value' <<<"${entry}")
     done
 }
 
@@ -223,9 +223,9 @@ function download_extras_tool {
         return 1
     fi
 
-    url=$(jq -r '.url' <<< "${entry}")
-    checksum=$(jq -r '.sha256' <<< "${entry}")
-    archive_type=$(jq -r '.type' <<< "${entry}")
+    url=$(jq -r '.url' <<<"${entry}")
+    checksum=$(jq -r '.sha256' <<<"${entry}")
+    archive_type=$(jq -r '.type' <<<"${entry}")
     version=$(extras_manifest_version "${tool}")
     filename=$(basename -- "${url}")
 
@@ -284,7 +284,7 @@ function download_extras_tool {
     EXTRAS_DOWNLOADED_FILENAMES["${tool}"]="${filename}"
     if ! printf '%s\t%s\t%s\t%s\n' \
         "${tool}" "${archive_type}" "${destination}" "${checksum}" \
-        >> "${EXTRAS_ARTIFACT_LEDGER}"; then
+        >>"${EXTRAS_ARTIFACT_LEDGER}"; then
         printf 'extras: unable to update the artifact ledger for tool "%s"\n' "${tool}" >&2
         return 1
     fi

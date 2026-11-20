@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 # MIT License
-# 
+#
 # Copyright (c) 2025, Paulo Cereda
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-SCRIPT_PATH=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd -P)
+SCRIPT_PATH=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 cd "${SCRIPT_PATH}" || exit 1
 
 # Centralize runtime state, cleanup, logging, and module execution.
@@ -63,7 +63,7 @@ if [ -z "${CLI_TOOLS_ONLY+x}" ]; then
 
     # no special variable found, proceed to the post installation
 
-    # it's important to ugrade your system prior to running this script; 
+    # it's important to ugrade your system prior to running this script;
     # however, Workstation users could get rid of certain packages first
     # in order to save several MB in updates
     question "Did you upgrade your system?" || exit 1
@@ -98,16 +98,16 @@ Please select which flavour of Fedora you are currently running."
     # script will already know about the underlying operating system
     POSTINSTALL_STATE_NAMESPACE=$(printf '%s' "${FEDORA_FLAVOUR}" | tr '[:upper:]' '[:lower:]')
     case "${FEDORA_FLAVOUR}" in
-        Workstation)
-            runtime_run_module "workstation/post-installation.sh" orchestrator
-            ;;
-        Silverblue)
-            runtime_run_module "silverblue/post-installation.sh" orchestrator
-            ;;
-        *)
-            text "Invalid Fedora flavour '${FEDORA_FLAVOUR}'. Aborting."
-            exit 1
-            ;;
+    Workstation)
+        runtime_run_module "workstation/post-installation.sh" orchestrator
+        ;;
+    Silverblue)
+        runtime_run_module "silverblue/post-installation.sh" orchestrator
+        ;;
+    *)
+        text "Invalid Fedora flavour '${FEDORA_FLAVOUR}'. Aborting."
+        exit 1
+        ;;
     esac
 else
 

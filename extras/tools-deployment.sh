@@ -36,7 +36,7 @@ function extras_cleanup_deployment_temporaries {
     local runtime_local_temporary
 
     for runtime_local_temporary in "${EXTRAS_DEPLOYMENT_TEMPORARIES[@]}"; do
-        rm -f -- "${runtime_local_temporary}" 2> /dev/null || true
+        rm -f -- "${runtime_local_temporary}" 2>/dev/null || true
     done
     EXTRAS_DEPLOYMENT_TEMPORARIES=()
     return 0
@@ -171,21 +171,21 @@ function deploy_extras_tools {
             printf 'extras: deployment target is not a regular file: %s\n' "${destination}" >&2
             return 1
         fi
-    done < "${EXTRAS_STAGE_LEDGER}"
+    done <"${EXTRAS_STAGE_LEDGER}"
 
-    if declare -F runtime_enter_critical_section > /dev/null; then
+    if declare -F runtime_enter_critical_section >/dev/null; then
         runtime_enter_critical_section "extras deployment"
     fi
 
     if ! backup_directory=$(mktemp -d \
         "${destination_directory}/.fedora-postinstall-backups.XXXXXXXX"); then
         printf 'extras: unable to create the rollback backup directory\n' >&2
-        if declare -F runtime_leave_critical_section > /dev/null; then
+        if declare -F runtime_leave_critical_section >/dev/null; then
             runtime_leave_critical_section "extras deployment" extras_rollback_deployment
         fi
         return 1
     fi
-    chmod 0700 "${backup_directory}" 2> /dev/null || true
+    chmod 0700 "${backup_directory}" 2>/dev/null || true
 
     EXTRAS_DEPLOYMENT_COMPLETE=0
     EXTRAS_DEPLOYMENT_DESTINATION_DIRECTORY="${destination_directory}"
@@ -205,7 +205,7 @@ function deploy_extras_tools {
                 printf 'extras: unable to back up existing file: %s\n' "${destination}" >&2
                 rm -rf -- "${backup_directory}"
                 EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY=""
-                if declare -F runtime_leave_critical_section > /dev/null; then
+                if declare -F runtime_leave_critical_section >/dev/null; then
                     runtime_leave_critical_section "extras deployment" extras_rollback_deployment
                 fi
                 return 1
@@ -215,7 +215,7 @@ function deploy_extras_tools {
         EXTRAS_DEPLOYMENT_ORIGINALS["${target}"]="${had_original}"
         EXTRAS_DEPLOYMENT_BACKUPS["${target}"]="${backup_directory}/${target}"
         EXTRAS_DEPLOYMENT_TARGETS+=("${target}")
-    done < "${EXTRAS_STAGE_LEDGER}"
+    done <"${EXTRAS_STAGE_LEDGER}"
 
     while IFS=$'\t' read -r target source tool; do
         destination="${destination_directory}/${target}"
@@ -224,7 +224,7 @@ function deploy_extras_tools {
         temporary=$(mktemp "${destination_directory}/.${target}.tmp.XXXXXX") || {
             printf 'extras: unable to create temporary file for %s\n' "${target}" >&2
             extras_rollback_deployment || true
-            if declare -F runtime_leave_critical_section > /dev/null; then
+            if declare -F runtime_leave_critical_section >/dev/null; then
                 runtime_leave_critical_section "extras deployment" extras_rollback_deployment
             fi
             return 1
@@ -235,7 +235,7 @@ function deploy_extras_tools {
             rm -f -- "${temporary}"
             printf 'extras: unable to stage deployment file: %s\n' "${target}" >&2
             extras_rollback_deployment || true
-            if declare -F runtime_leave_critical_section > /dev/null; then
+            if declare -F runtime_leave_critical_section >/dev/null; then
                 runtime_leave_critical_section "extras deployment" extras_rollback_deployment
             fi
             return 1
@@ -244,17 +244,17 @@ function deploy_extras_tools {
             rm -f -- "${temporary}"
             printf 'extras: unable to deploy executable: %s\n' "${target}" >&2
             extras_rollback_deployment || true
-            if declare -F runtime_leave_critical_section > /dev/null; then
+            if declare -F runtime_leave_critical_section >/dev/null; then
                 runtime_leave_critical_section "extras deployment" extras_rollback_deployment
             fi
             return 1
         fi
         EXTRAS_DEPLOYMENT_REPLACED["${target}"]="1"
-    done < "${EXTRAS_STAGE_LEDGER}"
+    done <"${EXTRAS_STAGE_LEDGER}"
 
     # Leave the critical section before committing. If a signal was deferred,
     # the rollback callback restores the original files before shutdown.
-    if declare -F runtime_leave_critical_section > /dev/null; then
+    if declare -F runtime_leave_critical_section >/dev/null; then
         runtime_leave_critical_section "extras deployment" extras_rollback_deployment
     fi
 

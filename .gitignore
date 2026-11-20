@@ -1,0 +1,14 @@
+# Local repository guidance
+/AGENTS.md
+
+# Installer artifacts
+/archives/
+/deploys/
+/*.json
+/*.tar.gz
+/*.tgz
+/*.zip
+
+# Python cache
+__pycache__/
+*.py[cod]
