@@ -37,7 +37,8 @@ echo
 # display a list of suggested Flatpaks from the SUGGESTED_FLATPAKS environment
 # variable set previously (see [common/flatpaks-to-install.sh] for reference)
 # and collect the selected entries into a new array
-readarray -t FLATPAKS_TO_INSTALL <<< $(${GUM} choose --no-limit --height 15 "${SUGGESTED_FLATPAKS[@]}")
+runtime_capture_output FLATPAKS_SELECTION "${GUM}" choose --no-limit --height 15 "${SUGGESTED_FLATPAKS[@]}" || return 1
+readarray -t FLATPAKS_TO_INSTALL <<< "${FLATPAKS_SELECTION}"
 
 # no items were selected in the list based on the -z check -- a test operator
 # that checks if a string is null
@@ -77,7 +78,8 @@ else
     # display a list of all installed flatpaks in the previous step and ask
     # which ones should keep cache during a system cleanup, collecting the
     # selected entries in a new array
-    readarray -t FLATPAKS_TO_KEEP_CACHE <<< $(${GUM} choose --no-limit --selected="com.github.tchx84.Flatseal" --height 15 "${FLATPAKS_TO_INSTALL[@]}")
+    runtime_capture_output FLATPAKS_CACHE_SELECTION "${GUM}" choose --no-limit --selected="com.github.tchx84.Flatseal" --height 15 "${FLATPAKS_TO_INSTALL[@]}" || return 1
+    readarray -t FLATPAKS_TO_KEEP_CACHE <<< "${FLATPAKS_CACHE_SELECTION}"
 
     # no items were selected in the list (-z check, null string)
     if [ -z "${FLATPAKS_TO_KEEP_CACHE}" ]; then

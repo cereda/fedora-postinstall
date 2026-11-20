@@ -22,9 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# fixed version
-GUM_VERSION="2.0.2"
-
 GUM=$(command -v gum || true)
 
 function cleanup_gum_bootstrap {
@@ -38,27 +35,42 @@ function cleanup_gum_bootstrap {
 if [ -z "${GUM}" ]; then
     if ! command -v curl > /dev/null 2>&1 || ! command -v sha256sum > /dev/null 2>&1; then
         printf 'gum is required, but curl and sha256sum are unavailable\n' >&2
-        exit 1
+        return 1
     fi
 
     case "$(uname -m)" in
-        x86_64|amd64)
-            GUM_ARCHIVE="gum_${GUM_VERSION}_Linux_x86_64.tar.gz"
-            GUM_ARCHIVE_DIRECTORY="gum_${GUM_VERSION}_Linux_x86_64"
-            GUM_CHECKSUM="d842e06d93dbed90af48cb8dd10698db6f22e331fc40346bb37bbc753109edc2"
-            ;;
-        aarch64|arm64)
-            GUM_ARCHIVE="gum_${GUM_VERSION}_Linux_arm64.tar.gz"
-            GUM_ARCHIVE_DIRECTORY="gum_${GUM_VERSION}_Linux_arm64"
-            GUM_CHECKSUM="8ebf8b54ec1e8c81f2bb58b59ff9b70998186a4d11375f0cf357b80e0ccfa1d5"
-            ;;
+        x86_64|amd64) GUM_ARCHITECTURE="x86_64" ;;
+        aarch64|arm64) GUM_ARCHITECTURE="aarch64" ;;
         *)
             printf 'gum does not publish a release for architecture %s\n' "$(uname -m)" >&2
-            exit 1
+            return 1
             ;;
     esac
 
-    GUM_LINK="https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/${GUM_ARCHIVE}"
+    GUM_MANIFEST_FILE="${SCRIPT_PATH}/extras/tools-manifest.json"
+    if [ ! -f "${GUM_MANIFEST_FILE}" ] || [ -L "${GUM_MANIFEST_FILE}" ]; then
+        printf 'Unable to load the authoritative gum manifest\n' >&2
+        return 1
+    fi
+
+    if ! GUM_ENTRY=$(jq -ce --arg architecture "${GUM_ARCHITECTURE}" \
+        '.tools.gum.assets[$architecture] // empty' "${GUM_MANIFEST_FILE}"); then
+        printf 'gum is not available for architecture %s\n' "${GUM_ARCHITECTURE}" >&2
+        return 1
+    fi
+
+    GUM_VERSION=$(jq -r '.tools.gum.version' "${GUM_MANIFEST_FILE}")
+    GUM_LINK=$(jq -r '.url' <<< "${GUM_ENTRY}")
+    GUM_CHECKSUM=$(jq -r '.sha256' <<< "${GUM_ENTRY}")
+    GUM_MEMBER=$(jq -r '.files | keys[0]' <<< "${GUM_ENTRY}")
+    GUM_ARCHIVE=$(basename -- "${GUM_LINK}")
+
+    if [[ ! "${GUM_LINK}" =~ ^https:// ]] ||
+        ! [[ "${GUM_CHECKSUM}" =~ ^[0-9a-f]{64}$ ]] ||
+        [ -z "${GUM_MEMBER}" ]; then
+        printf 'The authoritative gum manifest entry is invalid\n' >&2
+        return 1
+    fi
 
     echo "╭───────────────────────────────────────────────────────────────────╮"
     echo "│ This script relies on 'gum' -- a tool that provides ready-to-use  │"
@@ -70,9 +82,12 @@ if [ -z "${GUM}" ]; then
     if ! GUM_BOOTSTRAP_DIRECTORY=$(mktemp -d \
         "${TMPDIR:-/tmp}/fedora-postinstall-gum.XXXXXXXX"); then
         printf 'Unable to create a temporary directory for gum\n' >&2
-        exit 1
+        return 1
     fi
-    trap 'cleanup_gum_bootstrap' EXIT
+    if ! runtime_register_cleanup "gum-bootstrap" cleanup_gum_bootstrap; then
+        printf 'Unable to register the gum bootstrap cleanup\n' >&2
+        return 1
+    fi
 
     if ! curl \
         --fail \
@@ -88,36 +103,34 @@ if [ -z "${GUM}" ]; then
         --output "${GUM_BOOTSTRAP_DIRECTORY}/${GUM_ARCHIVE}" \
         "${GUM_LINK}"; then
         printf 'Unable to download gum %s\n' "${GUM_VERSION}" >&2
-        exit 1
+        return 1
     fi
 
     actual_checksum=$(sha256sum "${GUM_BOOTSTRAP_DIRECTORY}/${GUM_ARCHIVE}")
     actual_checksum="${actual_checksum%% *}"
     if [ "${actual_checksum}" != "${GUM_CHECKSUM}" ]; then
         printf 'Checksum verification failed for gum %s\n' "${GUM_VERSION}" >&2
-        exit 1
+        return 1
     fi
 
-    if ! tar \
-        --extract \
-        --gzip \
-        --file "${GUM_BOOTSTRAP_DIRECTORY}/${GUM_ARCHIVE}" \
-        --directory "${GUM_BOOTSTRAP_DIRECTORY}" \
-        --no-same-owner \
-        --no-same-permissions; then
+    if ! python3 "${SCRIPT_PATH}/extras/archive-extract.py" \
+        --archive "${GUM_BOOTSTRAP_DIRECTORY}/${GUM_ARCHIVE}" \
+        --type tar.gz \
+        --destination "${GUM_BOOTSTRAP_DIRECTORY}/extracted" \
+        --members "${GUM_MEMBER}"; then
         printf 'Unable to extract gum %s\n' "${GUM_VERSION}" >&2
-        exit 1
+        return 1
     fi
 
-    GUM_PATH="${GUM_BOOTSTRAP_DIRECTORY}/${GUM_ARCHIVE_DIRECTORY}/gum"
+    GUM_PATH="${GUM_BOOTSTRAP_DIRECTORY}/extracted/${GUM_MEMBER}"
     if [ ! -f "${GUM_PATH}" ] || [ -L "${GUM_PATH}" ]; then
         printf 'Unable to locate the gum executable in the downloaded archive\n' >&2
-        exit 1
+        return 1
     fi
 
     GUM="${GUM_BOOTSTRAP_DIRECTORY}/gum"
     if ! install -m 0755 "${GUM_PATH}" "${GUM}"; then
         printf 'Unable to prepare the gum executable\n' >&2
-        exit 1
+        return 1
     fi
 fi

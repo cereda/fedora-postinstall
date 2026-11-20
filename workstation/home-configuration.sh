@@ -42,7 +42,9 @@ and select one with the Enter key."
     while true; do
 
         # show the directory chooser
-        SELECT_DIRECTORY=$(${GUM} file --all --permissions --directory)
+        if ! SELECT_DIRECTORY=$("${GUM}" file --all --permissions --directory); then
+            continue
+        fi
 
         if [ -z "${SELECT_DIRECTORY}" ]; then
             continue
@@ -58,7 +60,7 @@ fi
 
 if ! validate_root_directory "${ROOT_DIRECTORY_STRUCTURE}"; then
     text "The selected configuration directory is not safe to use. Aborting."
-    exit 1
+    return 1
 fi
 
 text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE}."

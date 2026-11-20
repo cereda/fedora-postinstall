@@ -70,7 +70,7 @@ EOF
 
     # the simple configuration includes basic settings, whereas the fancy
     # configuration provides additional settings to the workspace
-    VSCODIUM_FLAVOUR=$(${GUM} choose "Simple" "Fancy")
+    VSCODIUM_FLAVOUR=$("${GUM}" choose "Simple" "Fancy")
 
     # fallback in case the user does not select a color theme, based on the
     # -z check -- a test operator that checks if a string is null

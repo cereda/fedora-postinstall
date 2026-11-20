@@ -4,6 +4,7 @@ load "${BATS_TEST_DIRNAME}/../helpers/assertions"
 
 setup() {
     REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+    source "${REPO_ROOT}/common/runtime.sh"
     TEST_ROOT="${BATS_TEST_TMPDIR}/silverblue-useful-packages"
     mkdir -p "${TEST_ROOT}/scripts"
 

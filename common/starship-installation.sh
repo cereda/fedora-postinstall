@@ -51,7 +51,8 @@ if [ $? = 0 ]; then
     # starship has its own installation script, setting the target directory
     # and overriding existing installations via command line flags
     info "Installing starship."
-    sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- -b "${HOME}/.local/bin" -y
+    runtime_capture_output INSTALLER_SCRIPT curl -fsSL https://starship.rs/install.sh || return 1
+    sh -c "${INSTALLER_SCRIPT}" -- -b "${HOME}/.local/bin" -y
 
     info "Preparing the configuration directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/starship"

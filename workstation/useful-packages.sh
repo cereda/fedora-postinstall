@@ -52,7 +52,8 @@ if [ $? = 0 ]; then
     # display a list of packages from the PACKAGES_TO_INSTALL environment variable
     # set previously (see [workstation/packages-to-install.sh] for reference) and
     # collect the selected entries into a new array
-    readarray -t SELECTED_PACKAGES <<< $(${GUM} choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}")
+    runtime_capture_output PACKAGES_SELECTION "${GUM}" choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}" || return 1
+    readarray -t SELECTED_PACKAGES <<< "${PACKAGES_SELECTION}"
 
     # no items were selected in the list based on the -z check -- a test operator
     # that checks if a string is null

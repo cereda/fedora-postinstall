@@ -30,105 +30,105 @@ if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then
 fi
 
 # flatpaks and packages
-source "common/flathub-configuration.sh"
-source "common/flatpark-configuration.sh"
-source "workstation/packages-to-remove.sh"
-source "workstation/package-cleanup.sh"
-source "workstation/rpmfusion-configuration.sh"
-source "workstation/terra-installation.sh"
-source "common/flatpaks-installation.sh"
+runtime_run_module "common/flathub-configuration.sh"
+runtime_run_module "common/flatpark-configuration.sh"
+runtime_run_module "workstation/packages-to-remove.sh" read-only
+runtime_run_module "workstation/package-cleanup.sh"
+runtime_run_module "workstation/rpmfusion-configuration.sh"
+runtime_run_module "workstation/terra-installation.sh"
+runtime_run_module "common/flatpaks-installation.sh"
 
 # GNOME configuration
-source "common/gnome-font-rendering.sh"
-source "workstation/gnome-text-editor.sh"
-source "common/gnome-clock.sh"
-source "common/gnome-autorun.sh"
-source "common/gnome-touchpad.sh"
-source "common/gnome-notification-banners.sh"
-source "common/gnome-technical-reports.sh"
-source "common/gnome-nautilus.sh"
-source "common/gnome-night-light.sh"
-source "common/gnome-software.sh"
-source "common/gnome-logo-gdm.sh"
+runtime_run_module "common/gnome-font-rendering.sh"
+runtime_run_module "workstation/gnome-text-editor.sh"
+runtime_run_module "common/gnome-clock.sh"
+runtime_run_module "common/gnome-autorun.sh"
+runtime_run_module "common/gnome-touchpad.sh"
+runtime_run_module "common/gnome-notification-banners.sh"
+runtime_run_module "common/gnome-technical-reports.sh"
+runtime_run_module "common/gnome-nautilus.sh"
+runtime_run_module "common/gnome-night-light.sh"
+runtime_run_module "common/gnome-software.sh"
+runtime_run_module "common/gnome-logo-gdm.sh"
 
 # hostname configuration
-source "common/hostname-configuration.sh"
+runtime_run_module "common/hostname-configuration.sh" mutating MACHINE_NAME
 
 # custom home configuration
-source "workstation/home-configuration.sh"
+runtime_run_module "workstation/home-configuration.sh" mutating ROOT_DIRECTORY_STRUCTURE COMMAND_NAME
 
 # useful command line tools
-source "common/starship-installation.sh"
-source "common/carapace-installation.sh"
-source "common/zoxide-installation.sh"
-source "common/uv-installation.sh"
-source "common/sdkman-installation.sh"
-source "common/rust-installation.sh"
-source "common/go-installation.sh"
-source "common/nvm-installation.sh"
-source "common/mise-installation.sh"
+runtime_run_module "common/starship-installation.sh"
+runtime_run_module "common/carapace-installation.sh"
+runtime_run_module "common/zoxide-installation.sh"
+runtime_run_module "common/uv-installation.sh"
+runtime_run_module "common/sdkman-installation.sh"
+runtime_run_module "common/rust-installation.sh"
+runtime_run_module "common/go-installation.sh"
+runtime_run_module "common/nvm-installation.sh"
+runtime_run_module "common/mise-installation.sh"
 
 # vim and neovim editors
-source "workstation/vim-installation.sh"
-source "workstation/neovim-installation.sh"
+runtime_run_module "workstation/vim-installation.sh"
+runtime_run_module "workstation/neovim-installation.sh"
 
 # taskwarrior
-source "workstation/taskwarrior-installation.sh"
+runtime_run_module "workstation/taskwarrior-installation.sh"
 
 # Ghostty
-source "workstation/ghostty-installation.sh"
+runtime_run_module "workstation/ghostty-installation.sh"
 
 # yazi
-source "workstation/yazi-installation.sh"
+runtime_run_module "workstation/yazi-installation.sh"
 
 # forgit
-source "workstation/forgit-installation.sh"
+runtime_run_module "workstation/forgit-installation.sh"
 
 # color themes for the terminal
-source "common/color-themes.sh"
-source "common/terminal-colors.sh"
+runtime_run_module "common/color-themes.sh" read-only
+runtime_run_module "common/terminal-colors.sh"
 
 # useful packages to install
-source "workstation/packages-to-install.sh"
-source "workstation/useful-packages.sh"
+runtime_run_module "workstation/packages-to-install.sh" read-only
+runtime_run_module "workstation/useful-packages.sh"
 
 # git configuration
-source "common/git-configuration.sh"
+runtime_run_module "common/git-configuration.sh"
 
 # VSCodium
-source "workstation/vscodium-installation.sh"
+runtime_run_module "workstation/vscodium-installation.sh"
 
 # TeX Live configuration
-source "workstation/texlive-configuration.sh"
+runtime_run_module "workstation/texlive-configuration.sh"
 
 # Distrobox
-source "common/distrobox-installation.sh"
+runtime_run_module "common/distrobox-installation.sh"
 
 # fonts
-source "common/fonts-installation.sh"
-source "common/cascadia-code-installation.sh"
+runtime_run_module "common/fonts-installation.sh"
+runtime_run_module "common/cascadia-code-installation.sh"
 
 # yt-dlp
-source "common/yt-dlp-installation.sh"
+runtime_run_module "common/yt-dlp-installation.sh"
 
 # Nix
-source "workstation/nix-installation.sh"
+runtime_run_module "workstation/nix-installation.sh"
 
 # Nix toolbox
-source "common/nix-toolbox-configuration.sh"
+runtime_run_module "common/nix-toolbox-configuration.sh"
 
 # direnv
-source "common/direnv-installation.sh"
+runtime_run_module "common/direnv-installation.sh"
 
 # Helix and Zed editors
-source "common/helix-installation.sh"
-source "common/zed-installation.sh"
+runtime_run_module "common/helix-installation.sh"
+runtime_run_module "common/zed-installation.sh"
 
 # tmux
-source "workstation/tmux-installation.sh"
+runtime_run_module "workstation/tmux-installation.sh"
 
 # Miniconda
-source "common/miniconda-installation.sh"
+runtime_run_module "common/miniconda-installation.sh"
 
 # profile photo
-source "common/profile-photo.sh"
+runtime_run_module "common/profile-photo.sh"

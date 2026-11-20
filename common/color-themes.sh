@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t COLOR_THEMES=(
+declare -g -t COLOR_THEMES=(
     "alabaster_dark"
     "ayu"
     "catppuccin-frappe"

@@ -43,13 +43,26 @@ text "Do you want to install any of these command line tools?"
 echo
 
 function extras_cleanup_workspace {
+    if declare -F extras_cleanup_deployment_temporaries > /dev/null; then
+        extras_cleanup_deployment_temporaries
+    fi
+
+    if declare -F extras_rollback_deployment > /dev/null &&
+        [ "${EXTRAS_DEPLOYMENT_COMPLETE:-0}" -ne 1 ]; then
+        if ! extras_rollback_deployment; then
+            text "The command line tool deployment could not be fully rolled back. Recovery backups were preserved in ${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}."
+        fi
+    elif [ -n "${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY:-}" ] &&
+        [ -d "${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}" ]; then
+        if ! rm -rf -- "${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}"; then
+            text "Unable to remove the command line tool recovery backups in ${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}."
+        fi
+    fi
+
     if [ -n "${EXTRAS_WORKSPACE:-}" ] &&
         [ -d "${EXTRAS_WORKSPACE}" ] &&
         [[ "${EXTRAS_WORKSPACE}" == "${EXTRAS_WORKSPACE_ROOT}/fedora-postinstall-extras."* ]]; then
         rm -rf -- "${EXTRAS_WORKSPACE}"
-    fi
-    if declare -F cleanup_gum_bootstrap > /dev/null; then
-        cleanup_gum_bootstrap
     fi
 }
 
@@ -68,7 +81,12 @@ function extras_tool_is_registered {
 
 # The list is rendered by gum. Only identifiers from the authoritative registry
 # are accepted; arbitrary user or terminal output must never become a source path.
-selection=$("${GUM}" choose --no-limit --height 15 --selected='*' "${CLI_TOOLS_LIST[@]}")
+selection_status=0
+selection=$("${GUM}" choose --no-limit --height 15 --selected='*' "${CLI_TOOLS_LIST[@]}") || selection_status="${?}"
+if [ "${selection_status}" -ne 0 ]; then
+    text "Unable to read the command line tool selection."
+    return 1
+fi
 CLI_TOOLS_TO_INSTALL=()
 while IFS= read -r selected_tool; do
     [ -n "${selected_tool}" ] || continue
@@ -97,28 +115,31 @@ text "You've selected ${#CLI_TOOLS_TO_INSTALL[@]} command line tool(s) to instal
 
 require_command "python3" "needed to safely extract downloaded tool archives"
 
-EXTRAS_MANIFEST_FILE="${EXTRAS_MANIFEST_FILE:-${SCRIPT_PATH}/extras/tools-manifest.json}"
+EXTRAS_MANIFEST_FILE="${SCRIPT_PATH}/extras/tools-manifest.json"
 EXTRAS_WORKSPACE_ROOT="${TMPDIR:-/tmp}"
 if ! extras_validate_manifest_file; then
     text "Unable to load the command line tool manifest."
-    exit 1
+    return 1
 fi
 if ! EXTRAS_ARCHITECTURE=$(extras_detect_architecture); then
     text "Unsupported architecture for the additional command line tools: $(uname -m)."
-    exit 1
+    return 1
 fi
 
 if ! extras_validate_selected_tools "${CLI_TOOLS_TO_INSTALL[@]}"; then
     text "Unable to install the selected command line tools on ${EXTRAS_ARCHITECTURE}."
-    exit 1
+    return 1
 fi
 
 if ! EXTRAS_WORKSPACE=$(mktemp -d \
     "${EXTRAS_WORKSPACE_ROOT}/fedora-postinstall-extras.XXXXXXXX"); then
     text "Unable to create a temporary workspace for the additional command line tools."
-    exit 1
+    return 1
 fi
-trap 'extras_cleanup_workspace' EXIT
+if ! runtime_register_cleanup "extras-workspace" extras_cleanup_workspace; then
+    text "Unable to register cleanup for the temporary workspace."
+    return 1
+fi
 
 if ! mkdir -p \
     "${EXTRAS_WORKSPACE}/downloads" \
@@ -126,30 +147,30 @@ if ! mkdir -p \
     "${EXTRAS_WORKSPACE}/staged" \
     "${EXTRAS_WORKSPACE}/backups"; then
     text "Unable to prepare the temporary workspace for the additional command line tools."
-    exit 1
+    return 1
 fi
 EXTRAS_ARTIFACT_LEDGER="${EXTRAS_WORKSPACE}/artifacts.tsv"
 EXTRAS_STAGE_LEDGER="${EXTRAS_WORKSPACE}/staged.tsv"
 if ! : > "${EXTRAS_ARTIFACT_LEDGER}" || ! : > "${EXTRAS_STAGE_LEDGER}"; then
     text "Unable to initialize the command line tool ledgers."
-    exit 1
+    return 1
 fi
 
 for CLI_TOOL_TO_INSTALL in "${CLI_TOOLS_TO_INSTALL[@]}"; do
     if ! source "extras/${CLI_TOOL_TO_INSTALL}-download.sh"; then
         text "Unable to download ${CLI_TOOL_TO_INSTALL}. No tools were deployed."
-        exit 1
+        return 1
     fi
 done
 
 if ! unpack_extras_tools "${CLI_TOOLS_TO_INSTALL[@]}"; then
     text "Unable to unpack the selected command line tools. No tools were deployed."
-    exit 1
+    return 1
 fi
 
 if ! deploy_extras_tools; then
     text "Unable to deploy the selected command line tools."
-    exit 1
+    return 1
 fi
 
 info "Deployed ${#EXTRAS_STAGED_BINARIES[@]} executable(s) to ${HOME}/.local/bin."

@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-declare -t SUGGESTED_FLATPAKS=(
+declare -g -t SUGGESTED_FLATPAKS=(
     "com.github.marhkb.Pods"
     "com.github.tchx84.Flatseal"
     "com.jeffser.Alpaca"

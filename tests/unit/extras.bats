@@ -10,7 +10,7 @@ setup() {
     MOCK_BIN="${TEST_ROOT}/bin"
     FIXTURE_ROOT="${TEST_ROOT}/fixture"
     TMP_ROOT="${TEST_ROOT}/tmp"
-    MANIFEST_FILE="${TEST_ROOT}/manifest.json"
+    MANIFEST_FILE="${SANDBOX_REPO}/extras/tools-manifest.json"
     CURL_LOG="${TEST_ROOT}/curl.log"
 
     mkdir -p \
@@ -37,6 +37,9 @@ EOF
 #!/usr/bin/env bash
 case "${1}" in
     choose)
+        if [ "${MOCK_CHOOSE_FAIL:-0}" = "1" ]; then
+            exit 7
+        fi
         if [ -n "${MOCK_SELECTED_TOOLS:-}" ]; then
             printf '%s\n' "${MOCK_SELECTED_TOOLS}"
         elif [ -n "${MOCK_SELECTED_TOOL:-}" ]; then
@@ -58,6 +61,15 @@ EOF
 if [ "${1:-}" = "-E" ]; then
     printf '42\n'
 fi
+EOF
+
+    cat > "${MOCK_BIN}/uname" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-m" ]; then
+    printf '%s\n' "${MOCK_ARCHITECTURE:-x86_64}"
+    exit 0
+fi
+exec /usr/bin/uname "$@"
 EOF
 
     cat > "${MOCK_BIN}/curl" <<'EOF'
@@ -85,17 +97,69 @@ EOF
     cat > "${MOCK_BIN}/mv" <<'EOF'
 #!/usr/bin/env bash
 destination="${!#}"
-if [ -n "${MOCK_MV_FAIL_TARGET:-}" ] && [[ "${destination}" == */"${MOCK_MV_FAIL_TARGET}" ]]; then
+if [ -n "${MOCK_MV_FAIL_TARGET:-}" ] &&
+    [[ "${destination}" == */"${MOCK_MV_FAIL_TARGET}" ]] &&
+    [ ! -e "${MOCK_MV_FAILURE_MARKER:-}" ]; then
+    if [ -n "${MOCK_MV_CONCURRENT_TARGET:-}" ] &&
+        [[ "${destination}" == */"${MOCK_MV_CONCURRENT_TARGET}" ]]; then
+        printf 'concurrent content\n' > "${destination}"
+    fi
+    : > "${MOCK_MV_FAILURE_MARKER}"
     exit 1
 fi
-exec /usr/bin/mv "$@"
+if [ -n "${MOCK_ROLLBACK_FAIL_TARGET:-}" ] &&
+    [[ "$*" == *".rollback."* ]] &&
+    [[ "${destination}" == */"${MOCK_ROLLBACK_FAIL_TARGET}" ]]; then
+    if [ "${MOCK_ROLLBACK_FAIL_ONCE:-0}" != "1" ] ||
+        [ ! -e "${MOCK_ROLLBACK_FAILURE_MARKER:-}" ]; then
+        : > "${MOCK_ROLLBACK_FAILURE_MARKER}"
+        exit 1
+    fi
+fi
+/usr/bin/mv "$@"
+status="${?}"
+if [ -n "${MOCK_INTERRUPT_AFTER_TARGET:-}" ] &&
+    [[ "${destination}" == */"${MOCK_INTERRUPT_AFTER_TARGET}" ]] &&
+    [ ! -e "${MOCK_INTERRUPT_MARKER:-}" ]; then
+    : > "${MOCK_INTERRUPT_MARKER}"
+    kill -TERM "${PPID}"
+fi
+exit "${status}"
 EOF
 
-    chmod +x "${MOCK_BIN}/gum" "${MOCK_BIN}/rpm" "${MOCK_BIN}/curl" "${MOCK_BIN}/mv"
+    cat > "${MOCK_BIN}/install" <<'EOF'
+#!/usr/bin/env bash
+if [ "${MOCK_INTERRUPT_DURING_INSTALL:-0}" = "1" ] &&
+    [ ! -e "${MOCK_INTERRUPT_INSTALL_MARKER:-}" ]; then
+    : > "${MOCK_INTERRUPT_INSTALL_MARKER}"
+    kill -TERM "${PPID}"
+    exit 1
+fi
+exec /usr/bin/install "$@"
+EOF
+
+    chmod +x \
+        "${MOCK_BIN}/gum" \
+        "${MOCK_BIN}/rpm" \
+        "${MOCK_BIN}/uname" \
+        "${MOCK_BIN}/curl" \
+        "${MOCK_BIN}/install" \
+        "${MOCK_BIN}/mv"
     export MOCK_SELECTED_TOOL="fd"
+    export MOCK_ARCHITECTURE="x86_64"
+    export MOCK_CHOOSE_FAIL=0
     export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/fd.tar.gz"
     export MOCK_CURL_LOG="${CURL_LOG}"
     export MOCK_MV_FAIL_TARGET=""
+    export MOCK_MV_CONCURRENT_TARGET=""
+    export MOCK_MV_FAILURE_MARKER="${TEST_ROOT}/mv-failure-marker"
+    export MOCK_ROLLBACK_FAIL_TARGET=""
+    export MOCK_ROLLBACK_FAIL_ONCE=0
+    export MOCK_ROLLBACK_FAILURE_MARKER="${TEST_ROOT}/rollback-failure-marker"
+    export MOCK_INTERRUPT_AFTER_TARGET=""
+    export MOCK_INTERRUPT_MARKER="${TEST_ROOT}/interrupt-marker"
+    export MOCK_INTERRUPT_DURING_INSTALL=0
+    export MOCK_INTERRUPT_INSTALL_MARKER="${TEST_ROOT}/interrupt-install-marker"
 
     write_manifest "$(sha256sum "${FIXTURE_ROOT}/fd.tar.gz" | cut -d' ' -f1)"
 }
@@ -112,7 +176,7 @@ write_manifest() {
       "source": "example/fd",
       "assets": {
         "x86_64": {
-          "url": "https://example.test/fd-v1.tar.gz",
+          "url": "https://example.test/fd-test-1.tar.gz",
           "sha256": "${checksum}",
           "type": "tar.gz",
           "files": {"fd": "fd"}
@@ -125,26 +189,15 @@ EOF
 }
 
 run_installer() {
-    local architecture="${1:-}"
+    local architecture="${1:-x86_64}"
 
-    if [ -n "${architecture}" ]; then
-        run env \
-            PATH="${MOCK_BIN}:${PATH}" \
-            HOME="${TEST_HOME}" \
-            TMPDIR="${TMP_ROOT}" \
-            CLI_TOOLS_ONLY=1 \
-            EXTRAS_MANIFEST_FILE="${MANIFEST_FILE}" \
-            EXTRAS_ARCHITECTURE="${architecture}" \
-            bash "${SANDBOX_REPO}/fedora-postinstall.sh"
-    else
-        run env \
-            PATH="${MOCK_BIN}:${PATH}" \
-            HOME="${TEST_HOME}" \
-            TMPDIR="${TMP_ROOT}" \
-            CLI_TOOLS_ONLY=1 \
-            EXTRAS_MANIFEST_FILE="${MANIFEST_FILE}" \
-            bash "${SANDBOX_REPO}/fedora-postinstall.sh"
-    fi
+    export MOCK_ARCHITECTURE="${architecture}"
+    run env \
+        PATH="${MOCK_BIN}:${PATH}" \
+        HOME="${TEST_HOME}" \
+        TMPDIR="${TMP_ROOT}" \
+        CLI_TOOLS_ONLY=1 \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh"
 }
 
 @test "extras manifest covers the authoritative tool registry" {
@@ -201,6 +254,36 @@ run_installer() {
     run find "${TMP_ROOT}" -maxdepth 1 -name 'fedora-postinstall-extras.*' -print
     assert_success
     refute_output_contains "fedora-postinstall-extras."
+}
+
+@test "resume invalidates extras when the manifest changes" {
+    export POSTINSTALL_RESUME=1
+    export POSTINSTALL_STATE_FILE="${TEST_ROOT}/resume-state.tsv"
+    export POSTINSTALL_LOG_STDOUT=1
+
+    run_installer
+    assert_success
+    run grep -Fx 'https://example.test/fd-test-1.tar.gz' "${CURL_LOG}"
+    assert_success
+
+    run_installer
+    assert_success
+    assert_output_contains "Resume: skipping completed module 'extras/additional-tools.sh'"
+    run grep -c '^https://' "${CURL_LOG}"
+    assert_success
+    assert_equal "${output}" "1"
+
+    jq '.tools.fd.version = "test-2" |
+        .tools.fd.assets.x86_64.url = "https://example.test/fd-test-2.tar.gz"' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_installer
+    assert_success
+    refute_output_contains "Resume: skipping completed module 'extras/additional-tools.sh'"
+    run grep -c '^https://' "${CURL_LOG}"
+    assert_success
+    assert_equal "${output}" "2"
 }
 
 @test "a checksum mismatch aborts before deployment" {
@@ -268,14 +351,41 @@ run_installer() {
     refute_output_contains ".fd.tmp."
 }
 
+@test "rollback does not rewrite a target that was never replaced" {
+    printf '#!/usr/bin/env bash\nprintf "second fixture\\n"\n' \
+        > "${FIXTURE_ROOT}/package/fd2"
+    chmod +x "${FIXTURE_ROOT}/package/fd2"
+    tar -czf "${FIXTURE_ROOT}/concurrent.tar.gz" \
+        -C "${FIXTURE_ROOT}/package" fd fd2
+    export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/concurrent.tar.gz"
+    write_manifest "$(sha256sum "${FIXTURE_ROOT}/concurrent.tar.gz" | cut -d' ' -f1)"
+    jq '.tools.fd.assets.x86_64.files = {"fd": "fd", "fd2": "fd2"}' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+    mkdir -p "${TEST_HOME}/.local/bin"
+    printf 'old fd\n' > "${TEST_HOME}/.local/bin/fd"
+    printf 'old fd2\n' > "${TEST_HOME}/.local/bin/fd2"
+    export MOCK_MV_FAIL_TARGET="fd2"
+    export MOCK_MV_CONCURRENT_TARGET="fd2"
+
+    run_installer
+    assert_failure
+    run grep -Fx 'old fd' "${TEST_HOME}/.local/bin/fd"
+    assert_success
+    run grep -Fx 'concurrent content' "${TEST_HOME}/.local/bin/fd2"
+    assert_success
+    run grep -Fx 'old fd2' "${TEST_HOME}/.local/bin/fd2"
+    assert_failure
+}
+
 @test "standalone artifacts are checksum-verified and deployed" {
     printf '#!/usr/bin/env bash\nprintf "raw fixture\\n"\n' > "${FIXTURE_ROOT}/fd-raw"
     chmod +x "${FIXTURE_ROOT}/fd-raw"
     export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/fd-raw"
     write_manifest "$(sha256sum "${FIXTURE_ROOT}/fd-raw" | cut -d' ' -f1)"
-    jq '.tools.fd.assets.x86_64.url = "https://example.test/fd-raw" |
+    jq '.tools.fd.assets.x86_64.url = "https://example.test/test-1/fd" |
         .tools.fd.assets.x86_64.type = "none" |
-        .tools.fd.assets.x86_64.files = {"fd-raw": "fd"}' \
+        .tools.fd.assets.x86_64.files = {"fd": "fd"}' \
         "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
     mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
 
@@ -315,6 +425,110 @@ run_installer() {
     fi
 }
 
+@test "an interruption during file staging removes temporary files" {
+    mkdir -p "${TEST_HOME}/.local/bin"
+    printf 'old content\n' > "${TEST_HOME}/.local/bin/fd"
+    export MOCK_INTERRUPT_DURING_INSTALL=1
+
+    run_installer
+    assert_equal "${status}" 143
+    run grep -Fx 'old content' "${TEST_HOME}/.local/bin/fd"
+    assert_success
+    run find "${TEST_HOME}/.local/bin" -maxdepth 1 -name '.*.tmp.*' -print
+    assert_success
+    refute_output_contains ".tmp."
+}
+
+@test "an interrupted deployment is rolled back during cleanup" {
+    printf '#!/usr/bin/env bash\nprintf "second fixture\\n"\n' \
+        > "${FIXTURE_ROOT}/package/fd2"
+    chmod +x "${FIXTURE_ROOT}/package/fd2"
+    tar -czf "${FIXTURE_ROOT}/interrupt.tar.gz" \
+        -C "${FIXTURE_ROOT}/package" fd fd2
+    export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/interrupt.tar.gz"
+    write_manifest "$(sha256sum "${FIXTURE_ROOT}/interrupt.tar.gz" | cut -d' ' -f1)"
+    jq '.tools.fd.assets.x86_64.files = {"fd": "fd", "fd2": "fd2"}' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+    mkdir -p "${TEST_HOME}/.local/bin"
+    printf 'old content\n' > "${TEST_HOME}/.local/bin/fd"
+    export MOCK_INTERRUPT_AFTER_TARGET="fd"
+
+    run_installer
+    assert_equal "${status}" 143
+    run grep -Fx 'old content' "${TEST_HOME}/.local/bin/fd"
+    assert_success
+    run find "${TEST_HOME}/.local/bin" -maxdepth 1 \
+        -type d -name '.fedora-postinstall-backups.*' -print
+    assert_success
+    refute_output_contains ".fedora-postinstall-backups."
+}
+
+@test "rollback retries idempotently after a transient restoration failure" {
+    printf '#!/usr/bin/env bash\nprintf "second fixture\\n"\n' \
+        > "${FIXTURE_ROOT}/package/fd2"
+    chmod +x "${FIXTURE_ROOT}/package/fd2"
+    tar -czf "${FIXTURE_ROOT}/retry.tar.gz" \
+        -C "${FIXTURE_ROOT}/package" fd fd2
+    export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/retry.tar.gz"
+    write_manifest "$(sha256sum "${FIXTURE_ROOT}/retry.tar.gz" | cut -d' ' -f1)"
+    jq '.tools.fd.assets.x86_64.files = {"fd": "fd", "fd2": "fd2"}' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+    mkdir -p "${TEST_HOME}/.local/bin"
+    printf 'old content\n' > "${TEST_HOME}/.local/bin/fd"
+    export MOCK_MV_FAIL_TARGET="fd2"
+    export MOCK_ROLLBACK_FAIL_TARGET="fd"
+    export MOCK_ROLLBACK_FAIL_ONCE=1
+
+    run_installer
+    assert_failure
+    assert_output_contains "rollback was incomplete"
+    run grep -Fx 'old content' "${TEST_HOME}/.local/bin/fd"
+    assert_success
+    run find "${TEST_HOME}/.local/bin" -maxdepth 1 \
+        -type d -name '.fedora-postinstall-backups.*' -print
+    assert_success
+    refute_output_contains ".fedora-postinstall-backups."
+}
+
+@test "a failed rollback preserves recovery backups" {
+    printf '#!/usr/bin/env bash\nprintf "second fixture\\n"\n' \
+        > "${FIXTURE_ROOT}/package/fd2"
+    chmod +x "${FIXTURE_ROOT}/package/fd2"
+    tar -czf "${FIXTURE_ROOT}/rollback.tar.gz" \
+        -C "${FIXTURE_ROOT}/package" fd fd2
+    export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/rollback.tar.gz"
+    write_manifest "$(sha256sum "${FIXTURE_ROOT}/rollback.tar.gz" | cut -d' ' -f1)"
+    jq '.tools.fd.assets.x86_64.files = {"fd": "fd", "fd2": "fd2"}' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+    mkdir -p "${TEST_HOME}/.local/bin"
+    printf 'old content\n' > "${TEST_HOME}/.local/bin/fd"
+    export MOCK_MV_FAIL_TARGET="fd2"
+    export MOCK_ROLLBACK_FAIL_TARGET="fd"
+
+    run_installer
+    assert_failure
+    assert_output_contains "rollback was incomplete"
+    run grep -F 'fixture fd' "${TEST_HOME}/.local/bin/fd"
+    assert_success
+    run find "${TEST_HOME}/.local/bin" -maxdepth 1 \
+        -type d -name '.fedora-postinstall-backups.*' -print
+    assert_success
+    assert_output_contains ".fedora-postinstall-backups."
+}
+
+@test "a failed tool selection aborts without downloading" {
+    export MOCK_CHOOSE_FAIL=1
+
+    run_installer
+    assert_failure
+    assert_output_contains "Unable to read the command line tool selection"
+    assert_file_absent "${CURL_LOG}"
+    assert_file_absent "${TEST_HOME}/.local/bin/fd"
+}
+
 @test "unknown selections cannot become arbitrary sourced files" {
     export MOCK_SELECTED_TOOL="../../tmp/evil"
 
@@ -327,13 +541,13 @@ run_installer() {
 
 @test "architecture aliases select the declared native asset" {
     jq '.tools.fd.assets.aarch64 = (.tools.fd.assets.x86_64 |
-        .url = "https://example.test/fd-v1-aarch64.tar.gz")' \
+        .url = "https://example.test/fd-test-1-aarch64.tar.gz")' \
         "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
     mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
 
     run_installer "arm64"
     assert_success
-    run grep -Fx 'https://example.test/fd-v1-aarch64.tar.gz' "${CURL_LOG}"
+    run grep -Fx 'https://example.test/fd-test-1-aarch64.tar.gz' "${CURL_LOG}"
     assert_success
     assert_file_exists "${TEST_HOME}/.local/bin/fd"
 }
@@ -357,7 +571,13 @@ run_installer() {
     printf '#!/usr/bin/env bash\nprintf "zip fixture\\n"\n' \
         > "${FIXTURE_ROOT}/zip-package/fd"
     chmod +x "${FIXTURE_ROOT}/zip-package/fd"
-    (cd "${FIXTURE_ROOT}" && zip -q fd.zip zip-package/fd)
+    python3 - "${FIXTURE_ROOT}/fd.zip" <<'PY'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1], "w") as archive:
+    archive.write(sys.argv[1].replace("fd.zip", "zip-package/fd"), "zip-package/fd")
+PY
     export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/fd.zip"
     write_manifest "$(sha256sum "${FIXTURE_ROOT}/fd.zip" | cut -d' ' -f1)"
     jq '.tools.fd.assets.x86_64.type = "zip" |
@@ -415,7 +635,7 @@ PY
         "source": "example/f2",
         "assets": {
             "x86_64": {
-                "url": "https://example.test/f2-v1.tar.gz",
+                "url": "https://example.test/f2-test-2.tar.gz",
                 "sha256": .tools.fd.assets.x86_64.sha256,
                 "type": "tar.gz",
                 "files": {"fd": "fd"}
@@ -438,7 +658,7 @@ PY
         "source": "example/f2",
         "assets": {
             "x86_64": {
-                "url": "https://example.test/f2-v1.tar.gz",
+                "url": "https://example.test/f2-test-2.tar.gz",
                 "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
                 "type": "tar.gz",
                 "files": {"f2": "f2"}

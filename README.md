@@ -20,6 +20,18 @@ $ cd fedora-postinstall
 $ CLI_TOOLS_ONLY=1 bash fedora-postinstall.sh
 ```
 
+`CLI_TOOLS_ONLY` is presence-based: setting it to any value, including `0`, selects this tools-only flow.
+
+### Advanced runtime controls
+
+The installer runtime also supports the following environment controls:
+
+- `POSTINSTALL_DRY_RUN=1` skips mutating modules while still running modules explicitly classified as read-only.
+- `POSTINSTALL_RESUME=1` reuses the state recorded by an earlier run in `${XDG_STATE_HOME:-${HOME}/.local/state}/fedora-postinstall/state.tsv` and skips unchanged, completed modules. Normal runs also record completion state, so the first run does not need the resume flag. Set `POSTINSTALL_STATE_FILE` to use a different state file.
+- `POSTINSTALL_LOG_FILE=PATH` writes structured runtime events to `PATH`; `POSTINSTALL_LOG_STDOUT=1` also prints those events to standard output.
+
+These controls are intended for automation and recovery. The default interactive invocation remains the recommended way to run the installer. The runtime stops at the first unhandled module failure, runs registered cleanup callbacks, and records only the state needed to resume completed work. State and log files are created with user-only permissions and are rejected when their path or parent directory is unsafe.
+
 ### Prerequisites
 
 The script requires Fedora with `rpm`, plus the following commands: `bash`, `coreutils` (including `install`, `mktemp`, and `sha256sum`), `curl`, `findutils`, `git`, `jq`, `python3`, `realpath`, `tar`, `unzip`, and `wget`. On Fedora, install the missing tools with:

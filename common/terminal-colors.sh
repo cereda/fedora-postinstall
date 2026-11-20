@@ -49,7 +49,7 @@ if [ $? = 0 ]; then
     # display a list of color themes; the theme list is generated via:
     #
     # $ vivid themes
-    COLOR_THEME=$(${GUM} choose --height 15 --selected='dracula' "${COLOR_THEMES[@]}")
+    runtime_capture_output COLOR_THEME "${GUM}" choose --height 15 --selected='dracula' "${COLOR_THEMES[@]}" || return 1
 
     # fallback in case the user does not select a color theme, based on the
     # -z check -- a test operator that checks if a string is null
