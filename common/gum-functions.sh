@@ -1,28 +1,10 @@
 #!/usr/bin/env bash
 
-# MIT License
-#
-# Copyright (c) 2025, Paulo Cereda
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 GUM_TEXT_WIDTH=75
+GUM_PROMPT_ACCEPTED=0
+GUM_PROMPT_DECLINED=1
 
 function chapter {
     "${GUM}" style --border double \
@@ -49,16 +31,37 @@ function tool-section {
         "Additional command line tools: $1"
 }
 
+# Prompt contract: status 0 means accepted, status 1 means declined, and any
+# other status is an operational failure that aborts the installer with that
+# status.
 function question {
-    if "${GUM}" confirm \
+    local prompt="${1:-}"
+    local gum="${GUM:-}"
+    local status
+
+    if [ -z "${gum}" ]; then
+        gum="$(command -v gum || true)"
+    fi
+    if [ -z "${gum}" ]; then
+        printf 'Unable to locate gum; aborting.\n' >&2
+        exit 127
+    fi
+
+    if "${gum}" confirm \
         --prompt.foreground=6 \
         --selected.background=6 \
-        "$1"; then
-        return 0
+        "${prompt}"; then
+        return "${GUM_PROMPT_ACCEPTED}"
     else
-        RUNTIME_EXPECTED_FAILURE=1
-        return 1
+        status="${?}"
     fi
+
+    if [ "${status}" -eq "${GUM_PROMPT_DECLINED}" ]; then
+        return "${GUM_PROMPT_DECLINED}"
+    fi
+
+    printf 'Prompt failed with status %s; aborting.\n' "${status}" >&2
+    exit "${status}"
 }
 
 function text {

@@ -1,26 +1,6 @@
 #!/usr/bin/env bash
 
-# MIT License
-#
-# Copyright (c) 2026, Paulo Cereda
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 declare -gA EXTRAS_DOWNLOADED_ASSETS=()
 declare -gA EXTRAS_DOWNLOADED_TYPES=()
@@ -59,6 +39,70 @@ function extras_manifest_entry {
     jq -ce --arg tool "${tool}" --arg architecture "${architecture}" \
         '.tools[$tool].assets[$architecture] // .tools[$tool].assets.any // empty' \
         "${EXTRAS_MANIFEST_FILE}"
+}
+
+function extras_tool_description {
+    local tool="${1}"
+
+    jq -r --arg tool "${tool}" '.tools[$tool].description // empty' \
+        "${EXTRAS_MANIFEST_FILE}" || return 1
+}
+
+function extras_describe_tool {
+    local tool="${1}"
+    local label="${2:-${1}}"
+    local tool_description
+
+    tool_description=$(extras_tool_description "${tool}") || return 1
+    tool-section "${label}" || return 1
+    description "${tool_description}" || return 1
+    echo || return 1
+    return 0
+}
+
+function extras_prune_stale_partials {
+    local tool="${1}"
+    local directory="${2}"
+
+    if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" prune-partials \
+        "${directory}"; then
+        printf 'extras: unable to prune stale partial artifacts for tool "%s"\n' \
+            "${tool}" >&2
+    fi
+    return 0
+}
+
+function extras_evict_obsolete_versions {
+    local tool="${1}"
+    local directory="${2}"
+    local keep_name="${3}"
+
+    if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" prune-versions \
+        "${directory}" "${keep_name}"; then
+        printf 'extras: unable to evict obsolete cached versions for tool "%s"\n' \
+            "${tool}" >&2
+    fi
+    return 0
+}
+
+function extras_record_downloaded_tool {
+    local tool="${1}"
+    local archive_type="${2}"
+    local destination="${3}"
+    local checksum="${4}"
+    local filename="${5}"
+
+    EXTRAS_DOWNLOADED_ASSETS["${tool}"]="${destination}"
+    EXTRAS_DOWNLOADED_TYPES["${tool}"]="${archive_type}"
+    EXTRAS_DOWNLOADED_FILENAMES["${tool}"]="${filename}"
+    if ! printf '%s\t%s\t%s\t%s\n' \
+        "${tool}" "${archive_type}" "${destination}" "${checksum}" \
+        >>"${EXTRAS_ARTIFACT_LEDGER}"; then
+        printf 'extras: unable to update the artifact ledger for tool "%s"\n' \
+            "${tool}" >&2
+        return 1
+    fi
+    return 0
 }
 
 function extras_available_tools_for_architecture {
@@ -100,6 +144,11 @@ function extras_validate_manifest_file {
         all(.tools | to_entries[];
             (.key | test("^[a-z0-9][a-z0-9-]*$")) and
             (.value | type == "object") and
+            (.value.description | type == "string") and
+            (.value.description | length > 0) and
+            (.value.description | length <= 100) and
+            (.value.description | contains("\n") | not) and
+            (.value.description | contains("\r") | not) and
             (.value.assets | type == "object") and
             (.value.assets | length > 0) and
             (((.value.assets | keys) - ["x86_64", "aarch64", "any"]) | length == 0)
@@ -259,7 +308,9 @@ function extras_validate_selected_tools {
 function download_extras_tool {
     local tool="${1}"
     local entry url checksum archive_type version filename
-    local download_directory destination partial actual_checksum
+    local download_directory destination snapshot partial actual_checksum
+    local copy_result copy_status download_result download_status publish_result
+    local recovered_partial recovered_status recovered
 
     if [ -z "${EXTRAS_WORKSPACE:-}" ] || [ ! -d "${EXTRAS_WORKSPACE}" ]; then
         printf 'extras: download workspace is not initialized\n' >&2
@@ -275,72 +326,180 @@ function download_extras_tool {
         return 1
     fi
 
-    url=$(jq -r '.url' <<<"${entry}")
-    checksum=$(jq -r '.sha256' <<<"${entry}")
-    archive_type=$(jq -r '.type' <<<"${entry}")
-    version=$(extras_manifest_version "${tool}")
-    filename=$(basename -- "${url}")
+    url=$(jq -r '.url' <<<"${entry}") || return 1
+    checksum=$(jq -r '.sha256' <<<"${entry}") || return 1
+    archive_type=$(jq -r '.type' <<<"${entry}") || return 1
+    version=$(extras_manifest_version "${tool}") || return 1
+    filename=$(basename -- "${url}") || return 1
 
     if [ -n "${EXTRAS_DOWNLOADED_ASSETS[${tool}]:-}" ]; then
         printf 'extras: tool "%s" was downloaded more than once\n' "${tool}" >&2
         return 1
     fi
 
-    download_directory="${EXTRAS_WORKSPACE}/downloads/${tool}"
-    destination="${download_directory}/${filename}"
-    partial="${destination}.part"
+    if [ -z "${EXTRAS_CACHE_DIRECTORY:-}" ]; then
+        printf 'extras: cache directory is not initialized\n' >&2
+        return 1
+    fi
 
-    if ! mkdir -p "${download_directory}"; then
+    download_directory="${EXTRAS_CACHE_DIRECTORY}/${EXTRAS_ARCHITECTURE}/${tool}"
+    destination="${download_directory}/${filename}"
+    snapshot="${EXTRAS_WORKSPACE}/artifacts/${tool}/${filename}"
+    partial=""
+
+    if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" ensure-directory \
+        "${download_directory}"; then
         printf 'extras: unable to create download directory for tool "%s"\n' "${tool}" >&2
         return 1
     fi
 
-    rm -f -- "${partial}"
-
-    info "Downloading ${tool} ${version} (${EXTRAS_ARCHITECTURE})."
-    if ! curl \
-        --fail \
-        --location \
-        --silent \
-        --show-error \
-        --retry 3 \
-        --retry-delay 2 \
-        --connect-timeout 20 \
-        --max-time 900 \
-        --proto '=https' \
-        --tlsv1.2 \
-        --output "${partial}" \
-        "${url}"; then
-        rm -f -- "${partial}"
-        printf 'extras: download failed for tool "%s"\n' "${tool}" >&2
+    if [ -L "${destination}" ] ||
+        { [ -e "${destination}" ] && [ ! -f "${destination}" ]; }; then
+        printf 'extras: unsafe cached artifact for tool "%s"\n' "${tool}" >&2
         return 1
     fi
 
-    actual_checksum=$(sha256sum -- "${partial}")
-    actual_checksum="${actual_checksum%% *}"
+    if [ -f "${destination}" ]; then
+        if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" validate-file \
+            "${destination}"; then
+            printf 'extras: unsafe cached artifact for tool "%s"\n' "${tool}" >&2
+            return 1
+        fi
+        copy_status=0
+        copy_result=$(python3 "${SCRIPT_PATH}/common/runtime-file.py" copy \
+            "${destination}" "${snapshot}") || copy_status="${?}"
+        if [ "${copy_status}" -ne 0 ]; then
+            rm -f -- "${snapshot}" || true
+            printf 'extras: unable to verify cached artifact for tool "%s"; downloading it again\n' \
+                "${tool}" >&2
+        else
+            actual_checksum="${copy_result}"
+            if [ "${actual_checksum}" = "${checksum}" ]; then
+                if ! extras_record_downloaded_tool "${tool}" "${archive_type}" \
+                    "${snapshot}" "${checksum}" "${filename}"; then
+                    return 1
+                fi
+                extras_evict_obsolete_versions "${tool}" \
+                    "${download_directory}" "${filename}"
+                info "Using cached artifact for ${tool}." || return 1
+                return 0
+            fi
+            if ! rm -f -- "${snapshot}"; then
+                printf 'extras: unable to discard an invalid artifact snapshot for tool "%s"\n' \
+                    "${tool}" >&2
+                return 1
+            fi
+            # Keep the existing entry until the replacement has been fully
+            # downloaded, verified, and published. A failed update must not
+            # discard the last cache artifact.
+        fi
+    fi
+
+    recovered_partial=""
+    recovered_status=0
+    recovered=0
+    download_result=""
+    download_status=0
+    recovered_partial=$(python3 "${SCRIPT_PATH}/common/runtime-file.py" \
+        find-verified "${download_directory}" "${checksum}") || recovered_status="${?}"
+    if [ "${recovered_status}" -eq 0 ] && [ -n "${recovered_partial}" ]; then
+        partial="${recovered_partial}"
+        recovered=1
+        info "Recovering a verified interrupted download for ${tool}." || return 1
+    else
+        # Only prune stale partials after looking for a checksum-verified
+        # recovery candidate. A complete older download remains recoverable.
+        extras_prune_stale_partials "${tool}" "${download_directory}"
+        info "Downloading ${tool} ${version} (${EXTRAS_ARCHITECTURE})." || return 1
+        download_result=$(
+            curl \
+                --fail \
+                --location \
+                --silent \
+                --show-error \
+                --retry 3 \
+                --retry-delay 2 \
+                --connect-timeout 20 \
+                --max-time 900 \
+                --proto '=https' \
+                --tlsv1.2 \
+                --output - \
+                "${url}" |
+                python3 "${SCRIPT_PATH}/common/runtime-file.py" write \
+                    "${download_directory}"
+        ) || download_status="${?}"
+    fi
+
+    if [ "${recovered}" -eq 0 ]; then
+        if [[ "${download_result}" == *$'\t'* ]]; then
+            actual_checksum="${download_result%%$'\t'*}"
+            partial="${download_result#*$'\t'}"
+        else
+            actual_checksum=""
+            partial=""
+        fi
+
+        if [ "${download_status}" -ne 0 ]; then
+            if [ -n "${partial}" ] && [ "${actual_checksum}" = "${checksum}" ]; then
+                printf 'extras: download failed for tool "%s"; the verified download was retained for retry\n' \
+                    "${tool}" >&2
+            else
+                if [ -n "${partial}" ] && ! rm -f -- "${partial}"; then
+                    printf 'extras: unable to remove an incomplete download for tool "%s"\n' \
+                        "${tool}" >&2
+                fi
+                printf 'extras: download failed for tool "%s"\n' "${tool}" >&2
+            fi
+            return 1
+        fi
+        if [ "${actual_checksum}" != "${checksum}" ]; then
+            if [ -n "${partial}" ] && ! rm -f -- "${partial}"; then
+                printf 'extras: unable to remove an invalid download for tool "%s"\n' \
+                    "${tool}" >&2
+            fi
+            printf 'extras: checksum verification failed for tool "%s"\n' "${tool}" >&2
+            printf 'extras: expected %s, got %s\n' "${checksum}" "${actual_checksum}" >&2
+            return 1
+        fi
+    fi
+
+    if ! copy_result=$(python3 "${SCRIPT_PATH}/common/runtime-file.py" copy \
+        "${partial}" "${snapshot}"); then
+        printf 'extras: unable to create a verified artifact snapshot for tool "%s"\n' \
+            "${tool}" >&2
+        return 1
+    fi
+    actual_checksum="${copy_result}"
     if [ "${actual_checksum}" != "${checksum}" ]; then
-        rm -f -- "${partial}"
+        rm -f -- "${snapshot}" "${partial}" || true
         printf 'extras: checksum verification failed for tool "%s"\n' "${tool}" >&2
         printf 'extras: expected %s, got %s\n' "${checksum}" "${actual_checksum}" >&2
         return 1
     fi
 
-    if ! mv -f -- "${partial}" "${destination}"; then
-        rm -f -- "${partial}"
-        printf 'extras: unable to store downloaded artifact for tool "%s"\n' "${tool}" >&2
+    if ! publish_result=$(python3 "${SCRIPT_PATH}/common/runtime-file.py" publish \
+        "${partial}" "${destination}" "${checksum}"); then
+        # Keep the verified partial file in the cache. A later run can recover
+        # it by checksum and retry publication without downloading it again.
+        printf 'extras: unable to store downloaded artifact for tool "%s"; the verified download was retained for retry\n' \
+            "${tool}" >&2
+        return 1
+    fi
+    actual_checksum="${publish_result}"
+    if [ "${actual_checksum}" != "${checksum}" ]; then
+        rm -f -- "${partial}" "${snapshot}" || true
+        printf 'extras: checksum verification failed for tool "%s"\n' "${tool}" >&2
+        printf 'extras: expected %s, got %s\n' "${checksum}" "${actual_checksum}" >&2
         return 1
     fi
 
-    EXTRAS_DOWNLOADED_ASSETS["${tool}"]="${destination}"
-    EXTRAS_DOWNLOADED_TYPES["${tool}"]="${archive_type}"
-    EXTRAS_DOWNLOADED_FILENAMES["${tool}"]="${filename}"
-    if ! printf '%s\t%s\t%s\t%s\n' \
-        "${tool}" "${archive_type}" "${destination}" "${checksum}" \
-        >>"${EXTRAS_ARTIFACT_LEDGER}"; then
-        printf 'extras: unable to update the artifact ledger for tool "%s"\n' "${tool}" >&2
+    extras_evict_obsolete_versions "${tool}" "${download_directory}" "${filename}"
+
+    if ! extras_record_downloaded_tool "${tool}" "${archive_type}" \
+        "${snapshot}" "${checksum}" "${filename}"; then
         return 1
     fi
 
-    info "Verified SHA-256 checksum for ${tool}."
+    info "Verified SHA-256 checksum for ${tool}." || return 1
     return 0
 }

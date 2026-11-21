@@ -1,4 +1,7 @@
+# SPDX-License-Identifier: MIT
 SHELL := /bin/bash
+
+DIFF_BASE ?= HEAD^
 
 BATS ?= bats
 JQ ?= jq
@@ -7,7 +10,7 @@ SHELLCHECK ?= shellcheck
 SHFMT ?= shfmt
 SHFMT_FLAGS ?= -i 4
 
-.PHONY: help check test syntax shellcheck format format-check python json diff-check
+.PHONY: help check test syntax shellcheck format format-check python json license diff-check
 
 help:
 	@printf '%s\n' \
@@ -20,9 +23,10 @@ help:
 		'  format        Format tracked Shell scripts' \
 		'  python        Compile the Python helpers' \
 		'  json          Validate tracked JSON files' \
-		'  diff-check    Check the working tree for whitespace errors'
+		'  license       Validate SPDX license headers' \
+		'  diff-check    Check working tree and committed range for whitespace errors'
 
-check: format-check syntax shellcheck python json test diff-check
+check: format-check syntax shellcheck python json license test diff-check
 
 test:
 	@$(BATS) --print-output-on-failure tests/unit
@@ -53,6 +57,18 @@ json:
 		while IFS= read -r file; do $(JQ) empty "$$file"; done <<< "$$files"; \
 	fi
 
+license:
+	@$(PYTHON) tools/check-spdx.py
+
 diff-check:
 	@git diff --check
 	@git diff --cached --check
+	@base="$(DIFF_BASE)"; \
+	if [ -z "$$base" ] || [[ "$$base" =~ ^0+$$ ]]; then \
+		base="HEAD^"; \
+	fi; \
+	if ! git rev-parse --verify --quiet "$$base^{commit}" >/dev/null; then \
+		printf '%s\n' "Skipping committed-range whitespace check: base '$$base' is unavailable"; \
+	else \
+		git diff --check "$$base...HEAD"; \
+	fi

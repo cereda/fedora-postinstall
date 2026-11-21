@@ -1,26 +1,6 @@
 #!/usr/bin/env bash
 
-# MIT License
-#
-# Copyright (c) 2026, Paulo Cereda
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 function runtime_module_inventory_path {
     local runtime_local_flavor="${1:-}"
@@ -109,10 +89,19 @@ function runtime_validate_module_inventory {
 function runtime_module_inventory_rows {
     local runtime_local_flavor="${1:-}"
     local runtime_local_path
+    local runtime_local_module
+    local runtime_local_effect
+    local runtime_local_states
 
     runtime_local_path=$(runtime_module_inventory_path "${runtime_local_flavor}") || return 1
     runtime_validate_module_inventory "${runtime_local_path}" || return 1
-    cat -- "${runtime_local_path}"
+
+    while IFS='|' read -r runtime_local_module runtime_local_effect runtime_local_states; do
+        [ -n "${runtime_local_module}" ] || continue
+        [[ "${runtime_local_module}" == \#* ]] && continue
+        printf '%s|%s|%s\n' \
+            "${runtime_local_module}" "${runtime_local_effect}" "${runtime_local_states}"
+    done <"${runtime_local_path}"
 }
 
 function runtime_module_inventory_modules {

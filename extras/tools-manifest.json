@@ -3,6 +3,7 @@
   "tools": {
     "binsider": {
       "version": "v0.3.2",
+      "description": "Inspect binary files and extract their contents.",
       "source": "orhun/binsider",
       "assets": {
         "x86_64": {
@@ -25,6 +26,7 @@
     },
     "bottom": {
       "version": "0.15.0",
+      "description": "Monitor system resources and processes (deployed as btm).",
       "source": "ClementTsang/bottom",
       "assets": {
         "x86_64": {
@@ -47,6 +49,7 @@
     },
     "bun": {
       "version": "bun-v1.4.5",
+      "description": "Run JavaScript applications and manage packages.",
       "source": "oven-sh/bun",
       "assets": {
         "x86_64": {
@@ -69,6 +72,7 @@
     },
     "caddy": {
       "version": "v2.11.9",
+      "description": "Serve HTTP and HTTPS applications.",
       "source": "caddyserver/caddy",
       "assets": {
         "x86_64": {
@@ -91,6 +95,7 @@
     },
     "deno": {
       "version": "v2.9.8",
+      "description": "Run JavaScript and TypeScript applications.",
       "source": "denoland/deno",
       "assets": {
         "x86_64": {
@@ -113,6 +118,7 @@
     },
     "duckdb": {
       "version": "v2.0.0",
+      "description": "Query data with an embedded SQL database.",
       "source": "duckdb/duckdb",
       "assets": {
         "x86_64": {
@@ -135,6 +141,7 @@
     },
     "duf": {
       "version": "v0.9.1",
+      "description": "Inspect disk usage across file systems.",
       "source": "muesli/duf",
       "assets": {
         "x86_64": {
@@ -157,6 +164,7 @@
     },
     "eza": {
       "version": "v0.23.5",
+      "description": "List files with colors and metadata.",
       "source": "eza-community/eza",
       "assets": {
         "x86_64": {
@@ -179,6 +187,7 @@
     },
     "f2": {
       "version": "v2.2.2",
+      "description": "Rename files and directories in batches.",
       "source": "ayoisaiah/f2",
       "assets": {
         "x86_64": {
@@ -201,6 +210,7 @@
     },
     "fd": {
       "version": "v10.5.2",
+      "description": "Find files by name or pattern.",
       "source": "sharkdp/fd",
       "assets": {
         "x86_64": {
@@ -223,6 +233,7 @@
     },
     "freeze": {
       "version": "v0.2.2",
+      "description": "Capture terminal output as an image.",
       "source": "charmbracelet/freeze",
       "assets": {
         "x86_64": {
@@ -245,6 +256,7 @@
     },
     "fx": {
       "version": "40.0.1",
+      "description": "Explore and transform JSON data.",
       "source": "antonmedv/fx",
       "assets": {
         "x86_64": {
@@ -267,6 +279,7 @@
     },
     "glow": {
       "version": "v3.0.0",
+      "description": "Render Markdown in the terminal.",
       "source": "charmbracelet/glow",
       "assets": {
         "x86_64": {
@@ -289,6 +302,7 @@
     },
     "gping": {
       "version": "gping-v1.21.0",
+      "description": "Show ping latency with a terminal interface.",
       "source": "orf/gping",
       "assets": {
         "x86_64": {
@@ -311,6 +325,7 @@
     },
     "grex": {
       "version": "v1.4.6",
+      "description": "Generate regular expressions from sample text.",
       "source": "pemistahl/grex",
       "assets": {
         "x86_64": {
@@ -333,6 +348,7 @@
     },
     "gum": {
       "version": "v2.0.2",
+      "description": "Build interactive command-line interfaces.",
       "source": "charmbracelet/gum",
       "assets": {
         "x86_64": {
@@ -355,6 +371,7 @@
     },
     "hexyl": {
       "version": "v0.17.0",
+      "description": "Inspect binary data in hexadecimal.",
       "source": "sharkdp/hexyl",
       "assets": {
         "x86_64": {
@@ -377,6 +394,7 @@
     },
     "ipinfo": {
       "version": "ipinfo-3.3.4",
+      "description": "Show information about an IP address.",
       "source": "ipinfo/cli",
       "assets": {
         "x86_64": {
@@ -399,6 +417,7 @@
     },
     "jless": {
       "version": "v0.9.0",
+      "description": "Explore and filter JSON data.",
       "source": "PaulJuliusMartinez/jless",
       "assets": {
         "x86_64": {
@@ -413,6 +432,7 @@
     },
     "lapce": {
       "version": "v0.4.6",
+      "description": "Edit files from the terminal.",
       "source": "lapce/lapce",
       "assets": {
         "x86_64": {
@@ -435,6 +455,7 @@
     },
     "lsd": {
       "version": "v1.2.0",
+      "description": "List files with icons and file-type indicators.",
       "source": "lsd-rs/lsd",
       "assets": {
         "x86_64": {
@@ -457,6 +478,7 @@
     },
     "ouch": {
       "version": "0.8.3",
+      "description": "Compress and decompress files and directories.",
       "source": "ouch-org/ouch",
       "assets": {
         "x86_64": {
@@ -479,6 +501,7 @@
     },
     "picocrypt": {
       "version": "1.49",
+      "description": "Encrypt and decrypt files.",
       "source": "Picocrypt/CLI",
       "assets": {
         "x86_64": {
@@ -501,6 +524,7 @@
     },
     "pingu": {
       "version": "v0.0.5",
+      "description": "Show colored ping results.",
       "source": "sheepla/pingu",
       "assets": {
         "x86_64": {
@@ -523,6 +547,7 @@
     },
     "procs": {
       "version": "v0.14.12",
+      "description": "Inspect running processes.",
       "source": "dalance/procs",
       "assets": {
         "x86_64": {
@@ -545,6 +570,7 @@
     },
     "ripgrep": {
       "version": "15.2.0",
+      "description": "Search file contents with regular expressions (deployed as rg).",
       "source": "BurntSushi/ripgrep",
       "assets": {
         "x86_64": {
@@ -567,6 +593,7 @@
     },
     "surreal": {
       "version": "v4.0.1",
+      "description": "Query a SurrealDB database.",
       "source": "surrealdb/surrealdb",
       "assets": {
         "x86_64": {
@@ -589,6 +616,7 @@
     },
     "tlrc": {
       "version": "v1.13.1",
+      "description": "Show concise command examples from tldr (deployed as tldr).",
       "source": "tldr-pages/tlrc",
       "assets": {
         "x86_64": {
@@ -611,6 +639,7 @@
     },
     "trdsql": {
       "version": "v1.2.3",
+      "description": "Query CSV, JSON, and databases with SQL.",
       "source": "noborus/trdsql",
       "assets": {
         "x86_64": {
@@ -633,6 +662,7 @@
     },
     "trippy": {
       "version": "0.13.0",
+      "description": "Diagnose network routes and latency (deployed as trip).",
       "source": "fujiapple852/trippy",
       "assets": {
         "x86_64": {
@@ -655,6 +685,7 @@
     },
     "trivy": {
       "version": "v0.76.2",
+      "description": "Scan images, filesystems, and repositories for vulnerabilities.",
       "source": "aquasecurity/trivy",
       "assets": {
         "x86_64": {
@@ -677,6 +708,7 @@
     },
     "ttyd": {
       "version": "1.7.7",
+      "description": "Share a terminal session through a web browser.",
       "source": "tsl0922/ttyd",
       "assets": {
         "x86_64": {
@@ -699,6 +731,7 @@
     },
     "unimatrix": {
       "version": "dff519f972103f91384f360f270614184de8aa92",
+      "description": "Display animated Matrix-style characters.",
       "source": "will8211/unimatrix",
       "assets": {
         "any": {
@@ -713,6 +746,7 @@
     },
     "usage": {
       "version": "v7.4.0",
+      "description": "Define reusable command-line tools.",
       "source": "jdx/usage",
       "assets": {
         "x86_64": {
@@ -735,6 +769,7 @@
     },
     "vhs": {
       "version": "v0.12.1",
+      "description": "Record and replay terminal sessions.",
       "source": "charmbracelet/vhs",
       "assets": {
         "x86_64": {
@@ -757,6 +792,7 @@
     },
     "vimv": {
       "version": "0fec5140eeed8bba5637a9d124bf0364f010e612",
+      "description": "Rename files from Vim.",
       "source": "thameera/vimv",
       "assets": {
         "any": {
@@ -771,6 +807,7 @@
     },
     "vivid": {
       "version": "v0.11.1",
+      "description": "Generate terminal color themes.",
       "source": "sharkdp/vivid",
       "assets": {
         "x86_64": {
@@ -793,6 +830,7 @@
     },
     "yazi": {
       "version": "v26.9.1",
+      "description": "Browse files from the terminal (deployed as yazi and ya).",
       "source": "sxyazi/yazi",
       "assets": {
         "x86_64": {
@@ -817,6 +855,7 @@
     },
     "yq": {
       "version": "v4.54.3",
+      "description": "Query and transform YAML files.",
       "source": "mikefarah/yq",
       "assets": {
         "x86_64": {
@@ -839,6 +878,7 @@
     },
     "zellij": {
       "version": "v0.46.0",
+      "description": "Manage terminal panes, tabs, and sessions.",
       "source": "zellij-org/zellij",
       "assets": {
         "x86_64": {

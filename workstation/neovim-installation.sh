@@ -1,48 +1,13 @@
 #!/usr/bin/env bash
 
-# MIT License
-#
-# Copyright (c) 2025, Paulo Cereda
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 section "neovim installation and configuration"
 
-description "neovim is an open source, community-driven, and highly \
-customizable fork of the Vim text editor. It aims to improve upon the \
-original vim by providing a modern, extensible, and efficient text \
-editing experience, with a focus on developer productivity and the \
-integration of various plugins and tools."
-
+description "Install and configure Neovim."
 echo
 
-question "Do you want to install and configure neovim?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install and configure neovim?"; then
 
     info "Installing neovim as an RPM package."
     sudo dnf install neovim -y
@@ -53,14 +18,11 @@ if [ $? = 0 ]; then
 
     NEOVIM_FLAVOUR=$("${GUM}" choose "Classic" "Modern")
 
-    # fallback in case the user does not select a configuration, based on
-    # the -z check -- a test operator that checks if a string is null
     if [ -z "${NEOVIM_FLAVOUR}" ]; then
         NEOVIM_FLAVOUR="Classic"
     fi
 
-    # the classic configuration does not require any external command line
-    # tools, whereas the modern configuration relies on the LazyVim framework
+    # The classic profile has no external runtime dependency.
     if [ "${NEOVIM_FLAVOUR}" = "Classic" ]; then
 
         info "Installing the plug-in manager for neovim (classic)."
@@ -70,7 +32,7 @@ if [ $? = 0 ]; then
         mkdir -p "${HOME}/.config/nvim"
 
         info "Creating configuration file for neovim (classic)."
-        tee "${HOME}/.config/nvim/init.vim" <<EOF
+        cat >"${HOME}/.config/nvim/init.vim" <<'VIM'
 call plug#begin('~/.local/share/nvim/plugged')
 
 Plug 'godlygeek/tabular'
@@ -135,12 +97,11 @@ let g:startify_custom_footer =
 
 let g:rainbow_active = 0
 set viminfo=""
-EOF
+VIM
 
     else
 
-        # the modern configuration relies on the LazyVim framework and
-        # requires external command lines tools
+        # LazyVim requires external command-line tools.
 
         info "Cloning the starter template (modern)."
         git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
@@ -149,7 +110,7 @@ EOF
         rm -rf "${HOME}/.config/nvim/.git"
 
         info "Adding custom options to the starter template."
-        tee --append "${HOME}/.config/nvim/lua/config/options.lua" <<EOF
+        cat >>"${HOME}/.config/nvim/lua/config/options.lua" <<'LUA'
 
 -- ****************************************
 -- Paulo's personal configuration
@@ -168,10 +129,10 @@ global.autoformat = false
 -- Disable auto pairs
 -- global.minipairs_disable = true
 -- ****************************************
-EOF
+LUA
 
         info "Adding custom plugin configuration [1]."
-        tee "${HOME}/.config/nvim/lua/plugins/logo.lua" <<EOF
+        cat >"${HOME}/.config/nvim/lua/plugins/logo.lua" <<'LUA'
 -- ****************************************
 -- Paulo's personal configuration
 -- ****************************************
@@ -194,10 +155,10 @@ return {
     },
 }
 -- ****************************************
-EOF
+LUA
 
         info "Adding custom plugin configuration [2]."
-        tee "${HOME}/.config/nvim/lua/plugins/blink.lua" <<EOF
+        cat >"${HOME}/.config/nvim/lua/plugins/blink.lua" <<'LUA'
 -- ****************************************
 -- Paulo's personal configuration
 -- ****************************************
@@ -208,7 +169,7 @@ return {
     },
 }
 -- ****************************************
-EOF
+LUA
 
     fi
 fi

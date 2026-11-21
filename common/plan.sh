@@ -1,30 +1,12 @@
 #!/usr/bin/env bash
 
-# MIT License
-#
-# Copyright (c) 2026, Paulo Cereda
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 declare -g PLAN_FLAVOR=""
 declare -g PLAN_ARCHITECTURE=""
 declare -g PLAN_COMMAND="plan"
+declare -g PLAN_CACHE_DIR=""
+declare -g PLAN_LOCK_FILE=""
 declare -ga PLAN_WARNINGS=()
 declare -ga PLAN_TOOL_DETAILS=()
 
@@ -143,6 +125,8 @@ function plan_prepare {
     local plan_local_architecture=""
 
     PLAN_COMMAND="${plan_local_command}"
+    PLAN_CACHE_DIR="${CLI_CACHE_DIR}"
+    PLAN_LOCK_FILE="${CLI_LOCK_FILE}"
     PLAN_WARNINGS=()
     PLAN_TOOL_DETAILS=()
     PROFILE_EFFECTIVE_MODULES=()
@@ -323,6 +307,8 @@ function plan_render {
             --arg profile_name "${plan_local_profile_name}" \
             --arg profile_path "${plan_local_profile_path}" \
             --arg profile_digest "${plan_local_profile_digest}" \
+            --arg cache_dir "${PLAN_CACHE_DIR}" \
+            --arg lock_file "${PLAN_LOCK_FILE}" \
             --arg tool_mode "${CLI_TOOL_SELECTION_MODE}" \
             --argjson modules "${plan_local_modules_json}" \
             --argjson tools "${plan_local_tools_json}" \
@@ -335,6 +321,7 @@ function plan_render {
                 flavor: {detected: $detected_flavor, selected: $selected_flavor},
                 architecture: {detected: $detected_architecture, selected: $selected_architecture},
                 profile: {name: $profile_name, path: $profile_path, digest: $profile_digest},
+                paths: {cache_dir: $cache_dir, lock_file: $lock_file},
                 modules: $modules,
                 extras: {mode: $tool_mode, tools: $tools},
                 warnings: $warnings
@@ -354,6 +341,8 @@ function plan_render {
     if [ -n "${plan_local_profile_path}" ]; then
         printf 'Profile path: %s\n' "${plan_local_profile_path}"
     fi
+    printf 'Cache directory: %s\n' "${PLAN_CACHE_DIR}"
+    printf 'Lock file: %s\n' "${PLAN_LOCK_FILE}"
     printf 'Modules:\n'
     if [ "${PLAN_COMMAND}" != "extras" ]; then
         while IFS='|' read -r plan_local_module plan_local_effect plan_local_states; do

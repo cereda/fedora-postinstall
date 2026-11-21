@@ -1,3 +1,5 @@
+
+# SPDX-License-Identifier: MIT
 assert_success() {
     if [ "${status}" -ne 0 ]; then
         printf 'expected success, got status %s\noutput:\n%s\n' "${status}" "${output}" >&2

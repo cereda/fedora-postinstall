@@ -1,47 +1,13 @@
 #!/usr/bin/env bash
 
-# MIT License
-#
-# Copyright (c) 2025, Paulo Cereda
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 section "vim installation and configuration"
 
-description "vim is a highly configurable, open source text editor known for \
-its powerful and efficient interface based on command line. It is designed to \
-provide a streamlined and customizable editing experience, with a focus on \
-productivity and keyboard-centric workflows."
-
+description "Install and configure Vim."
 echo
 
-question "Do you want to install and configure vim?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install and configure vim?"; then
 
     info "Installing vim as an RPM package."
     sudo dnf install vim -y
@@ -50,7 +16,7 @@ if [ $? = 0 ]; then
     curl -fLo "${HOME}/.config/vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
     info "Creating the configuration file."
-    tee "${HOME}/.config/vim/vimrc" <<EOF
+    cat >"${HOME}/.config/vim/vimrc" <<'VIM'
 call plug#begin('~/.config/vim/plugged')
 
 Plug 'godlygeek/tabular'
@@ -121,6 +87,6 @@ let g:startify_custom_footer =
 
 let g:rainbow_active = 0
 set viminfo=""
-EOF
+VIM
 
 fi

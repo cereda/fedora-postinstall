@@ -1,29 +1,9 @@
 #!/usr/bin/env bash
 
-# MIT License
-#
-# Copyright (c) 2025, Paulo Cereda
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 # generate a PNG image of a cat from a string encoded in Base 64
-cat <<EOF | base64 --decode >cat.png
+base64 --decode <<'BASE64' >cat.png
 iVBORw0KGgoAAAANSUhEUgAAATUAAAEfCAYAAAAgKFFUAAAABHNCSVQICAgIfAhkiAAAABl0RVh0
 U29mdHdhcmUAZ25vbWUtc2NyZWVuc2hvdO8Dvz4AAAAqdEVYdENyZWF0aW9uIFRpbWUAc+FiIDEz
 IGp1bCAyMDE5IDA4OjE1OjU1IC0wMxVjsB0AACAASURBVHiclL1Zl3XJedf5i9jDmYec36Gq9Nqq
@@ -2314,4 +2294,4 @@ fvLkCVarFcqyfNhYbolamvFTLMx8ZDorea3orvl7mbPzQoFFWQu5USnk8D5MPgp5XMfRQ7+fne2w
 h7xPivfelTTuUo74Oa0Dk60Am3cttWMxRx7nlhVIxvKiQJplqFsqMNzd32MXCi7GkLfILB6bzeYB
 MNV2HbXj6Z7Jt28zOg5Cl8w6cU9HCpG/cigq30cWS6QS5O9lbnt8xviMys8YK1Z5Xvm9xtcqHar/
 F7cOkebCiFNvAAAAAElFTkSuQmCC
-EOF
+BASE64
