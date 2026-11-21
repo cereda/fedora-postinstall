@@ -14,7 +14,8 @@ setup() {
         "${SANDBOX_REPO}" \
         "${TEST_ROOT}/home" \
         "${TEST_ROOT}/cache" \
-        "${TEST_ROOT}/state"
+        "${TEST_ROOT}/state" \
+        "${TEST_ROOT}/tmp"
 
     cp -R "${REPO_ROOT}/common" "${SANDBOX_REPO}/"
     cp -R "${REPO_ROOT}/extras" "${SANDBOX_REPO}/"
@@ -35,14 +36,16 @@ EOF
 
     cat > "${MOCK_BIN}/gum" <<'EOF'
 #!/usr/bin/env bash
+printf '%s\n' "$*" >> "${MOCK_GUM_LOG}"
 case "${1}" in
     confirm)
         : > "${MOCK_GUM_CONFIRM_MARKER}"
         exit 0
         ;;
     choose)
+        : > "${MOCK_GUM_CHOOSE_MARKER}"
         printf '%s\n' "${MOCK_FLAVOR:-}"
-        exit "${MOCK_CHOOSE_STATUS:-0}"
+        exit 0
         ;;
     style)
         for argument in "$@"; do
@@ -51,34 +54,118 @@ case "${1}" in
         printf '%s\n' "${last_argument}"
         exit 0
         ;;
-    input) exit 0 ;;
-    file) exit 0 ;;
+    input | file) exit 0 ;;
     *) exit 0 ;;
 esac
 EOF
 
     cat > "${MOCK_BIN}/rpm" <<'EOF'
 #!/usr/bin/env bash
-if [ "${1}" = "-E" ]; then
+if [ "${1:-}" = "-E" ]; then
+    if [ "${MOCK_RPM_VERSION_FAIL:-0}" = "1" ]; then
+        exit 1
+    fi
     printf '%s\n' "42"
+    exit 0
 fi
+if [ "${1:-}" = "-q" ]; then
+    printf '%s\n' "package ${2} is not installed"
+    exit 1
+fi
+exit 0
 EOF
 
-    chmod +x "${MOCK_BIN}/gum" "${MOCK_BIN}/rpm"
+    cat > "${MOCK_BIN}/uname" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-m" ]; then
+    printf '%s\n' "x86_64"
+    exit 0
+fi
+exec /usr/bin/uname "$@"
+EOF
+
+    chmod +x "${MOCK_BIN}/gum" "${MOCK_BIN}/rpm" "${MOCK_BIN}/uname"
     export MOCK_GUM_CONFIRM_MARKER="${TEST_ROOT}/gum-confirm-called"
-    export PATH="${MOCK_BIN}:${PATH}"
+    export MOCK_GUM_CHOOSE_MARKER="${TEST_ROOT}/gum-choose-called"
+    export MOCK_GUM_LOG="${TEST_ROOT}/gum.log"
+    export MOCK_RPM_VERSION_FAIL=0
+    export PATH="${MOCK_BIN}:/usr/bin:/bin"
 }
 
-@test "cancelling flavor selection aborts before configuration" {
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
-    assert_failure
-    assert_output_contains "No Fedora flavour was selected"
-
-    assert_file_absent "${SANDBOX_REPO}/archives"
-    assert_file_absent "${SANDBOX_REPO}/deploys"
+run_installer() {
+    run env \
+        HOME="${TEST_ROOT}/home" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        TMPDIR="${TEST_ROOT}/tmp" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" "$@"
 }
 
-@test "the implicit invocation keeps the chooser even when detection is available" {
+@test "an invocation without a command is a usage error" {
+    run_installer
+    assert_equal "${status}" 64
+    assert_output_contains "command is required"
+    assert_file_absent "${MOCK_GUM_CONFIRM_MARKER}"
+    assert_file_absent "${MOCK_GUM_CHOOSE_MARKER}"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall/postinstall.lock"
+}
+
+@test "an unknown detected flavor requires --flavor before mutation" {
+    run_installer install
+    assert_equal "${status}" 69
+    assert_output_contains "unable to detect Fedora flavor"
+    assert_output_contains "--flavor"
+    assert_file_absent "${MOCK_GUM_CONFIRM_MARKER}"
+    assert_file_absent "${MOCK_GUM_CHOOSE_MARKER}"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall/postinstall.lock"
+}
+
+@test "an ambiguous detected flavor requires --flavor before mutation" {
+    cat > "${TEST_ROOT}/os-release" <<'EOF'
+NAME="Fedora Silverblue"
+ID=fedora
+VERSION_ID=45
+VARIANT_ID=workstation
+EOF
+
+    run_installer install
+    assert_equal "${status}" 69
+    assert_output_contains "flavor detection is ambiguous"
+    assert_output_contains "--flavor"
+    assert_file_absent "${MOCK_GUM_CONFIRM_MARKER}"
+    assert_file_absent "${MOCK_GUM_CHOOSE_MARKER}"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall/postinstall.lock"
+}
+
+@test "an explicit flavor succeeds through a mocked dry-run" {
+    run_installer install --flavor workstation --dry-run --json
+    assert_success
+    run jq -e '.flavor.selected == "workstation"' <<<"${output}"
+    assert_success
+    assert_file_absent "${MOCK_GUM_CHOOSE_MARKER}"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+}
+
+@test "POSTINSTALL_FLAVOR selects the flavor for an explicit install" {
+    run env \
+        HOME="${TEST_ROOT}/home" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        TMPDIR="${TEST_ROOT}/tmp" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        POSTINSTALL_FLAVOR=silverblue \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" install --dry-run --json
+    assert_success
+    run jq -e '.flavor.selected == "silverblue"' <<<"${output}"
+    assert_success
+    assert_file_absent "${MOCK_GUM_CHOOSE_MARKER}"
+}
+
+@test "automatic detection selects the flavor without a chooser" {
     cat > "${TEST_ROOT}/os-release" <<'EOF'
 NAME="Fedora Workstation"
 ID=fedora
@@ -86,37 +173,11 @@ VERSION_ID=45
 VARIANT_ID=workstation
 EOF
 
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
-    assert_failure
-    assert_output_contains "No Fedora flavour was selected"
-}
-
-@test "the implicit invocation keeps the chooser when an environment flavor is set" {
-    run env \
-        POSTINSTALL_FLAVOR=workstation \
-        bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ \
-        "${TEST_ROOT}" "${SANDBOX_REPO}"
-    assert_failure
-    assert_output_contains "No Fedora flavour was selected"
-    refute_output_contains "You are running Fedora Workstation"
-}
-
-@test "a failed flavor chooser aborts even when it printed a flavor" {
-    export MOCK_FLAVOR="Workstation"
-    export MOCK_CHOOSE_STATUS=7
-
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
-    assert_failure
-    assert_output_contains "Unable to read the Fedora flavour selection"
-    refute_output_contains "You are running Fedora Workstation"
-}
-
-@test "an unknown non-empty flavor selection aborts" {
-    export MOCK_FLAVOR="Unknown Fedora"
-
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
-    assert_failure
-    assert_output_contains "Invalid Fedora flavour 'Unknown Fedora'"
+    run_installer install --dry-run --json
+    assert_success
+    run jq -e '.flavor.selected == "workstation"' <<<"${output}"
+    assert_success
+    assert_file_absent "${MOCK_GUM_CHOOSE_MARKER}"
 }
 
 @test "a real install exits with the lock contention status before prompting" {
@@ -139,38 +200,40 @@ EOF
         return 1
     fi
 
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh" install --lock-file "$3"' \
-        _ "${TEST_ROOT}" "${SANDBOX_REPO}" "${lock_file}"
+    run_installer install --flavor workstation --lock-file "${lock_file}"
     touch "${release_file}"
     wait "${holder}" 2>/dev/null || true
 
     assert_equal "${status}" 75
     assert_output_contains "another installer is already running"
     assert_file_absent "${MOCK_GUM_CONFIRM_MARKER}"
+    assert_file_absent "${MOCK_GUM_CHOOSE_MARKER}"
 }
 
 @test "a failed real install releases its installation lock" {
     local lock_file="${TEST_ROOT}/cache/fedora-postinstall/postinstall.lock"
+    export MOCK_RPM_VERSION_FAIL=1
 
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' \
-        _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    run_installer install --flavor workstation
     assert_failure
-    assert_output_contains "No Fedora flavour was selected"
+    assert_output_contains "Unable to determine the Fedora version"
     refute_output_contains "another installer is already running"
     assert_file_exists "${lock_file}"
 
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' \
-        _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    run_installer install --flavor workstation
     assert_failure
-    assert_output_contains "No Fedora flavour was selected"
+    assert_output_contains "Unable to determine the Fedora version"
     refute_output_contains "another installer is already running"
 }
 
 @test "a checkout reached through a directory symlink remains usable" {
     ln -s "${SANDBOX_REPO}" "${TEST_ROOT}/checkout"
 
-    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${TEST_ROOT}/checkout"
-    assert_failure
-    assert_output_contains "No Fedora flavour was selected"
+    run bash -c \
+        'cd "$1" && exec bash "$2/fedora-postinstall.sh" install --flavor workstation --dry-run --json' \
+        _ "${TEST_ROOT}" "${TEST_ROOT}/checkout"
+    assert_success
+    run jq -e '.flavor.selected == "workstation"' <<<"${output}"
+    assert_success
     refute_output_contains "resolves outside the repository"
 }

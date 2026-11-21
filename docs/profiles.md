@@ -67,6 +67,8 @@ bash fedora-postinstall.sh install --profile-file ./my-profile.json
 
 `--profile` and `--profile-file` are mutually exclusive. The corresponding environment variables, `POSTINSTALL_PROFILE` and `POSTINSTALL_PROFILE_FILE`, are also mutually exclusive when no command-line profile option is supplied. An explicit command-line profile selection overrides both environment profile settings.
 
+The installer always requires an explicit command. An `install` command also needs a Fedora flavor selected with `--flavor` or `POSTINSTALL_FLAVOR`, unless reliable automatic detection identifies one; unknown or ambiguous detection is rejected before installation begins.
+
 Profile names are resolved in this order:
 
 1. An explicit `--profile-file` path.
@@ -109,7 +111,7 @@ bash fedora-postinstall.sh install --profile developer --tool bottom
 
 | Profile | Purpose |
 |---------|---------|
-| `default` | Run every module in the selected flavor and use the interactive extras chooser. |
+| `default` | Run every module in the selected flavor and use the interactive extras tool chooser. |
 | `minimal` | Keep core configuration while skipping optional applications, package cleanup, and extra tools. |
 | `developer` | Keep common development tooling while skipping heavyweight and optional desktop setup. |
 

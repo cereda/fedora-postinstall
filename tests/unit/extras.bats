@@ -319,8 +319,7 @@ run_installer() {
         HOME="${TEST_HOME}" \
         XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
-        CLI_TOOLS_ONLY=1 \
-        bash "${SANDBOX_REPO}/fedora-postinstall.sh"
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" extras
 }
 
 run_installer_with_pid() {
@@ -331,9 +330,8 @@ run_installer_with_pid() {
         HOME="${TEST_HOME}" \
         XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
-        CLI_TOOLS_ONLY=1 \
         bash -c \
-            'printf "%s\n" "$$" > "$1"; exec bash "$2"' \
+            'printf "%s\n" "$$" > "$1"; exec bash "$2" extras' \
             _ "${MOCK_INSTALLER_PID_FILE}" \
             "${SANDBOX_REPO}/fedora-postinstall.sh"
 }

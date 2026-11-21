@@ -12,6 +12,7 @@ setup() {
     MOCK_BIN="${TEST_ROOT}/bin"
     TMP_ROOT="${TEST_ROOT}/tmp"
     FORBIDDEN_MARKER="${TEST_ROOT}/forbidden-command"
+    DEPENDENCY_MARKER="${TEST_ROOT}/dependency-source-called"
     OS_RELEASE_FILE="${TEST_ROOT}/os-release"
 
     mkdir -p \
@@ -21,6 +22,8 @@ setup() {
         "${TMP_ROOT}"
 
     cp -R "${REPO_ROOT}/common" "${SANDBOX_REPO}/"
+    printf '\n: > "%s"\n' "${DEPENDENCY_MARKER}" >> \
+        "${SANDBOX_REPO}/common/dependencies.sh"
     cp -R "${REPO_ROOT}/extras" "${SANDBOX_REPO}/"
     cp -R "${REPO_ROOT}/profiles" "${SANDBOX_REPO}/"
     cp -R "${REPO_ROOT}/docs" "${SANDBOX_REPO}/"
@@ -102,10 +105,23 @@ run_cli() {
 @test "help is available without invoking installation dependencies" {
     run_cli help
     assert_success
-    assert_output_contains "Usage: bash fedora-postinstall.sh"
+    assert_output_contains "Usage: bash fedora-postinstall.sh <command> [OPTIONS]"
+    assert_output_contains "A command is required"
+    refute_output_contains "install              Run the Fedora post-installation flow (default)"
     assert_output_contains "--cache-dir PATH"
     assert_output_contains "--lock-file PATH"
     assert_file_absent "${FORBIDDEN_MARKER}"
+}
+
+@test "a command is required and no-command invocation has no side effects" {
+    run_cli
+    assert_equal "${status}" 64
+    assert_output_contains "command is required"
+    assert_file_absent "${DEPENDENCY_MARKER}"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall/postinstall.lock"
+    assert_file_absent "${TEST_ROOT}/state/fedora-postinstall/state.tsv"
 }
 
 @test "unknown commands fail with the usage exit status" {
@@ -269,23 +285,36 @@ run_cli() {
     assert_success
 }
 
-@test "CLI_TOOLS_ONLY keeps its presence-based default" {
+@test "CLI_TOOLS_ONLY is rejected instead of selecting the extras flow" {
     run env \
         CLI_TOOLS_ONLY=0 \
-        bash -c "source '${SANDBOX_REPO}/common/cli.sh'; cli_parse_arguments; printf '%s\\n' \"\${CLI_COMMAND}\""
+        HOME="${TEST_HOME}" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" extras
 
-    assert_success
-    assert_equal "${output}" "extras"
+    assert_equal "${status}" 64
+    assert_output_contains "CLI_TOOLS_ONLY is not supported"
+    assert_output_contains "extras command"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
 }
 
-@test "an explicit install still honors a present CLI_TOOLS_ONLY variable" {
+@test "CLI_TOOLS_ONLY cannot override an explicit install" {
     run env \
-        CLI_TOOLS_ONLY= \
-        bash -c "source '${SANDBOX_REPO}/common/cli.sh'; cli_parse_arguments install; printf '%s\\n' \"\${CLI_COMMAND}\""
+        CLI_TOOLS_ONLY=1 \
+        HOME="${TEST_HOME}" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" install --dry-run --json
 
-    assert_success
-    assert_output_contains "using the extras command"
-    assert_output_contains "extras"
+    assert_equal "${status}" 64
+    assert_output_contains "CLI_TOOLS_ONLY is not supported"
+    refute_output_contains "Fedora post-installation plan"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
 }
 
 @test "detect reports the operating system, flavor, and architecture" {
