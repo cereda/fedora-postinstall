@@ -22,10 +22,12 @@ declare -ga RUNTIME_PROFILE_MODULES=()
 declare -g RUNTIME_PROFILE_ENABLED=0
 declare -g RUNTIME_PROFILE_FILE=""
 declare -g RUNTIME_RUN_ID=""
+declare -g RUNTIME_LOCK_ACQUIRED=0
 declare -g RUNTIME_LOCK_HELD=0
-declare -g RUNTIME_LOCK_COMMIT_FILE=""
+declare -g RUNTIME_LOCK_DECISION_FILE=""
 declare -g RUNTIME_LOCK_HOLDER_PID=""
 declare -g RUNTIME_LOCK_WORKER_PID=""
+declare -g RUNTIME_LOCK_WATCHDOG_PID=""
 declare -g RUNTIME_LOCK_PID=""
 declare -g RUNTIME_LOCK_STATUS_FILE=""
 declare -g RUNTIME_PENDING_LOCK_LOSS=0
@@ -319,6 +321,102 @@ function runtime_process_identity_matches {
     [ "${runtime_identity_current}" = "${runtime_identity_expected}" ]
 }
 
+function runtime_background_job_is_running {
+    local runtime_job_pid="${1:-}"
+    local runtime_job_entry
+
+    while IFS= read -r runtime_job_entry; do
+        if [ "${runtime_job_entry}" = "${runtime_job_pid}" ]; then
+            return 0
+        fi
+    done < <(jobs -pr)
+    return 1
+}
+
+function runtime_background_job_is_known {
+    local runtime_job_pid="${1:-}"
+    local runtime_job_entry
+
+    while IFS= read -r runtime_job_entry; do
+        if [ "${runtime_job_entry}" = "${runtime_job_pid}" ]; then
+            return 0
+        fi
+    done < <(jobs -p)
+    return 1
+}
+
+function runtime_background_job_spec {
+    local runtime_job_pid="${1:-}"
+    local runtime_job_line
+    local runtime_job_spec
+    local runtime_job_entry_pid
+
+    while IFS= read -r runtime_job_line; do
+        read -r runtime_job_spec runtime_job_entry_pid _ <<<"${runtime_job_line}"
+        if [ "${runtime_job_entry_pid}" != "${runtime_job_pid}" ]; then
+            continue
+        fi
+        runtime_job_spec="${runtime_job_spec#\[}"
+        runtime_job_spec="${runtime_job_spec%%\]*}"
+        runtime_job_spec="${runtime_job_spec#+}"
+        runtime_job_spec="${runtime_job_spec%-}"
+        if [[ "${runtime_job_spec}" =~ ^[0-9]+$ ]]; then
+            printf '%s\n' "${runtime_job_spec}"
+            return 0
+        fi
+    done < <(jobs -l)
+    return 1
+}
+
+function runtime_signal_background_job {
+    local runtime_job_pid="${1:-}"
+    local runtime_job_signal="${2:-}"
+    local runtime_job_spec
+
+    if ! runtime_job_spec=$(runtime_background_job_spec "${runtime_job_pid}"); then
+        return 1
+    fi
+    kill "-${runtime_job_signal}" "%${runtime_job_spec}" 2>/dev/null
+}
+
+function runtime_wait_for_background_job {
+    local runtime_job_pid="${1:-}"
+    local runtime_job_status=0
+
+    while :; do
+        wait "${runtime_job_pid}"
+        runtime_job_status="${?}"
+        if [ "${runtime_job_status}" -gt 128 ]; then
+            if runtime_background_job_is_running "${runtime_job_pid}"; then
+                # A trapped signal interrupted wait while the child is still
+                # the job owned by this shell. The wait status distinguishes an
+                # interrupted wait from a completed child, and the job table
+                # prevents a reused numeric PID from being mistaken for the
+                # original child. Resume waiting for its real status.
+                continue
+            fi
+            # The child may have exited while the signal handler was running.
+            # Collect the completed job's real status before classifying the
+            # result, so contention status 75 is not replaced by 128+signal.
+            wait "${runtime_job_pid}" 2>/dev/null
+            runtime_job_status="${?}"
+        fi
+        if runtime_background_job_is_running "${runtime_job_pid}"; then
+            # Be conservative if Bash reports a running job after an unusual
+            # wait status. The job table remains the authoritative binding.
+            continue
+        fi
+        if runtime_background_job_is_known "${runtime_job_pid}"; then
+            # The job is stopped rather than running. It cannot make progress,
+            # so terminate the bound job before collecting its status.
+            runtime_signal_background_job "${runtime_job_pid}" KILL || true
+            wait "${runtime_job_pid}" 2>/dev/null
+            runtime_job_status="${?}"
+        fi
+        return "${runtime_job_status}"
+    done
+}
+
 function runtime_acquire_install_lock {
     local runtime_local_flock
     local runtime_local_holder="${SCRIPT_PATH}/common/lock-holder.py"
@@ -326,19 +424,24 @@ function runtime_acquire_install_lock {
     local runtime_local_status
     local runtime_local_holder_pid
     local runtime_local_worker_pid
+    local runtime_local_watchdog_pid
     local runtime_local_lock_scope
     local runtime_local_lock_fd
     local runtime_local_lock_check_status
     local runtime_local_attempt
     local runtime_local_installer_pid="${BASHPID}"
     local runtime_local_installer_identity
-    local runtime_local_wrapper_identity
     local runtime_local_validation
-    local runtime_local_commit_file
+    local runtime_local_decision_file
+    local runtime_local_decision_state
+    local runtime_local_decision_status
+    local runtime_local_cancelled=0
+    local runtime_local_committed=0
 
     if [ "${RUNTIME_LOCK_HELD}" -eq 1 ]; then
         return 0
     fi
+    RUNTIME_LOCK_ACQUIRED=0
     if ! runtime_local_flock=$(command -v flock 2>/dev/null); then
         printf 'runtime: flock is unavailable\n' >&2
         return 69
@@ -374,11 +477,11 @@ function runtime_acquire_install_lock {
         return 73
     fi
     RUNTIME_LOCK_STATUS_FILE="${POSTINSTALL_CACHE_DIR}/.postinstall-lock-${runtime_local_lock_scope}-${RUNTIME_RUN_ID}.acquired"
-    RUNTIME_LOCK_COMMIT_FILE="${POSTINSTALL_CACHE_DIR}/.postinstall-lock-${runtime_local_lock_scope}-${RUNTIME_RUN_ID}.committed"
-    runtime_local_commit_file="${RUNTIME_LOCK_COMMIT_FILE}"
+    RUNTIME_LOCK_DECISION_FILE="${POSTINSTALL_CACHE_DIR}/.postinstall-lock-${runtime_local_lock_scope}-${RUNTIME_RUN_ID}.decision"
+    runtime_local_decision_file="${RUNTIME_LOCK_DECISION_FILE}"
     if ! rm -f -- \
         "${RUNTIME_LOCK_STATUS_FILE}" \
-        "${RUNTIME_LOCK_COMMIT_FILE}"; then
+        "${RUNTIME_LOCK_DECISION_FILE}"; then
         printf 'runtime: unable to prepare lock status file\n' >&2
         return 73
     fi
@@ -393,10 +496,10 @@ function runtime_acquire_install_lock {
     fi
 
     # The guardian owns the locked descriptor and starts a Python supervisor,
-    # which starts a second worker. All three processes retain the descriptor.
-    # The guardian ignores installer shutdown signals, detects supervisor exit
-    # without consulting the status file, and retains the descriptor until the
-    # installer has completed cleanup and terminated.
+    # which starts a worker and watchdog. All four processes retain the
+    # descriptor. The guardian ignores installer shutdown signals, detects
+    # supervisor exit without consulting the status file, and retains the
+    # descriptor until the installer has completed cleanup and terminated.
     (
         umask 077
         trap - EXIT
@@ -404,6 +507,7 @@ function runtime_acquire_install_lock {
         trap '' HUP TERM INT USR1
 
         runtime_guardian_cancel_requested=0
+        runtime_guardian_abort_requested=0
         runtime_guardian_supervisor_pid=""
         runtime_guardian_supervisor_status=0
         # Capture BASHPID in the guardian context. Inside an asynchronous
@@ -412,13 +516,34 @@ function runtime_acquire_install_lock {
         runtime_guardian_process_id="${BASHPID}"
 
         function runtime_guardian_cancel_acquisition {
-            if [ -e "${runtime_local_commit_file}" ]; then
+            local runtime_guardian_claim_state
+
+            runtime_guardian_claim_state=$(python3 "${runtime_local_holder}" \
+                claim-decision \
+                "${runtime_local_decision_file}" \
+                cancelled 2>/dev/null) || true
+            case "${runtime_guardian_claim_state}" in
+            committed)
+                # The installer already won the decision. A later USR2 is
+                # intentionally harmless.
                 return 0
-            fi
-            runtime_guardian_cancel_requested=1
+                ;;
+            cancelled)
+                runtime_guardian_cancel_requested=1
+                ;;
+            *)
+                # An unreadable or malformed existing decision is unknown,
+                # not cancellation. Abort conservatively, but let the Python
+                # supervisor classify the failure as a generic decision
+                # error rather than a cancellation.
+                runtime_guardian_abort_requested=1
+                ;;
+            esac
             if [ -n "${runtime_guardian_supervisor_pid}" ] &&
-                kill -0 "${runtime_guardian_supervisor_pid}" 2>/dev/null; then
-                kill -USR2 "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
+                runtime_background_job_is_running \
+                    "${runtime_guardian_supervisor_pid}"; then
+                runtime_signal_background_job \
+                    "${runtime_guardian_supervisor_pid}" USR2 || true
             fi
         }
         trap 'runtime_guardian_cancel_acquisition' USR2
@@ -442,44 +567,56 @@ function runtime_acquire_install_lock {
             hold \
             "${POSTINSTALL_LOCK_FILE}" \
             "${RUNTIME_LOCK_STATUS_FILE}" \
-            "${runtime_local_commit_file}" \
+            "${runtime_local_decision_file}" \
             "${runtime_local_installer_pid}" \
             "${runtime_local_installer_identity}" \
             "${runtime_guardian_process_id}" &
         runtime_guardian_supervisor_pid="${!}"
 
-        if [ "${runtime_guardian_cancel_requested}" -eq 1 ]; then
-            kill -USR2 "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
+        if [ "${runtime_guardian_cancel_requested}" -eq 1 ] ||
+            [ "${runtime_guardian_abort_requested}" -eq 1 ]; then
+            runtime_signal_background_job \
+                "${runtime_guardian_supervisor_pid}" USR2 || true
         fi
 
-        while :; do
-            wait "${runtime_guardian_supervisor_pid}"
+        runtime_wait_for_background_job "${runtime_guardian_supervisor_pid}" ||
             runtime_guardian_supervisor_status="${?}"
-            if [ "${runtime_guardian_cancel_requested}" -eq 1 ]; then
-                break
-            fi
-            # A trapped signal can interrupt wait before the child exits. If
-            # the child is still present, resume waiting for its real status.
-            if kill -0 "${runtime_guardian_supervisor_pid}" 2>/dev/null; then
-                continue
-            fi
-            break
-        done
 
-        if [ "${runtime_guardian_cancel_requested}" -eq 1 ]; then
-            if kill -0 "${runtime_guardian_supervisor_pid}" 2>/dev/null; then
-                kill -USR2 "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
+        # Supervisor exit is authoritative. The decision file distinguishes a
+        # cancelled acquisition from a committed lock whose helpers failed.
+        runtime_guardian_decision_state=$(python3 "${runtime_local_holder}" \
+            read-decision "${runtime_local_decision_file}" 2>/dev/null || true)
+        if [ "${runtime_guardian_decision_state}" = "cancelled" ]; then
+            # The decision is already authoritative. Notify the installer so it
+            # can fail acquisition with the cancellation status, then wait for
+            # its termination before removing the decision. The USR1 handler
+            # distinguishes this case by rereading the decision, so a
+            # cancellation cannot be mistaken for a generic lock loss.
+            if ! python3 "${runtime_local_holder}" \
+                await-installer \
+                "${runtime_guardian_installer_identity}" \
+                "${runtime_local_installer_pid}"; then
+                printf 'runtime: unable to monitor installer after lock cancellation\n' >&2
+                if runtime_process_identity_matches \
+                    "${runtime_local_installer_pid}" \
+                    "${runtime_guardian_installer_identity}"; then
+                    kill -USR1 "${runtime_local_installer_pid}" 2>/dev/null || true
+                fi
+                while runtime_process_identity_matches \
+                    "${runtime_local_installer_pid}" \
+                    "${runtime_guardian_installer_identity}"; do
+                    sleep 0.05
+                done
             fi
-            wait "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
             rm -f -- \
                 "${RUNTIME_LOCK_STATUS_FILE}" \
-                "${runtime_local_commit_file}" || true
+                "${runtime_local_decision_file}" || true
             exit 73
         fi
 
-        # Supervisor exit is authoritative. The guardian uses the identity it
-        # captured before startup, rather than mutable status-file contents,
-        # to notify the installer and wait through installer cleanup.
+        # A committed or unknown decision is a lock-loss condition. Notify a
+        # live installer and wait through its cleanup before releasing the
+        # guardian's descriptor or removing the decision.
         if ! python3 "${runtime_local_holder}" \
             await-installer \
             "${runtime_local_installer_identity}" \
@@ -498,13 +635,10 @@ function runtime_acquire_install_lock {
         fi
         rm -f -- \
             "${RUNTIME_LOCK_STATUS_FILE}" \
-            "${runtime_local_commit_file}" || true
+            "${runtime_local_decision_file}" || true
         exit "${runtime_guardian_supervisor_status}"
     ) &
     RUNTIME_LOCK_PID="${!}"
-
-    runtime_local_wrapper_identity=$(runtime_capture_process_identity \
-        "${RUNTIME_LOCK_PID}" 2>/dev/null || true)
 
     for ((runtime_local_attempt = 0; runtime_local_attempt < 100; runtime_local_attempt++)); do
         if [ -s "${RUNTIME_LOCK_STATUS_FILE}" ]; then
@@ -517,9 +651,10 @@ function runtime_acquire_install_lock {
                 break
             fi
             IFS=' ' read -r runtime_local_holder_pid runtime_local_worker_pid \
-                <<<"${runtime_local_validation}"
+                runtime_local_watchdog_pid <<<"${runtime_local_validation}"
             if ! [[ "${runtime_local_holder_pid}" =~ ^[0-9]+$ ]] ||
-                ! [[ "${runtime_local_worker_pid}" =~ ^[0-9]+$ ]]; then
+                ! [[ "${runtime_local_worker_pid}" =~ ^[0-9]+$ ]] ||
+                ! [[ "${runtime_local_watchdog_pid}" =~ ^[0-9]+$ ]]; then
                 break
             fi
 
@@ -555,16 +690,40 @@ function runtime_acquire_install_lock {
             if ! python3 "${runtime_local_helper}" prune-lock-state \
                 "${POSTINSTALL_CACHE_DIR}" \
                 "${runtime_local_lock_scope}" \
-                "${RUNTIME_LOCK_STATUS_FILE##*/}"; then
+                "${RUNTIME_LOCK_STATUS_FILE##*/}" \
+                "${RUNTIME_LOCK_DECISION_FILE##*/}"; then
                 printf 'runtime: warning: unable to prune stale lock state files\n' >&2
             fi
 
-            # The commit marker makes USR2 an acquisition-only cancellation
-            # signal. Once acquisition succeeds, group-directed USR2 cannot
-            # make the helpers release the lock prematurely.
-            if ! runtime_append_file \
-                "${RUNTIME_LOCK_COMMIT_FILE}" \
-                "committed\n"; then
+            # Commit and cancellation publish to the same decision path. Only
+            # one atomic publication can win, so a cancellation observed before
+            # this claim makes acquisition fail.  The decision is tracked
+            # explicitly: a successful rename followed by a failed directory
+            # fsync still leaves an authoritative committed decision.
+            runtime_local_decision_status=0
+            runtime_local_decision_state=$(python3 "${runtime_local_holder}" \
+                claim-decision \
+                "${RUNTIME_LOCK_DECISION_FILE}" \
+                committed) || runtime_local_decision_status="${?}"
+            if [ "${runtime_local_decision_state}" = "committed" ]; then
+                runtime_local_committed=1
+            elif [ "${runtime_local_decision_state}" = "cancelled" ]; then
+                runtime_local_cancelled=1
+            fi
+            if [ "${runtime_local_decision_status}" -ne 0 ]; then
+                # The claim command can fail after renameat2() has published
+                # the decision (for example, when the directory fsync fails).
+                # Read the authoritative entry before deciding which failure
+                # path to take.
+                runtime_local_decision_state=$(python3 "${runtime_local_holder}" \
+                    read-decision "${RUNTIME_LOCK_DECISION_FILE}" 2>/dev/null || true)
+                if [ "${runtime_local_decision_state}" = "committed" ]; then
+                    runtime_local_committed=1
+                    runtime_local_cancelled=0
+                elif [ "${runtime_local_decision_state}" = "cancelled" ]; then
+                    runtime_local_cancelled=1
+                    runtime_local_committed=0
+                fi
                 break
             fi
             if ! python3 "${runtime_local_holder}" \
@@ -573,56 +732,97 @@ function runtime_acquire_install_lock {
                 "${RUNTIME_LOCK_PID}" \
                 "${runtime_local_installer_pid}" \
                 "${runtime_local_installer_identity}" >/dev/null; then
-                rm -f -- "${RUNTIME_LOCK_COMMIT_FILE}" || true
                 break
             fi
 
             RUNTIME_LOCK_HOLDER_PID="${runtime_local_holder_pid}"
             RUNTIME_LOCK_WORKER_PID="${runtime_local_worker_pid}"
+            RUNTIME_LOCK_WATCHDOG_PID="${runtime_local_watchdog_pid}"
+            RUNTIME_LOCK_ACQUIRED=1
             RUNTIME_LOCK_HELD=1
             return 0
         fi
 
-        if [ -z "${runtime_local_wrapper_identity}" ]; then
-            runtime_local_wrapper_identity=$(runtime_capture_process_identity \
-                "${RUNTIME_LOCK_PID}" 2>/dev/null || true)
-        fi
-        if [ -n "${runtime_local_wrapper_identity}" ] &&
-            ! runtime_process_identity_matches \
-                "${RUNTIME_LOCK_PID}" \
-                "${runtime_local_wrapper_identity}"; then
-            break
-        fi
-        if [ -z "${runtime_local_wrapper_identity}" ] &&
-            ! kill -0 "${RUNTIME_LOCK_PID}" 2>/dev/null; then
+        if ! runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
+            # The guardian job has completed or stopped. Its shell job table,
+            # rather than a reusable numeric PID, is the authoritative link.
             break
         fi
         sleep 0.05
     done
 
-    # Cancellation during acquisition uses USR2 rather than TERM. The guardian
-    # forwards it to the supervisor and releases the descriptor only after the
-    # helper process tree has stopped.
-    if [ -n "${runtime_local_wrapper_identity}" ] &&
-        runtime_process_identity_matches \
-            "${RUNTIME_LOCK_PID}" \
-            "${runtime_local_wrapper_identity}"; then
-        kill -USR2 "${RUNTIME_LOCK_PID}" 2>/dev/null || true
-    fi
-    runtime_local_status=1
-    if wait "${RUNTIME_LOCK_PID}" 2>/dev/null; then
-        runtime_local_status=0
-    else
-        runtime_local_status="${?}"
+    # Re-read the decision after every failed acquisition attempt.  The
+    # decision file, rather than the exit status of the publishing helper, is
+    # authoritative.  This also handles a published "committed" entry whose
+    # directory fsync failed after renameat2() completed.
+    runtime_local_decision_state=$(python3 "${runtime_local_holder}" \
+        read-decision "${RUNTIME_LOCK_DECISION_FILE}" 2>/dev/null || true)
+    if [ "${runtime_local_decision_state}" = "committed" ]; then
+        runtime_local_committed=1
+        runtime_local_cancelled=0
+    elif [ "${runtime_local_decision_state}" = "cancelled" ]; then
+        runtime_local_cancelled=1
+        runtime_local_committed=0
     fi
 
-    rm -f -- \
-        "${RUNTIME_LOCK_STATUS_FILE}" \
-        "${RUNTIME_LOCK_COMMIT_FILE}" || true
+    if [ "${runtime_local_committed}" -eq 1 ]; then
+        # The commit already won.  Do not send USR2 (it is explicitly an
+        # acquisition-only cancellation signal) and, most importantly, do not
+        # wait for the guardian: the guardian may be waiting for this
+        # installer, which would deadlock the acquisition failure path.
+        printf 'runtime: unable to lock file: %s (lock acquisition failed after commit)\n' \
+            "${POSTINSTALL_LOCK_FILE}" >&2
+        RUNTIME_LOCK_PID=""
+        RUNTIME_LOCK_HOLDER_PID=""
+        RUNTIME_LOCK_WORKER_PID=""
+        RUNTIME_LOCK_WATCHDOG_PID=""
+        return 73
+    fi
+
+    if [ "${runtime_local_cancelled}" -eq 1 ]; then
+        # The guardian keeps the decision and lock until the installer
+        # terminates. Do not wait for the guardian here: it waits for this
+        # installer, so waiting in both directions would deadlock.
+        if [ -n "${RUNTIME_LOCK_PID}" ] &&
+            runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
+            runtime_signal_background_job \
+                "${RUNTIME_LOCK_PID}" USR2 || true
+        fi
+        RUNTIME_LOCK_PID=""
+        RUNTIME_LOCK_HOLDER_PID=""
+        RUNTIME_LOCK_WORKER_PID=""
+        RUNTIME_LOCK_WATCHDOG_PID=""
+        # Keep the decision path available to the USR1 trap until this
+        # installer terminates. The guardian removes the file only after it
+        # observes that termination.
+        printf 'runtime: installation lock acquisition was cancelled\n' >&2
+        return 73
+    fi
+
+    # A failure before the commit is cancelled rather than allowed to wait
+    # for the guardian.  The guardian can be waiting for the installer, and
+    # waiting for it here would create the same two-way deadlock.  If the
+    # guardian has already exited, collect its status so lock contention can
+    # still be reported as status 75.
+    if [ -n "${RUNTIME_LOCK_PID}" ] &&
+        runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
+        runtime_signal_background_job \
+            "${RUNTIME_LOCK_PID}" USR2 || true
+    fi
+    runtime_local_status=73
+    if [ -n "${RUNTIME_LOCK_PID}" ] &&
+        ! runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
+        runtime_wait_for_background_job "${RUNTIME_LOCK_PID}" ||
+            runtime_local_status="${?}"
+        if [ "${runtime_local_status}" -eq 0 ]; then
+            runtime_local_status=73
+        fi
+    fi
+
     RUNTIME_LOCK_PID=""
     RUNTIME_LOCK_HOLDER_PID=""
     RUNTIME_LOCK_WORKER_PID=""
-    RUNTIME_LOCK_COMMIT_FILE=""
+    RUNTIME_LOCK_WATCHDOG_PID=""
 
     if [ "${runtime_local_status}" -eq 75 ]; then
         printf 'runtime: another installer is already running (lock: %s)\n' \
@@ -639,16 +839,17 @@ function runtime_release_install_lock {
         return 0
     fi
 
-    # The lock wrapper, supervisor, and worker deliberately retain the
-    # descriptor until they observe the installer's termination. The guardian
-    # removes the status and commit files after that observation. In
-    # particular, the commit marker must remain present throughout cleanup so
-    # USR2 cannot cancel an already-committed lock.
+    # The lock wrapper, supervisor, worker, and watchdog deliberately retain
+    # the descriptor until they observe the installer's termination. The
+    # guardian removes the status and decision files after that observation.
+    # Keep the decision path in this shell until installer termination so a
+    # helper-loss signal during cleanup can still distinguish cancellation
+    # from generic loss.
     RUNTIME_LOCK_HOLDER_PID=""
     RUNTIME_LOCK_WORKER_PID=""
+    RUNTIME_LOCK_WATCHDOG_PID=""
     RUNTIME_LOCK_PID=""
     RUNTIME_LOCK_STATUS_FILE=""
-    RUNTIME_LOCK_COMMIT_FILE=""
     RUNTIME_LOCK_HELD=0
     return 0
 }
@@ -748,7 +949,7 @@ function runtime_handle_signal {
     # Lock loss is a security-sensitive terminal status. Once it is pending,
     # an ordinary shutdown signal must not replace status 141 during cleanup.
     if [ "${RUNTIME_PENDING_LOCK_LOSS}" -eq 1 ]; then
-        runtime_log "WARN" "Received ${runtime_local_name}; preserving pending lock-loss status 141." \
+        runtime_log "WARN" "Received ${runtime_local_name}; preserving pending lock-loss status ${RUNTIME_PENDING_SIGNAL_STATUS}." \
             "runtime.lock.lost" || true
         return 0
     fi
@@ -766,6 +967,57 @@ function runtime_handle_signal {
 
 function runtime_handle_lock_loss {
     local runtime_local_status="${1:-141}"
+    local runtime_local_decision_state=""
+    local runtime_local_holder="${SCRIPT_PATH:-}/common/lock-holder.py"
+
+    # A cancellation winner is distinct from a helper failure. The guardian
+    # uses USR1 to wake an installer that may be waiting for the guardian; the
+    # decision lets the installer report the intended cancellation status
+    # instead of a generic lock-loss status.
+    if [ -n "${RUNTIME_LOCK_DECISION_FILE:-}" ] &&
+        [ -f "${runtime_local_holder}" ] &&
+        [ ! -L "${runtime_local_holder}" ] &&
+        command -v python3 >/dev/null 2>&1; then
+        runtime_local_decision_state=$(python3 "${runtime_local_holder}" \
+            read-decision "${RUNTIME_LOCK_DECISION_FILE}" 2>/dev/null || true)
+    fi
+    if [ "${runtime_local_decision_state}" = "cancelled" ]; then
+        RUNTIME_PENDING_LOCK_LOSS=1
+        RUNTIME_PENDING_SIGNAL_STATUS=73
+        RUNTIME_PENDING_SIGNAL_NAME="lock-cancelled"
+        if [ "${RUNTIME_CRITICAL_DEPTH}" -gt 0 ] || [ "${RUNTIME_CLEANING}" -eq 1 ]; then
+            runtime_log "ERROR" "The installation lock acquisition was cancelled; aborting after the current operation completes." \
+                "runtime.lock.cancelled" || true
+            printf 'runtime: installation lock acquisition was cancelled; aborting after cleanup\n' >&2
+            return 0
+        fi
+        runtime_log "ERROR" "The installation lock acquisition was cancelled; aborting immediately." \
+            "runtime.lock.cancelled" || true
+        printf 'runtime: installation lock acquisition was cancelled; aborting immediately\n' >&2
+        exit 73
+    fi
+
+    # A helper failure before acquisition has completed is an acquisition
+    # failure, not a loss of an already-held installation lock. In
+    # particular, do not turn it into a wait for the guardian: the guardian
+    # may be waiting for this installer to exit. RUNTIME_LOCK_ACQUIRED remains
+    # set after cleanup starts, so a later helper failure is still classified
+    # as generic loss rather than acquisition failure.
+    if [ "${RUNTIME_LOCK_ACQUIRED}" -ne 1 ]; then
+        RUNTIME_PENDING_LOCK_LOSS=1
+        RUNTIME_PENDING_SIGNAL_STATUS=73
+        RUNTIME_PENDING_SIGNAL_NAME="lock-acquisition-failed"
+        if [ "${RUNTIME_CRITICAL_DEPTH}" -gt 0 ] || [ "${RUNTIME_CLEANING}" -eq 1 ]; then
+            runtime_log "ERROR" "The installation lock acquisition failed; aborting after the current operation completes." \
+                "runtime.lock.failed" || true
+            printf 'runtime: installation lock acquisition failed; aborting after cleanup\n' >&2
+            return 0
+        fi
+        runtime_log "ERROR" "The installation lock acquisition failed; aborting immediately." \
+            "runtime.lock.failed" || true
+        printf 'runtime: installation lock acquisition failed; installation lock was lost; aborting immediately\n' >&2
+        exit 73
+    fi
 
     # Lock loss always takes precedence over a previously pending ordinary
     # signal, and remains pending until the installer exits.

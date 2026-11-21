@@ -689,6 +689,342 @@ EOF
     assert_file_exists "${other_scope_file}"
 }
 
+@test "lock state pruning preserves the current decision" {
+    local cache_dir="${TEST_ROOT}/decision-prune-cache"
+    local lock_scope="0123456789abcdef"
+    local status_name=".postinstall-lock-${lock_scope}-current.acquired"
+    local decision_name=".postinstall-lock-${lock_scope}-current.decision"
+    local candidate_name="${decision_name}.123.tmp"
+    local stale_name=".postinstall-lock-${lock_scope}-stale.decision"
+
+    mkdir -p "${cache_dir}"
+    chmod 0700 "${cache_dir}"
+    printf 'status\n' > "${cache_dir}/${status_name}"
+    printf 'cancelled' > "${cache_dir}/${decision_name}"
+    printf 'candidate\n' > "${cache_dir}/${candidate_name}"
+    printf 'stale\n' > "${cache_dir}/${stale_name}"
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${SANDBOX_REPO}/common/runtime-file.py" prune-lock-state \
+        "${cache_dir}" \
+        "${lock_scope}" \
+        "${status_name}" \
+        "${decision_name}"
+    assert_success
+    assert_file_exists "${cache_dir}/${status_name}"
+    assert_file_exists "${cache_dir}/${decision_name}"
+    assert_file_exists "${cache_dir}/${candidate_name}"
+    assert_file_absent "${cache_dir}/${stale_name}"
+}
+
+@test "lock decision publication exposes one complete winner" {
+    local cache_dir="${TEST_ROOT}/decision-publication-cache"
+    local decision_file="${cache_dir}/decision"
+    local cancelled_file="${cache_dir}/cancelled"
+    local expected_file="${TEST_ROOT}/expected-decision"
+    local expected_cancelled_file="${TEST_ROOT}/expected-cancelled"
+
+    mkdir -p "${cache_dir}"
+    chmod 0700 "${cache_dir}"
+    printf 'committed' > "${expected_file}"
+    printf 'cancelled' > "${expected_cancelled_file}"
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${SANDBOX_REPO}/common/lock-holder.py" claim-decision \
+        "${decision_file}" committed
+    assert_success
+    assert_equal "${output}" "committed"
+    run cmp "${expected_file}" "${decision_file}"
+    assert_success
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${SANDBOX_REPO}/common/lock-holder.py" claim-decision \
+        "${decision_file}" cancelled
+    assert_equal "${status}" "75"
+    assert_equal "${output}" "committed"
+    run cmp "${expected_file}" "${decision_file}"
+    assert_success
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${SANDBOX_REPO}/common/lock-holder.py" claim-decision \
+        "${cancelled_file}" cancelled
+    assert_success
+    assert_equal "${output}" "cancelled"
+    run cmp "${expected_cancelled_file}" "${cancelled_file}"
+    assert_success
+}
+
+@test "lock decision publication preserves the rename winner after a sync failure" {
+    local test_script="${TEST_ROOT}/decision-sync-failure.py"
+
+    cat > "${test_script}" <<'PY'
+import errno
+import importlib.util
+import os
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+decision_path = sys.argv[2]
+original_fsync = module.os.fsync
+sync_count = 0
+
+
+def fail_directory_sync(descriptor):
+    global sync_count
+    sync_count += 1
+    if sync_count == 2:
+        raise OSError(errno.EIO, "injected directory sync failure")
+    return original_fsync(descriptor)
+
+
+module.os.fsync = fail_directory_sync
+try:
+    module.claim_decision(decision_path, module.DECISION_COMMITTED)
+except module.DecisionPublicationError as error:
+    if error.decision != module.DECISION_COMMITTED:
+        raise SystemExit("the published decision was lost after the sync failure")
+else:
+    raise SystemExit("the injected directory sync failure was not reported")
+
+if module.read_decision(decision_path) != module.DECISION_COMMITTED:
+    raise SystemExit("the published decision was not retained")
+print("published decision retained")
+PY
+
+    mkdir -p "${TEST_ROOT}/decision-sync-cache"
+    chmod 0700 "${TEST_ROOT}/decision-sync-cache"
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" \
+        "${SANDBOX_REPO}/common/lock-holder.py" \
+        "${TEST_ROOT}/decision-sync-cache/decision"
+    assert_success
+    assert_output_contains "published decision retained"
+}
+
+@test "concurrent lock decisions publish exactly one complete winner" {
+    local test_script="${TEST_ROOT}/decision-concurrent.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import os
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+decision_path = sys.argv[2]
+ready_read, ready_write = os.pipe()
+start_read, start_write = os.pipe()
+children = []
+
+for value in (module.DECISION_COMMITTED, module.DECISION_CANCELLED):
+    result_read, result_write = os.pipe()
+    process_id = os.fork()
+    if process_id == 0:
+        os.close(ready_read)
+        os.close(start_write)
+        os.close(result_read)
+        os.write(ready_write, b"1")
+        os.read(start_read, 1)
+        try:
+            created, decision = module.claim_decision(decision_path, value)
+            os.write(result_write, f"{int(created)}|{decision}".encode("ascii"))
+        except BaseException as error:
+            os.write(result_write, f"error|{error}".encode("utf-8"))
+        os._exit(0)
+    os.close(result_write)
+    children.append((process_id, result_read))
+
+os.close(ready_write)
+os.close(start_read)
+ready = b""
+while len(ready) < 2:
+    ready += os.read(ready_read, 2 - len(ready))
+os.write(start_write, b"12")
+os.close(start_write)
+
+results = []
+for process_id, result_read in children:
+    payload = b""
+    while True:
+        chunk = os.read(result_read, 4096)
+        if not chunk:
+            break
+        payload += chunk
+    os.close(result_read)
+    os.waitpid(process_id, 0)
+    created, decision = payload.decode("utf-8").split("|", 1)
+    results.append((created == "1", decision))
+
+winners = [result for result in results if result[0]]
+if len(winners) != 1:
+    raise SystemExit(f"expected one decision winner, got {results}")
+published = module.read_decision(decision_path)
+if published not in {module.DECISION_COMMITTED, module.DECISION_CANCELLED}:
+    raise SystemExit("the published decision is incomplete")
+if any(result[1] != published for result in results):
+    raise SystemExit(f"contenders disagreed about the winner: {results}")
+print("one decision winner")
+PY
+
+    mkdir -p "${TEST_ROOT}/decision-concurrent-cache"
+    chmod 0700 "${TEST_ROOT}/decision-concurrent-cache"
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" \
+        "${SANDBOX_REPO}/common/lock-holder.py" \
+        "${TEST_ROOT}/decision-concurrent-cache/decision"
+    assert_success
+    assert_output_contains "one decision winner"
+}
+
+@test "an unreadable committed decision remains unknown instead of cancellation" {
+    local test_script="${TEST_ROOT}/decision-unknown-state.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+decision_path = sys.argv[2]
+created, decision = module.claim_decision(decision_path, module.DECISION_COMMITTED)
+if not created or decision != module.DECISION_COMMITTED:
+    raise SystemExit("unable to establish the committed decision")
+
+module.DECISION_RESOLUTION_ATTEMPTS = 3
+module.DECISION_RESOLUTION_DELAY = 0
+module.read_decision_from_parent = lambda _parent, _name: module.DECISION_UNKNOWN
+state = module.resolve_cancellation_decision(decision_path)
+if state != module.DECISION_UNKNOWN:
+    raise SystemExit(f"an unreadable decision became {state}")
+if module.cancellation_decision_requested(decision_path):
+    raise SystemExit("the compatibility helper classified unknown as cancellation")
+
+module.DECISION_PATH = decision_path
+module.request_cancellation(0, None)
+if module.CANCELLATION_REQUESTED:
+    raise SystemExit("an unknown decision was classified as cancellation")
+if not module.CANCELLATION_ABORT_REQUESTED:
+    raise SystemExit("an unknown decision did not abort conservatively")
+print("unknown decision preserved")
+PY
+
+    mkdir -p "${TEST_ROOT}/decision-unknown-cache"
+    chmod 0700 "${TEST_ROOT}/decision-unknown-cache"
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" \
+        "${SANDBOX_REPO}/common/lock-holder.py" \
+        "${TEST_ROOT}/decision-unknown-cache/decision"
+    assert_success
+    assert_output_contains "unknown decision preserved"
+}
+
+@test "a transient decision read failure preserves the committed winner" {
+    local test_script="${TEST_ROOT}/decision-transient-read.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+decision_path = sys.argv[2]
+created, decision = module.claim_decision(decision_path, module.DECISION_COMMITTED)
+if not created or decision != module.DECISION_COMMITTED:
+    raise SystemExit("unable to establish the committed decision")
+
+original_read = module.read_decision_from_parent
+read_count = 0
+
+
+def transient_read(parent, name):
+    global read_count
+    read_count += 1
+    if read_count <= 2:
+        return module.DECISION_UNKNOWN
+    return original_read(parent, name)
+
+
+module.read_decision_from_parent = transient_read
+state = module.resolve_cancellation_decision(decision_path)
+if state != module.DECISION_COMMITTED:
+    raise SystemExit(f"the committed winner became {state}")
+
+module.DECISION_PATH = decision_path
+module.request_cancellation(0, None)
+if module.CANCELLATION_REQUESTED or module.CANCELLATION_ABORT_REQUESTED:
+    raise SystemExit("a committed decision did not remain harmless")
+print("transient read preserved commitment")
+PY
+
+    mkdir -p "${TEST_ROOT}/decision-transient-cache"
+    chmod 0700 "${TEST_ROOT}/decision-transient-cache"
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" \
+        "${SANDBOX_REPO}/common/lock-holder.py" \
+        "${TEST_ROOT}/decision-transient-cache/decision"
+    assert_success
+    assert_output_contains "transient read preserved commitment"
+}
+
+@test "background job status is bound to the shell job table" {
+    run bash -c '
+        source "$1/common/runtime.sh"
+        bash -c "exit 75" &
+        child_pid="${!}"
+        runtime_wait_for_background_job "${child_pid}"
+        child_status="${?}"
+        printf "child_status=%s\n" "${child_status}"
+    ' _ "${SANDBOX_REPO}"
+    assert_success
+    assert_output_contains "child_status=75"
+}
+
+@test "a completed background job is not mistaken for a reused live PID" {
+    run timeout 2 bash -c '
+        source "$1/common/runtime.sh"
+        kill() {
+            return 0
+        }
+        bash -c "exit 75" &
+        child_pid="${!}"
+        runtime_wait_for_background_job "${child_pid}"
+        child_status="${?}"
+        printf "child_status=%s\n" "${child_status}"
+    ' _ "${SANDBOX_REPO}"
+    assert_success
+    assert_output_contains "child_status=75"
+}
+
+@test "an interrupted wait preserves the completed job status" {
+    run timeout 3 bash -c '
+        source "$1/common/runtime.sh"
+        bash -c "sleep 0.1; exit 75" &
+        child_pid="${!}"
+        trap "sleep 0.2" USR2
+        (sleep 0.02; kill -USR2 $$) &
+        notifier_pid="${!}"
+        runtime_wait_for_background_job "${child_pid}"
+        child_status="${?}"
+        wait "${notifier_pid}" 2>/dev/null || true
+        printf "child_status=%s\n" "${child_status}"
+    ' _ "${SANDBOX_REPO}"
+    assert_success
+    assert_output_contains "child_status=75"
+}
+
 @test "lock acquisition rejects helpers that die during startup" {
     local cache_dir="${TEST_ROOT}/startup-race-cache"
     local lock_file="${cache_dir}/postinstall.lock"
@@ -812,6 +1148,12 @@ EOF
     run cat "${output_file}"
     assert_success
     assert_output_contains "installation lock was lost"
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if flock --exclusive --nonblock "${lock_file}" true; then
+            break
+        fi
+        sleep 0.05
+    done
     run flock --exclusive --nonblock "${lock_file}" true
     assert_success
 }
@@ -929,6 +1271,7 @@ EOF
     local lock_file="${cache_dir}/postinstall.lock"
     local pid_directory="${TEST_ROOT}/wrapper-loss"
     local output_file="${TEST_ROOT}/wrapper-loss.out"
+    local decision_file
     local installer_pid
     local wrapper_pid
     local installer_status=0
@@ -966,6 +1309,14 @@ EOF
         return 1
     fi
 
+    decision_file=$(find "${cache_dir}" -maxdepth 1 -type f \
+        -name '.postinstall-lock-*.decision' -print -quit 2>/dev/null || true)
+    if [ -z "${decision_file}" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
     wrapper_pid=$(cat "${pid_directory}/wrapper.pid")
     kill -KILL "${wrapper_pid}"
     wait "${installer_pid}" || installer_status="${?}"
@@ -974,6 +1325,7 @@ EOF
     run cat "${output_file}"
     assert_success
     assert_output_contains "installation lock was lost"
+    assert_file_absent "${decision_file}"
     for ((attempt = 0; attempt < 100; attempt++)); do
         if flock --exclusive --nonblock "${lock_file}" true; then
             break
@@ -1208,6 +1560,667 @@ EOF
     assert_success
 }
 
+@test "a pre-commit SIGUSR2 cancels acquisition without releasing the lock early" {
+    local cache_dir="${TEST_ROOT}/precommit-usr2-cache"
+    local lock_file="${cache_dir}/postinstall.lock"
+    local pid_directory="${TEST_ROOT}/precommit-usr2"
+    local output_file="${TEST_ROOT}/precommit-usr2.out"
+    local mock_bin="${TEST_ROOT}/precommit-usr2-bin"
+    local probe_marker="${pid_directory}/probe"
+    local status_file
+    local supervisor_pid
+    local wrapper_pid
+    local installer_pid
+    local installer_status=0
+    local lock_status=0
+    local final_lock_status=0
+    local decision_file
+    local decision_state=""
+    local attempt
+    local -a status_lines=()
+
+    mkdir -p "${pid_directory}" "${mock_bin}"
+    cat > "${mock_bin}/flock" <<'EOF'
+#!/usr/bin/env bash
+for argument in "$@"; do
+    if [ "${argument}" = "true" ]; then
+        : > "${MOCK_FLOCK_PROBE_MARKER}"
+        for attempt in {1..200}; do
+            if [ -e "${MOCK_FLOCK_RELEASE}" ]; then
+                break
+            fi
+            sleep 0.05
+        done
+        break
+    fi
+done
+exec /usr/bin/flock "$@"
+EOF
+    chmod +x "${mock_bin}/flock"
+
+    env \
+        PATH="${mock_bin}:${PATH}" \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        MOCK_FLOCK_PROBE_MARKER="${probe_marker}" \
+        MOCK_FLOCK_RELEASE="${pid_directory}/release" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            runtime_acquire_install_lock
+            acquisition_status=$?
+            if [ "${acquisition_status}" -eq 0 ]; then
+                printf "held=1\n" > "$2/held"
+            fi
+            while [ ! -e "$2/release" ]; do sleep 0.05; done
+            exit "${acquisition_status}"
+        ' _ "${SANDBOX_REPO}" "${pid_directory}" >"${output_file}" 2>&1 &
+    installer_pid="${!}"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        status_file=$(find "${cache_dir}" -maxdepth 1 -type f -name '.postinstall-lock-*.acquired' -print -quit 2>/dev/null || true)
+        if [ -e "${probe_marker}" ] && [ -n "${status_file}" ]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if [ ! -e "${probe_marker}" ] || [ -z "${status_file}" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    mapfile -t status_lines < "${status_file}"
+    supervisor_pid="${status_lines[0]}"
+    wrapper_pid="${status_lines[5]}"
+    kill -USR2 "${wrapper_pid}" 2>/dev/null || true
+    kill -USR2 "${supervisor_pid}" 2>/dev/null || true
+
+    decision_file=""
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        decision_file=$(find "${cache_dir}" -maxdepth 1 -type f -name '.postinstall-lock-*.decision' -print -quit 2>/dev/null || true)
+        if [ -n "${decision_file}" ]; then
+            decision_state=$(cat "${decision_file}")
+            if [ "${decision_state}" = "cancelled" ]; then
+                break
+            fi
+        fi
+        sleep 0.05
+    done
+
+    /usr/bin/flock --exclusive --nonblock "${lock_file}" true ||
+        lock_status="${?}"
+    : > "${pid_directory}/release"
+    wait "${installer_pid}" || installer_status="${?}"
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if /usr/bin/flock --exclusive --nonblock "${lock_file}" true; then
+            break
+        fi
+        sleep 0.05
+    done
+    /usr/bin/flock --exclusive --nonblock "${lock_file}" true ||
+        final_lock_status="${?}"
+
+    assert_equal "${installer_status}" "73"
+    assert_file_absent "${pid_directory}/held"
+    assert_equal "${decision_state}" "cancelled"
+    assert_equal "${lock_status}" "1"
+    assert_equal "${final_lock_status}" "0"
+    assert_file_absent "${decision_file}"
+    run cat "${output_file}"
+    assert_success
+    assert_output_contains "installation lock acquisition was cancelled"
+}
+
+@test "watchdog SIGUSR2 cancels acquisition and retains the lock through cleanup" {
+    local cache_dir="${TEST_ROOT}/watchdog-usr2-cache"
+    local lock_file="${cache_dir}/postinstall.lock"
+    local pid_directory="${TEST_ROOT}/watchdog-usr2"
+    local output_file="${TEST_ROOT}/watchdog-usr2.out"
+    local mock_bin="${TEST_ROOT}/watchdog-usr2-bin"
+    local probe_marker="${pid_directory}/probe"
+    local status_file
+    local decision_file
+    local decision_state=""
+    local watchdog_pid
+    local installer_pid
+    local installer_status=0
+    local installer_state
+    local watchdog_state
+    local attempt
+
+    mkdir -p "${pid_directory}" "${mock_bin}"
+    cat > "${mock_bin}/flock" <<'EOF'
+#!/usr/bin/env bash
+for argument in "$@"; do
+    if [ "${argument}" = "true" ]; then
+        : > "${MOCK_FLOCK_PROBE_MARKER}"
+        for attempt in {1..200}; do
+            if [ -e "${MOCK_FLOCK_RELEASE}" ]; then
+                break
+            fi
+            sleep 0.05
+        done
+        break
+    fi
+done
+exec /usr/bin/flock "$@"
+EOF
+    chmod +x "${mock_bin}/flock"
+
+    env \
+        PATH="${mock_bin}:${PATH}" \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        MOCK_FLOCK_PROBE_MARKER="${probe_marker}" \
+        MOCK_FLOCK_RELEASE="${pid_directory}/probe-release" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            cleanup_directory="$2"
+            runtime_initialize || exit $?
+
+            function watchdog_usr2_cleanup {
+                local cleanup_attempt=0
+                : > "${cleanup_directory}/cleanup-started"
+                while [ ! -e "${cleanup_directory}/cleanup-release" ] && [ "${cleanup_attempt}" -lt 200 ]; do
+                    if /usr/bin/flock --exclusive --nonblock "$POSTINSTALL_LOCK_FILE" true; then
+                        : > "${cleanup_directory}/lock-released"
+                    else
+                        : > "${cleanup_directory}/lock-held"
+                    fi
+                    cleanup_attempt=$((cleanup_attempt + 1))
+                    sleep 0.05
+                done
+                if [ ! -e "${cleanup_directory}/cleanup-release" ]; then
+                    : > "${cleanup_directory}/cleanup-timeout"
+                fi
+                : > "${cleanup_directory}/cleanup-complete"
+            }
+            runtime_register_cleanup "watchdog-usr2-cleanup" watchdog_usr2_cleanup || exit $?
+            runtime_acquire_install_lock
+            acquisition_status=$?
+            printf "acquisition-status=%s\n" "${acquisition_status}"
+            while :; do sleep 0.2; done
+        ' _ "${SANDBOX_REPO}" "${pid_directory}" >"${output_file}" 2>&1 &
+    installer_pid="${!}"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        status_file=$(find "${cache_dir}" -maxdepth 1 -type f -name '.postinstall-lock-*.acquired' -print -quit 2>/dev/null || true)
+        if [ -e "${probe_marker}" ] && [ -n "${status_file}" ]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if [ ! -e "${probe_marker}" ] || [ -z "${status_file}" ]; then
+        : > "${pid_directory}/probe-release"
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    watchdog_pid=$(sed -n '9p' "${status_file}")
+    if ! [[ "${watchdog_pid}" =~ ^[0-9]+$ ]]; then
+        : > "${pid_directory}/probe-release"
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+    kill -USR2 "${watchdog_pid}" 2>/dev/null || true
+
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        decision_file=$(find "${cache_dir}" -maxdepth 1 -type f -name '.postinstall-lock-*.decision' -print -quit 2>/dev/null || true)
+        if [ -n "${decision_file}" ] &&
+            [ -e "${pid_directory}/cleanup-started" ] &&
+            [ -e "${pid_directory}/lock-held" ]; then
+            decision_state=$(cat "${decision_file}" 2>/dev/null || true)
+            if [ "${decision_state}" = "cancelled" ]; then
+                break
+            fi
+        fi
+        sleep 0.05
+    done
+    if [ "${decision_state}" != "cancelled" ] ||
+        [ ! -e "${pid_directory}/cleanup-started" ] ||
+        [ ! -e "${pid_directory}/lock-held" ]; then
+        : > "${pid_directory}/probe-release"
+        : > "${pid_directory}/cleanup-release"
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    watchdog_state=$(ps -o stat= -p "${watchdog_pid}" 2>/dev/null || true)
+    if [ -z "${watchdog_state}" ] || [[ "${watchdog_state}" == Z* ]]; then
+        : > "${pid_directory}/probe-release"
+        : > "${pid_directory}/cleanup-release"
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+    run flock --exclusive --nonblock "${lock_file}" true
+    assert_failure
+
+    : > "${pid_directory}/probe-release"
+    : > "${pid_directory}/cleanup-release"
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+        if [ -z "${installer_state}" ] || [[ "${installer_state}" == Z* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+    if [ -n "${installer_state}" ] && [[ "${installer_state}" != Z* ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    wait "${installer_pid}" || installer_status="${?}"
+    assert_equal "${installer_status}" "73"
+    assert_file_exists "${pid_directory}/cleanup-complete"
+    assert_file_absent "${pid_directory}/cleanup-timeout"
+    assert_file_absent "${pid_directory}/lock-released"
+    run cat "${output_file}"
+    assert_success
+    assert_output_contains "installation lock acquisition was cancelled"
+
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        if flock --exclusive --nonblock "${lock_file}" true; then
+            break
+        fi
+        sleep 0.05
+    done
+    run flock --exclusive --nonblock "${lock_file}" true
+    assert_success
+}
+
+@test "release retains decision state for cleanup loss classification" {
+    local cache_dir="${TEST_ROOT}/decision-lifetime-cache"
+    local cancelled_decision="${cache_dir}/cancelled.decision"
+    local committed_decision="${cache_dir}/committed.decision"
+
+    mkdir -p "${cache_dir}"
+    chmod 0700 "${cache_dir}"
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${SANDBOX_REPO}/common/lock-holder.py" claim-decision \
+        "${cancelled_decision}" cancelled
+    assert_success
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${SANDBOX_REPO}/common/lock-holder.py" claim-decision \
+        "${committed_decision}" committed
+    assert_success
+
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            RUNTIME_LOCK_HELD=1
+            RUNTIME_LOCK_ACQUIRED=1
+            RUNTIME_LOCK_DECISION_FILE="$2"
+            runtime_release_install_lock || exit $?
+            RUNTIME_CRITICAL_DEPTH=1
+            runtime_handle_lock_loss 141 lock-loss || exit $?
+            printf "decision=%s acquired=%s held=%s pending=%s name=%s\n" \
+                "$RUNTIME_LOCK_DECISION_FILE" \
+                "$RUNTIME_LOCK_ACQUIRED" \
+                "$RUNTIME_LOCK_HELD" \
+                "$RUNTIME_PENDING_SIGNAL_STATUS" \
+                "$RUNTIME_PENDING_SIGNAL_NAME"
+        ' _ "${SANDBOX_REPO}" "${cancelled_decision}"
+    assert_success
+    assert_output_contains "decision=${cancelled_decision} acquired=1 held=0 pending=73 name=lock-cancelled"
+
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            RUNTIME_LOCK_HELD=1
+            RUNTIME_LOCK_ACQUIRED=1
+            RUNTIME_LOCK_DECISION_FILE="$2"
+            runtime_release_install_lock || exit $?
+            RUNTIME_CRITICAL_DEPTH=1
+            runtime_handle_lock_loss 141 lock-loss || exit $?
+            printf "decision=%s acquired=%s held=%s pending=%s name=%s\n" \
+                "$RUNTIME_LOCK_DECISION_FILE" \
+                "$RUNTIME_LOCK_ACQUIRED" \
+                "$RUNTIME_LOCK_HELD" \
+                "$RUNTIME_PENDING_SIGNAL_STATUS" \
+                "$RUNTIME_PENDING_SIGNAL_NAME"
+        ' _ "${SANDBOX_REPO}" "${committed_decision}"
+    assert_success
+    assert_output_contains "decision=${committed_decision} acquired=1 held=0 pending=141 name=lock-loss"
+}
+
+@test "a post-commit validation failure returns 73 without waiting for the guardian" {
+    local cache_dir="${TEST_ROOT}/post-commit-validation-cache"
+    local lock_file="${cache_dir}/postinstall.lock"
+    local mock_bin="${TEST_ROOT}/post-commit-validation-bin"
+    local counter_file="${TEST_ROOT}/post-commit-validation.count"
+    local output_file="${TEST_ROOT}/post-commit-validation.out"
+    local installer_pid
+    local installer_status=0
+    local installer_state
+    local attempt
+
+    mkdir -p "${mock_bin}"
+    cat > "${mock_bin}/python3" <<'EOF'
+#!/usr/bin/env bash
+if [ "${2:-}" = "validate-status" ]; then
+    count=0
+    if [ -f "${MOCK_VALIDATE_COUNTER}" ]; then
+        read -r count < "${MOCK_VALIDATE_COUNTER}" || count=0
+    fi
+    count=$((count + 1))
+    printf '%s\n' "${count}" > "${MOCK_VALIDATE_COUNTER}"
+    if [ "${count}" -eq 3 ]; then
+        exit 1
+    fi
+fi
+exec /usr/bin/python3 "$@"
+EOF
+    chmod +x "${mock_bin}/python3"
+
+    env \
+        PATH="${mock_bin}:${PATH}" \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        MOCK_VALIDATE_COUNTER="${counter_file}" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            runtime_acquire_install_lock
+            acquisition_status=$?
+            printf "acquisition-status=%s\n" "${acquisition_status}"
+            exit "${acquisition_status}"
+        ' _ "${SANDBOX_REPO}" >"${output_file}" 2>&1 &
+    installer_pid="${!}"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+        if [ -z "${installer_state}" ] || [[ "${installer_state}" == Z* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+    if [ -n "${installer_state}" ] && [[ "${installer_state}" != Z* ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        sleep 0.1
+        kill -KILL "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    wait "${installer_pid}" || installer_status="${?}"
+    assert_equal "${installer_status}" "73"
+    run cat "${output_file}"
+    assert_success
+    assert_output_contains "lock acquisition failed after commit"
+    run cat "${counter_file}"
+    assert_success
+    assert_equal "${output}" "3"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if flock --exclusive --nonblock "${lock_file}" true; then
+            break
+        fi
+        sleep 0.05
+    done
+    run flock --exclusive --nonblock "${lock_file}" true
+    assert_success
+}
+
+@test "losing the guardian supervisor and worker leaves the watchdog holding the lock" {
+    local cache_dir="${TEST_ROOT}/simultaneous-helper-loss-cache"
+    local lock_file="${cache_dir}/postinstall.lock"
+    local pid_directory="${TEST_ROOT}/simultaneous-helper-loss"
+    local output_file="${TEST_ROOT}/simultaneous-helper-loss.out"
+    local lock_inode_link="${pid_directory}/lock.inode"
+    local installer_pid
+    local installer_status=0
+    local installer_state
+    local watchdog_state
+    local status_file
+    local guardian_pid
+    local supervisor_pid
+    local worker_pid
+    local watchdog_pid
+    local attempt
+    local -a status_lines=()
+
+    mkdir -p "${pid_directory}"
+    env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            runtime_initialize || exit $?
+            runtime_acquire_install_lock || exit $?
+            runtime_register_cleanup "install-lock" runtime_release_install_lock || exit $?
+            cleanup_directory="$2"
+
+            function blocked_lock_cleanup {
+                local cleanup_attempt=0
+                : > "${cleanup_directory}/cleanup-started"
+                while [ ! -e "${cleanup_directory}/cleanup-release" ] && [ "${cleanup_attempt}" -lt 200 ]; do
+                    if /usr/bin/flock --exclusive --nonblock "${cleanup_directory}/lock.inode" true; then
+                        : > "${cleanup_directory}/lock-released"
+                    else
+                        : > "${cleanup_directory}/lock-held"
+                    fi
+                    cleanup_attempt=$((cleanup_attempt + 1))
+                    sleep 0.05
+                done
+                if [ ! -e "${cleanup_directory}/cleanup-release" ]; then
+                    : > "${cleanup_directory}/cleanup-timeout"
+                fi
+                : > "${cleanup_directory}/cleanup-complete"
+            }
+            runtime_register_cleanup "blocked-lock-cleanup" blocked_lock_cleanup || exit $?
+
+            printf "%s\n" "$RUNTIME_LOCK_PID" > "$2/guardian.pid"
+            printf "%s\n" "$RUNTIME_LOCK_HOLDER_PID" > "$2/supervisor.pid"
+            printf "%s\n" "$RUNTIME_LOCK_WORKER_PID" > "$2/worker.pid"
+            printf "%s\n" "$RUNTIME_LOCK_WATCHDOG_PID" > "$2/watchdog.pid"
+            : > "$2/ready"
+            while :; do sleep 0.2; done
+        ' _ "${SANDBOX_REPO}" "${pid_directory}" >"${output_file}" 2>&1 &
+    installer_pid="${!}"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if [ -e "${pid_directory}/ready" ]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if [ ! -e "${pid_directory}/ready" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    status_file=$(find "${cache_dir}" -maxdepth 1 -type f -name '.postinstall-lock-*.acquired' -print -quit 2>/dev/null || true)
+    if [ -z "${status_file}" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+    mapfile -t status_lines < "${status_file}"
+    supervisor_pid="${status_lines[0]}"
+    worker_pid="${status_lines[1]}"
+    guardian_pid="${status_lines[5]}"
+    watchdog_pid="${status_lines[8]}"
+    if ! [[ "${guardian_pid}" =~ ^[0-9]+$ ]] ||
+        ! [[ "${supervisor_pid}" =~ ^[0-9]+$ ]] ||
+        ! [[ "${worker_pid}" =~ ^[0-9]+$ ]] ||
+        ! [[ "${watchdog_pid}" =~ ^[0-9]+$ ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    # Keep a second name for the exact inode acquired by the helpers, then
+    # replace the public lock path. The watchdog must continue to hold the
+    # original inode even though the path now resolves to a different file.
+    if ! ln "${lock_file}" "${lock_inode_link}" ||
+        ! mv "${lock_file}" "${lock_file}.replaced"; then
+        : > "${pid_directory}/cleanup-release"
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    # Stop the helpers first so they cannot race one another during teardown;
+    # then kill them together while leaving the watchdog running.
+    kill -STOP "${guardian_pid}" "${supervisor_pid}" "${worker_pid}" 2>/dev/null || true
+    sleep 0.1
+    kill -KILL "${guardian_pid}" "${supervisor_pid}" "${worker_pid}" 2>/dev/null || true
+
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        if [ -e "${pid_directory}/cleanup-started" ] &&
+            [ -e "${pid_directory}/lock-held" ]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if [ ! -e "${pid_directory}/cleanup-started" ] ||
+        [ ! -e "${pid_directory}/lock-held" ]; then
+        : > "${pid_directory}/cleanup-release"
+        kill -KILL "${watchdog_pid}" 2>/dev/null || true
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    watchdog_state=$(ps -o stat= -p "${watchdog_pid}" 2>/dev/null || true)
+    if [ -z "${watchdog_state}" ] || [[ "${watchdog_state}" == Z* ]]; then
+        : > "${pid_directory}/cleanup-release"
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+    run flock --exclusive --nonblock "${lock_inode_link}" true
+    assert_failure
+
+    # The replacement path is a different inode and can be locked
+    # independently; the original inode remains locked by the watchdog.
+    run flock --exclusive --nonblock "${lock_file}" true
+    assert_success
+
+    : > "${pid_directory}/cleanup-release"
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+        if [ -z "${installer_state}" ] || [[ "${installer_state}" == Z* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+    if [ -n "${installer_state}" ] && [[ "${installer_state}" != Z* ]]; then
+        kill -KILL "${watchdog_pid}" 2>/dev/null || true
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    wait "${installer_pid}" || installer_status="${?}"
+    assert_equal "${installer_status}" "141"
+    assert_file_exists "${pid_directory}/cleanup-complete"
+    assert_file_absent "${pid_directory}/cleanup-timeout"
+    assert_file_absent "${pid_directory}/lock-released"
+    run cat "${output_file}"
+    assert_success
+    assert_output_contains "installation lock was lost"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        watchdog_state=$(ps -o stat= -p "${watchdog_pid}" 2>/dev/null || true)
+        if [ -z "${watchdog_state}" ] || [[ "${watchdog_state}" == Z* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        if flock --exclusive --nonblock "${lock_inode_link}" true; then
+            break
+        fi
+        sleep 0.05
+    done
+    run flock --exclusive --nonblock "${lock_inode_link}" true
+    assert_success
+}
+
+@test "losing only the watchdog aborts the installer" {
+    local cache_dir="${TEST_ROOT}/watchdog-loss-cache"
+    local lock_file="${cache_dir}/postinstall.lock"
+    local pid_directory="${TEST_ROOT}/watchdog-loss"
+    local output_file="${TEST_ROOT}/watchdog-loss.out"
+    local installer_pid
+    local installer_status=0
+    local installer_state
+    local watchdog_pid
+    local attempt
+
+    mkdir -p "${pid_directory}"
+    env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            runtime_initialize || exit $?
+            runtime_acquire_install_lock || exit $?
+            runtime_register_cleanup "install-lock" runtime_release_install_lock || exit $?
+            printf "%s\n" "$RUNTIME_LOCK_WATCHDOG_PID" > "$2/watchdog.pid"
+            : > "$2/ready"
+            while :; do sleep 0.2; done
+        ' _ "${SANDBOX_REPO}" "${pid_directory}" >"${output_file}" 2>&1 &
+    installer_pid="${!}"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if [ -s "${pid_directory}/watchdog.pid" ] && [ -e "${pid_directory}/ready" ]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if [ ! -s "${pid_directory}/watchdog.pid" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    watchdog_pid=$(cat "${pid_directory}/watchdog.pid")
+    kill -KILL "${watchdog_pid}" 2>/dev/null || true
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+        if [ -z "${installer_state}" ] || [[ "${installer_state}" == Z* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+    if [ -n "${installer_state}" ] && [[ "${installer_state}" != Z* ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    wait "${installer_pid}" || installer_status="${?}"
+    assert_equal "${installer_status}" "141"
+    run cat "${output_file}"
+    assert_success
+    assert_output_contains "installation lock was lost"
+}
+
 @test "a group-directed SIGUSR2 during cleanup keeps a committed lock held" {
     local cache_dir="${TEST_ROOT}/group-usr2-cache"
     local lock_file="${cache_dir}/postinstall.lock"
@@ -1277,6 +2290,98 @@ EOF
     assert_file_exists "${pid_directory}/lock-held"
     assert_file_absent "${pid_directory}/lock-released"
     assert_file_absent "${pid_directory}/group-mismatch"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if flock --exclusive --nonblock "${lock_file}" true; then
+            break
+        fi
+        sleep 0.05
+    done
+    run flock --exclusive --nonblock "${lock_file}" true
+    assert_success
+}
+
+@test "an unreadable committed decision fails generically rather than as cancellation" {
+    local cache_dir="${TEST_ROOT}/unreadable-decision-cache"
+    local lock_file="${cache_dir}/postinstall.lock"
+    local pid_directory="${TEST_ROOT}/unreadable-decision"
+    local output_file="${TEST_ROOT}/unreadable-decision.out"
+    local status_file
+    local decision_file
+    local supervisor_pid
+    local installer_pid
+    local installer_status=0
+    local installer_state
+    local attempt
+    local -a status_lines=()
+
+    mkdir -p "${pid_directory}"
+    env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            runtime_initialize || exit $?
+            runtime_acquire_install_lock || exit $?
+            runtime_register_cleanup "install-lock" runtime_release_install_lock || exit $?
+            : > "$2/ready"
+            while :; do sleep 0.2; done
+        ' _ "${SANDBOX_REPO}" "${pid_directory}" >"${output_file}" 2>&1 &
+    installer_pid="${!}"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if [ -e "${pid_directory}/ready" ]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if [ ! -e "${pid_directory}/ready" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    status_file=$(find "${cache_dir}" -maxdepth 1 -type f \
+        -name '.postinstall-lock-*.acquired' -print -quit 2>/dev/null || true)
+    decision_file=$(find "${cache_dir}" -maxdepth 1 -type f \
+        -name '.postinstall-lock-*.decision' -print -quit 2>/dev/null || true)
+    if [ -z "${status_file}" ] || [ -z "${decision_file}" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+    mapfile -t status_lines < "${status_file}"
+    supervisor_pid="${status_lines[0]}"
+    if ! [[ "${supervisor_pid}" =~ ^[0-9]+$ ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    chmod 0000 "${decision_file}"
+    kill -USR2 "${supervisor_pid}"
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+        if [ -z "${installer_state}" ] || [[ "${installer_state}" == Z* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    installer_state=$(ps -o stat= -p "${installer_pid}" 2>/dev/null || true)
+    if [ -n "${installer_state}" ] && [[ "${installer_state}" != Z* ]]; then
+        kill -KILL "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    wait "${installer_pid}" || installer_status="${?}"
+    assert_equal "${installer_status}" "141"
+    run cat "${output_file}"
+    assert_success
+    assert_output_contains "installation lock was lost"
+    refute_output_contains "acquisition was cancelled"
 
     for ((attempt = 0; attempt < 100; attempt++)); do
         if flock --exclusive --nonblock "${lock_file}" true; then
@@ -1609,6 +2714,311 @@ PY
         "${test_script}" "${SANDBOX_REPO}/common/lock-holder.py"
     assert_success
     assert_output_contains "monitoring failure was rejected"
+}
+
+@test "watchdog fallback keeps unknown process state distinct from exit" {
+    local test_script="${TEST_ROOT}/watchdog-unknown-state.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import sys
+import threading
+import time
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+identity = module.ProcessIdentity(123, "boot-id")
+observations = [module.ProcessObservation.UNKNOWN] * 50
+observations.append(module.ProcessObservation.EXITED)
+module.watchdog_process_observation = lambda _process_id, _identity: observations.pop(0)
+module.observe_parent_relationship = lambda _process_id, _parent: module.ProcessObservation.UNKNOWN
+
+if module.watchdog_helper_relationships_broken(
+    11,
+    12,
+    identity,
+    13,
+    identity,
+    14,
+    identity,
+):
+    raise SystemExit("unknown helper state was treated as helper loss")
+
+fake_status = module.LockStatus(
+    installer_process_id=21,
+    installer_identity=identity,
+    wrapper_process_id=11,
+    wrapper_identity=identity,
+    supervisor_process_id=13,
+    supervisor_identity=identity,
+    worker_process_id=14,
+    worker_identity=identity,
+    watchdog_process_id=15,
+    watchdog_identity=identity,
+)
+module.read_lock_status = lambda _path: fake_status
+module.observe_process_identity = lambda _process_id, _identity: module.ProcessObservation.UNKNOWN
+status, definitive_failure = module.inspect_lock_status(
+    "unused",
+    11,
+    21,
+    identity,
+)
+if status is not None or definitive_failure:
+    raise SystemExit("unknown status observation was treated as definitive failure")
+
+thread_error = []
+
+
+def wait_for_exit():
+    try:
+        module.wait_for_watchdog_installer_exit(21, identity)
+    except BaseException as error:
+        thread_error.append(error)
+
+
+thread = threading.Thread(target=wait_for_exit)
+thread.start()
+time.sleep(0.1)
+if not thread.is_alive():
+    raise SystemExit("unknown installer state was treated as installer exit")
+thread.join(timeout=1)
+if thread.is_alive():
+    raise SystemExit("installer exit wait did not complete")
+if thread_error:
+    raise SystemExit(f"installer exit wait failed: {thread_error[0]}")
+print("unknown process state retained")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${SANDBOX_REPO}/common/lock-holder.py"
+    assert_success
+    assert_output_contains "unknown process state retained"
+}
+
+@test "watchdog notification retries a transient signal failure" {
+    local test_script="${TEST_ROOT}/watchdog-notification-retry.py"
+
+    cat > "${test_script}" <<'PY'
+import errno
+import importlib.util
+import os
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+identity = module.capture_process_identity(os.getpid())
+if identity is None:
+    raise SystemExit("unable to capture installer identity")
+attempts = []
+
+
+def flaky_kill(process_id, signal_number):
+    attempts.append((process_id, signal_number))
+    if len(attempts) == 1:
+        raise OSError(errno.EAGAIN, "transient signal failure")
+    return None
+
+
+module.open_verified_installer_pidfd = lambda _process_id, _identity: -1
+module.os.kill = flaky_kill
+if not module.notify_watchdog_installer(None, os.getpid(), identity):
+    raise SystemExit("watchdog notification did not succeed")
+if len(attempts) < 2:
+    raise SystemExit("watchdog notification was not retried")
+print("watchdog notification retried")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${SANDBOX_REPO}/common/lock-holder.py"
+    assert_success
+    assert_output_contains "watchdog notification retried"
+}
+
+@test "watchdog fallback publishes readiness only after startup validation" {
+    local test_script="${TEST_ROOT}/watchdog-readiness-fallback.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import os
+import select
+import sys
+import threading
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+identity = module.ProcessIdentity(123, "boot-id")
+validation_entered = threading.Event()
+allow_validation = threading.Event()
+installer_exited = threading.Event()
+thread_errors = []
+
+
+def validate_startup(*_arguments):
+    validation_entered.set()
+    if not allow_validation.wait(timeout=2):
+        raise RuntimeError("startup validation was not released")
+    return True, False
+
+
+def observe_installer(_process_id, _identity):
+    if installer_exited.is_set():
+        return module.ProcessObservation.EXITED
+    return module.ProcessObservation.ALIVE
+
+
+module.configure_watchdog_signal_handlers = lambda: None
+module.validate_watchdog_startup = validate_startup
+module.watchdog_process_observation = observe_installer
+module.watchdog_helper_relationships_broken = lambda *_arguments: False
+module.watchdog_cancellation_observed = lambda: False
+
+ready_read, ready_write = os.pipe()
+os.set_blocking(ready_read, False)
+
+
+def run_fallback():
+    try:
+        module.watchdog_fallback_loop(
+            21,
+            identity,
+            22,
+            identity,
+            23,
+            identity,
+            24,
+            identity,
+            ready_write,
+            False,
+            False,
+        )
+    except BaseException as error:
+        thread_errors.append(error)
+
+
+thread = threading.Thread(target=run_fallback)
+thread.start()
+if not validation_entered.wait(timeout=1):
+    raise SystemExit("watchdog fallback did not attempt startup validation")
+
+try:
+    early_readiness = os.read(ready_read, 1)
+except BlockingIOError:
+    early_readiness = b""
+if early_readiness:
+    raise SystemExit("watchdog fallback published readiness before validation")
+
+allow_validation.set()
+readable, _writable, _exceptional = select.select([ready_read], [], [], 1)
+if not readable:
+    raise SystemExit("watchdog fallback did not publish readiness")
+if os.read(ready_read, 1) != b"1":
+    raise SystemExit("watchdog fallback published invalid readiness")
+
+installer_exited.set()
+thread.join(timeout=1)
+if thread.is_alive():
+    raise SystemExit("watchdog fallback did not stop after installer exit")
+if thread_errors:
+    raise SystemExit(f"watchdog fallback failed: {thread_errors[0]}")
+print("watchdog readiness deferred until validation")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${SANDBOX_REPO}/common/lock-holder.py"
+    assert_success
+    assert_output_contains "watchdog readiness deferred until validation"
+}
+
+@test "watchdog notification prefers pidfd signaling over a raw PID signal" {
+    local test_script="${TEST_ROOT}/watchdog-notification-order.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import os
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+identity = module.capture_process_identity(os.getpid())
+if identity is None:
+    raise SystemExit("unable to capture installer identity")
+calls = []
+
+
+class MonitorWithoutPidfd:
+    def signal_via_pidfd(self, _label, _signal_number):
+        calls.append("monitor-pidfd-unavailable")
+        return None
+
+
+def open_installer_pidfd(_process_id, _identity):
+    calls.append("verified-installer-pidfd")
+    return 42
+
+
+def send_pidfd_signal(_descriptor, _signal_number):
+    calls.append("verified-installer-pidfd-signal")
+
+
+def raw_kill(_process_id, _signal_number):
+    calls.append("raw-kill")
+    raise AssertionError("raw PID signaling was used before pidfd signaling")
+
+
+module.open_verified_installer_pidfd = open_installer_pidfd
+module.signal.pidfd_send_signal = send_pidfd_signal
+module.os.kill = raw_kill
+if not module.notify_watchdog_installer(
+    MonitorWithoutPidfd(),
+    os.getpid(),
+    identity,
+):
+    raise SystemExit("watchdog notification did not succeed")
+if calls != [
+    "monitor-pidfd-unavailable",
+    "verified-installer-pidfd",
+    "verified-installer-pidfd-signal",
+]:
+    raise SystemExit(f"unexpected watchdog notification order: {calls}")
+
+calls.clear()
+
+
+class MonitorWithPidfd:
+    def signal_via_pidfd(self, _label, _signal_number):
+        calls.append("monitor-pidfd-signal")
+        return True
+
+
+module.watchdog_process_observation = lambda _process_id, _identity: module.ProcessObservation.UNKNOWN
+if not module.notify_watchdog_installer(
+    MonitorWithPidfd(),
+    os.getpid(),
+    identity,
+):
+    raise SystemExit("monitor pidfd notification did not succeed")
+if calls != ["monitor-pidfd-signal"]:
+    raise SystemExit(f"monitor pidfd was not preferred: {calls}")
+print("watchdog notification used pidfd signaling first")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${SANDBOX_REPO}/common/lock-holder.py"
+    assert_success
+    assert_output_contains "watchdog notification used pidfd signaling first"
 }
 
 @test "artifact publication stores only checksum-verified bytes" {

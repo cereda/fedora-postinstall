@@ -1410,15 +1410,26 @@ def find_verified_artifact(directory: str, expected_checksum: str) -> bool:
     return False
 
 
-def prune_lock_state(directory: str, scope: str, keep_name: str) -> None:
+def prune_lock_state(
+    directory: str,
+    scope: str,
+    keep_name: str,
+    keep_decision_name: str,
+) -> None:
     if len(scope) != 16 or any(character not in "0123456789abcdef" for character in scope):
         fail(f"invalid lock scope: {scope}")
 
     directory_descriptor = open_existing_directory(directory)
     scope_prefix = f".postinstall-lock-{scope}-"
+    decision_prefix = f"{keep_decision_name}." if keep_decision_name else ""
     try:
         for name in os.listdir(directory_descriptor):
-            if name == keep_name or not name.startswith(scope_prefix):
+            if (
+                name == keep_name
+                or name == keep_decision_name
+                or (keep_decision_name and name.startswith(decision_prefix))
+                or not name.startswith(scope_prefix)
+            ):
                 continue
             try:
                 metadata = os.stat(
@@ -1629,7 +1640,7 @@ def main() -> None:
         "prune": 4,
         "prune-partials": 3,
         "prune-versions": 4,
-        "prune-lock-state": 5,
+        "prune-lock-state": 6,
         "read": 3,
         "replace-destination": 5,
         "rollback": 8,
@@ -1645,7 +1656,7 @@ def main() -> None:
         "prune-partials DIRECTORY or prune/prune-versions DIRECTORY KEEP_NAME or "
         "rollback DESTINATION BACKUP ORIGINAL_IDENTITY STAGED_IDENTITY "
         "BACKUP_IDENTITY HAD_ORIGINAL or "
-        "prune-lock-state DIRECTORY SCOPE KEEP_NAME"
+        "prune-lock-state DIRECTORY SCOPE KEEP_NAME KEEP_DECISION_NAME"
     )
 
     if command not in expected_arguments or len(sys.argv) != expected_arguments[command]:
@@ -1675,7 +1686,7 @@ def main() -> None:
         elif command == "prune-versions":
             prune_versions(sys.argv[2], sys.argv[3])
         elif command == "prune-lock-state":
-            prune_lock_state(sys.argv[2], sys.argv[3], sys.argv[4])
+            prune_lock_state(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
         elif command == "read":
             read(sys.argv[2])
         elif command == "replace-destination":
