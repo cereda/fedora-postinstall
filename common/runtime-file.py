@@ -90,6 +90,20 @@ def identities_match(first: os.stat_result, second: os.stat_result) -> bool:
     return first.st_dev == second.st_dev and first.st_ino == second.st_ino
 
 
+def open_pinned_entry(parent: int, name: str) -> tuple[int, os.stat_result]:
+    """Open a directory entry without following it and pin its inode."""
+    descriptor = os.open(
+        name,
+        os.O_PATH | os.O_CLOEXEC | os.O_NOFOLLOW,
+        dir_fd=parent,
+    )
+    try:
+        return descriptor, os.fstat(descriptor)
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def sync_directory(descriptor: int, description: str) -> bool:
     try:
         os.fsync(descriptor)
@@ -686,12 +700,12 @@ def backup_destination(
 
     destination_parent = open_parent(destination, strict_final_parent=True)
     backup_parent = open_parent(backup, strict_final_parent=True)
+    destination_descriptor = -1
     try:
         try:
-            current_metadata = os.stat(
+            destination_descriptor, current_metadata = open_pinned_entry(
+                destination_parent,
                 destination_name,
-                dir_fd=destination_parent,
-                follow_symlinks=False,
             )
         except FileNotFoundError:
             current_metadata = None
@@ -794,6 +808,8 @@ def backup_destination(
         backup_synced = sync_directory(backup_parent, "the backup directory")
         return 0 if destination_synced and backup_synced else 1
     finally:
+        if destination_descriptor >= 0:
+            os.close(destination_descriptor)
         os.close(destination_parent)
         os.close(backup_parent)
 
@@ -890,6 +906,7 @@ def rollback_destination(
 
     staged_device, staged_inode = parse_file_identity(staged_identity)
     destination_parent = open_parent(destination, strict_final_parent=True)
+    destination_descriptor = -1
     backup_parent = -1
     quarantine_name = ""
     preserve_quarantine = False
@@ -902,10 +919,9 @@ def rollback_destination(
             )
 
             try:
-                current_metadata = os.stat(
+                destination_descriptor, current_metadata = open_pinned_entry(
+                    destination_parent,
                     destination_name,
-                    dir_fd=destination_parent,
-                    follow_symlinks=False,
                 )
             except FileNotFoundError:
                 current_metadata = None
@@ -1014,10 +1030,7 @@ def rollback_destination(
                 dir_fd=destination_parent,
                 follow_symlinks=False,
             )
-            if not (
-                detached_metadata.st_dev == staged_device
-                and detached_metadata.st_ino == staged_inode
-            ):
+            if not identities_match(detached_metadata, current_metadata):
                 try:
                     rename_noreplace(
                         destination_parent,
@@ -1131,10 +1144,9 @@ def rollback_destination(
             return 0 if sync_ok else 1
 
         try:
-            current_metadata = os.stat(
+            destination_descriptor, current_metadata = open_pinned_entry(
+                destination_parent,
                 destination_name,
-                dir_fd=destination_parent,
-                follow_symlinks=False,
             )
         except FileNotFoundError:
             print(
@@ -1189,10 +1201,7 @@ def rollback_destination(
             dir_fd=destination_parent,
             follow_symlinks=False,
         )
-        if not (
-            detached_metadata.st_dev == staged_device
-            and detached_metadata.st_ino == staged_inode
-        ):
+        if not identities_match(detached_metadata, current_metadata):
             try:
                 rename_noreplace(
                     destination_parent,
@@ -1261,6 +1270,8 @@ def rollback_destination(
                 pass
             except OSError:
                 pass
+        if destination_descriptor >= 0:
+            os.close(destination_descriptor)
         os.close(destination_parent)
         if backup_parent >= 0:
             os.close(backup_parent)
