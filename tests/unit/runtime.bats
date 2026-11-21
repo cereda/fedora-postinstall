@@ -974,6 +974,12 @@ EOF
     run cat "${output_file}"
     assert_success
     assert_output_contains "installation lock was lost"
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if flock --exclusive --nonblock "${lock_file}" true; then
+            break
+        fi
+        sleep 0.05
+    done
     run flock --exclusive --nonblock "${lock_file}" true
     assert_success
 }
