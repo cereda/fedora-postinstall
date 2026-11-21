@@ -345,6 +345,68 @@ function runtime_background_job_is_known {
     return 1
 }
 
+function runtime_background_job_state {
+    local runtime_job_pid="${1:-}"
+    local runtime_job_expected_identity="${2:-}"
+    local runtime_job_current_identity
+    local runtime_job_stat
+    local runtime_job_fields_text
+    local -a runtime_job_fields=()
+
+    if ! [[ "${runtime_job_pid}" =~ ^[0-9]+$ ]] ||
+        [ "${runtime_job_pid}" -le 1 ]; then
+        printf 'unknown\n'
+        return 0
+    fi
+    if [ -n "${runtime_job_expected_identity}" ]; then
+        runtime_job_current_identity=$(runtime_capture_process_identity \
+            "${runtime_job_pid}" 2>/dev/null || true)
+        if [ -z "${runtime_job_current_identity}" ]; then
+            printf 'exited\n'
+            return 0
+        fi
+        if [ "${runtime_job_current_identity}" != \
+            "${runtime_job_expected_identity}" ]; then
+            printf 'replaced\n'
+            return 0
+        fi
+    fi
+    if ! IFS= read -r runtime_job_stat <"/proc/${runtime_job_pid}/stat"; then
+        printf 'exited\n'
+        return 0
+    fi
+
+    # The command name in /proc/PID/stat may contain spaces or parentheses.
+    # The final ") " separates it from field 3 (state).
+    runtime_job_fields_text="${runtime_job_stat##*) }"
+    read -r -a runtime_job_fields <<<"${runtime_job_fields_text}"
+    if [ "${#runtime_job_fields[@]}" -eq 0 ]; then
+        printf 'unknown\n'
+        return 0
+    fi
+    case "${runtime_job_fields[0]}" in
+    T | t)
+        printf 'stopped\n'
+        ;;
+    Z | z | X | x)
+        printf 'exited\n'
+        ;;
+    *)
+        printf 'running\n'
+        ;;
+    esac
+}
+
+function runtime_background_job_is_stopped {
+    local runtime_job_pid="${1:-}"
+    local runtime_job_expected_identity="${2:-}"
+    local runtime_job_state
+
+    runtime_job_state=$(runtime_background_job_state \
+        "${runtime_job_pid}" "${runtime_job_expected_identity}")
+    [ "${runtime_job_state}" = "stopped" ]
+}
+
 function runtime_background_job_spec {
     local runtime_job_pid="${1:-}"
     local runtime_job_line
@@ -371,8 +433,14 @@ function runtime_background_job_spec {
 function runtime_signal_background_job {
     local runtime_job_pid="${1:-}"
     local runtime_job_signal="${2:-}"
+    local runtime_job_expected_identity="${3:-}"
     local runtime_job_spec
 
+    if [ -n "${runtime_job_expected_identity}" ] &&
+        ! runtime_process_identity_matches \
+            "${runtime_job_pid}" "${runtime_job_expected_identity}"; then
+        return 1
+    fi
     if ! runtime_job_spec=$(runtime_background_job_spec "${runtime_job_pid}"); then
         return 1
     fi
@@ -381,39 +449,64 @@ function runtime_signal_background_job {
 
 function runtime_wait_for_background_job {
     local runtime_job_pid="${1:-}"
+    local runtime_job_expected_identity="${2:-}"
     local runtime_job_status=0
+    local runtime_job_second_status=0
+    local runtime_job_state
+
+    if [ -z "${runtime_job_expected_identity}" ]; then
+        runtime_job_expected_identity=$(runtime_capture_process_identity \
+            "${runtime_job_pid}" 2>/dev/null || true)
+    fi
 
     while :; do
-        wait "${runtime_job_pid}"
-        runtime_job_status="${?}"
-        if [ "${runtime_job_status}" -gt 128 ]; then
-            if runtime_background_job_is_running "${runtime_job_pid}"; then
-                # A trapped signal interrupted wait while the child is still
-                # the job owned by this shell. The wait status distinguishes an
-                # interrupted wait from a completed child, and the job table
-                # prevents a reused numeric PID from being mistaken for the
-                # original child. Resume waiting for its real status.
-                continue
-            fi
-            # The child may have exited while the signal handler was running.
-            # Collect the completed job's real status before classifying the
-            # result, so contention status 75 is not replaced by 128+signal.
+        if ! runtime_background_job_is_known "${runtime_job_pid}"; then
+            # The shell has already collected the job. A direct wait still
+            # returns its remembered status and cannot block on a new process
+            # that happens to reuse the numeric PID.
             wait "${runtime_job_pid}" 2>/dev/null
-            runtime_job_status="${?}"
+            return "${?}"
         fi
-        if runtime_background_job_is_running "${runtime_job_pid}"; then
-            # Be conservative if Bash reports a running job after an unusual
-            # wait status. The job table remains the authoritative binding.
+
+        runtime_job_state=$(runtime_background_job_state \
+            "${runtime_job_pid}" "${runtime_job_expected_identity}")
+        case "${runtime_job_state}" in
+        stopped)
+            # Bash's wait blocks while a child is stopped. Resume the
+            # shell-owned job before polling again; the job specification,
+            # rather than a reusable numeric PID, identifies the target.
+            runtime_signal_background_job \
+                "${runtime_job_pid}" CONT "${runtime_job_expected_identity}" || true
+            sleep 0.05 || true
             continue
-        fi
-        if runtime_background_job_is_known "${runtime_job_pid}"; then
-            # The job is stopped rather than running. It cannot make progress,
-            # so terminate the bound job before collecting its status.
-            runtime_signal_background_job "${runtime_job_pid}" KILL || true
+            ;;
+        exited | replaced)
             wait "${runtime_job_pid}" 2>/dev/null
             runtime_job_status="${?}"
-        fi
-        return "${runtime_job_status}"
+            if [ "${runtime_job_status}" -gt 128 ]; then
+                # A signal can interrupt the wait after the child has exited.
+                # Collect the remembered status once more when the process is
+                # still known to have finished.
+                runtime_job_state=$(runtime_background_job_state \
+                    "${runtime_job_pid}" "${runtime_job_expected_identity}")
+                if [ "${runtime_job_state}" = "exited" ] ||
+                    [ "${runtime_job_state}" = "replaced" ]; then
+                    wait "${runtime_job_pid}" 2>/dev/null
+                    runtime_job_second_status="${?}"
+                    if [ "${runtime_job_second_status}" -ne 127 ]; then
+                        runtime_job_status="${runtime_job_second_status}"
+                    fi
+                fi
+            fi
+            return "${runtime_job_status}"
+            ;;
+        running | unknown)
+            sleep 0.05 || true
+            ;;
+        *)
+            sleep 0.05 || true
+            ;;
+        esac
     done
 }
 
@@ -435,6 +528,7 @@ function runtime_acquire_install_lock {
     local runtime_local_decision_file
     local runtime_local_decision_state
     local runtime_local_decision_status
+    local runtime_local_guardian_identity
     local runtime_local_cancelled=0
     local runtime_local_committed=0
 
@@ -509,6 +603,7 @@ function runtime_acquire_install_lock {
         runtime_guardian_cancel_requested=0
         runtime_guardian_abort_requested=0
         runtime_guardian_supervisor_pid=""
+        runtime_guardian_supervisor_identity=""
         runtime_guardian_supervisor_status=0
         # Capture BASHPID in the guardian context. Inside an asynchronous
         # command's expansion, BASHPID would identify the command's child
@@ -542,8 +637,16 @@ function runtime_acquire_install_lock {
             if [ -n "${runtime_guardian_supervisor_pid}" ] &&
                 runtime_background_job_is_running \
                     "${runtime_guardian_supervisor_pid}"; then
+                if runtime_background_job_is_stopped \
+                    "${runtime_guardian_supervisor_pid}" \
+                    "${runtime_guardian_supervisor_identity}"; then
+                    runtime_signal_background_job \
+                        "${runtime_guardian_supervisor_pid}" CONT \
+                        "${runtime_guardian_supervisor_identity}" || true
+                fi
                 runtime_signal_background_job \
-                    "${runtime_guardian_supervisor_pid}" USR2 || true
+                    "${runtime_guardian_supervisor_pid}" USR2 \
+                    "${runtime_guardian_supervisor_identity}" || true
             fi
         }
         trap 'runtime_guardian_cancel_acquisition' USR2
@@ -572,14 +675,19 @@ function runtime_acquire_install_lock {
             "${runtime_local_installer_identity}" \
             "${runtime_guardian_process_id}" &
         runtime_guardian_supervisor_pid="${!}"
+        runtime_guardian_supervisor_identity=$(runtime_capture_process_identity \
+            "${runtime_guardian_supervisor_pid}" 2>/dev/null || true)
 
         if [ "${runtime_guardian_cancel_requested}" -eq 1 ] ||
             [ "${runtime_guardian_abort_requested}" -eq 1 ]; then
             runtime_signal_background_job \
-                "${runtime_guardian_supervisor_pid}" USR2 || true
+                "${runtime_guardian_supervisor_pid}" USR2 \
+                "${runtime_guardian_supervisor_identity}" || true
         fi
 
-        runtime_wait_for_background_job "${runtime_guardian_supervisor_pid}" ||
+        runtime_wait_for_background_job \
+            "${runtime_guardian_supervisor_pid}" \
+            "${runtime_guardian_supervisor_identity}" ||
             runtime_guardian_supervisor_status="${?}"
 
         # Supervisor exit is authoritative. The decision file distinguishes a
@@ -639,6 +747,8 @@ function runtime_acquire_install_lock {
         exit "${runtime_guardian_supervisor_status}"
     ) &
     RUNTIME_LOCK_PID="${!}"
+    runtime_local_guardian_identity=$(runtime_capture_process_identity \
+        "${RUNTIME_LOCK_PID}" 2>/dev/null || true)
 
     for ((runtime_local_attempt = 0; runtime_local_attempt < 100; runtime_local_attempt++)); do
         if [ -s "${RUNTIME_LOCK_STATUS_FILE}" ]; then
@@ -743,9 +853,18 @@ function runtime_acquire_install_lock {
             return 0
         fi
 
+        if runtime_background_job_is_stopped \
+            "${RUNTIME_LOCK_PID}" "${runtime_local_guardian_identity}"; then
+            # A stopped guardian still owns the locked descriptor. Resume the
+            # shell-owned job so it can observe helper failure or cancellation.
+            runtime_signal_background_job \
+                "${RUNTIME_LOCK_PID}" CONT "${runtime_local_guardian_identity}" || true
+            sleep 0.05
+            continue
+        fi
         if ! runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
-            # The guardian job has completed or stopped. Its shell job table,
-            # rather than a reusable numeric PID, is the authoritative link.
+            # The guardian job has completed. Its shell job table, rather than
+            # a reusable numeric PID, is the authoritative link.
             break
         fi
         sleep 0.05
@@ -785,8 +904,13 @@ function runtime_acquire_install_lock {
         # installer, so waiting in both directions would deadlock.
         if [ -n "${RUNTIME_LOCK_PID}" ] &&
             runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
+            if runtime_background_job_is_stopped \
+                "${RUNTIME_LOCK_PID}" "${runtime_local_guardian_identity}"; then
+                runtime_signal_background_job \
+                    "${RUNTIME_LOCK_PID}" CONT "${runtime_local_guardian_identity}" || true
+            fi
             runtime_signal_background_job \
-                "${RUNTIME_LOCK_PID}" USR2 || true
+                "${RUNTIME_LOCK_PID}" USR2 "${runtime_local_guardian_identity}" || true
         fi
         RUNTIME_LOCK_PID=""
         RUNTIME_LOCK_HOLDER_PID=""
@@ -806,13 +930,19 @@ function runtime_acquire_install_lock {
     # still be reported as status 75.
     if [ -n "${RUNTIME_LOCK_PID}" ] &&
         runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
+        if runtime_background_job_is_stopped \
+            "${RUNTIME_LOCK_PID}" "${runtime_local_guardian_identity}"; then
+            runtime_signal_background_job \
+                "${RUNTIME_LOCK_PID}" CONT "${runtime_local_guardian_identity}" || true
+        fi
         runtime_signal_background_job \
-            "${RUNTIME_LOCK_PID}" USR2 || true
+            "${RUNTIME_LOCK_PID}" USR2 "${runtime_local_guardian_identity}" || true
     fi
     runtime_local_status=73
     if [ -n "${RUNTIME_LOCK_PID}" ] &&
         ! runtime_background_job_is_running "${RUNTIME_LOCK_PID}"; then
-        runtime_wait_for_background_job "${RUNTIME_LOCK_PID}" ||
+        runtime_wait_for_background_job \
+            "${RUNTIME_LOCK_PID}" "${runtime_local_guardian_identity}" ||
             runtime_local_status="${?}"
         if [ "${runtime_local_status}" -eq 0 ]; then
             runtime_local_status=73

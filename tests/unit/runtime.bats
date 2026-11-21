@@ -1025,6 +1025,165 @@ PY
     assert_output_contains "child_status=75"
 }
 
+@test "a stopped background job is resumed before its status is collected" {
+    run timeout 3 bash -c '
+        source "$1/common/runtime.sh"
+        bash -c "sleep 0.2; exit 75" &
+        child_pid="${!}"
+        (sleep 0.05; kill -STOP "${child_pid}") &
+        notifier_pid="${!}"
+        runtime_wait_for_background_job "${child_pid}"
+        child_status="${?}"
+        wait "${notifier_pid}" 2>/dev/null || true
+        printf "child_status=%s\n" "${child_status}"
+    ' _ "${SANDBOX_REPO}"
+    assert_success
+    assert_output_contains "child_status=75"
+}
+
+@test "terminating a reaped worker never signals a reused PID" {
+    local test_script="${TEST_ROOT}/worker-reuse.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+identity = module.ProcessIdentity(123, "boot-id")
+module.observe_process_identity = lambda _process_id, _identity: module.ProcessObservation.REPLACED
+module.reap_child = lambda _process_id: True
+signals = []
+module.signal_process_by_identity = lambda *_arguments: signals.append(_arguments) or True
+module.terminate_child(4242, identity)
+if signals:
+    raise SystemExit("a replacement process was signaled")
+print("reused worker PID was not signaled")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${SANDBOX_REPO}/common/lock-holder.py"
+    assert_success
+    assert_output_contains "reused worker PID was not signaled"
+}
+
+@test "stopped guardian and supervisor processes are resumed without retaining the lock" {
+    local cache_dir="${TEST_ROOT}/stopped-helpers-cache"
+    local lock_file="${cache_dir}/postinstall.lock"
+    local pid_directory="${TEST_ROOT}/stopped-helpers"
+    local output_file="${TEST_ROOT}/stopped-helpers.out"
+    local status_file
+    local supervisor_pid
+    local guardian_pid
+    local installer_pid
+    local installer_status=0
+    local process_state
+    local attempt
+
+    mkdir -p "${pid_directory}"
+    env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            runtime_initialize || exit $?
+            runtime_acquire_install_lock || exit $?
+            runtime_register_cleanup "install-lock" runtime_release_install_lock || exit $?
+            printf "%s\n" "${RUNTIME_LOCK_HOLDER_PID}" > "$2/supervisor.pid"
+            : > "$2/ready"
+            while :; do sleep 0.2; done
+        ' _ "${SANDBOX_REPO}" "${pid_directory}" >"${output_file}" 2>&1 &
+    installer_pid="${!}"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        status_file=$(find "${cache_dir}" -maxdepth 1 -type f \
+            -name '.postinstall-lock-*.acquired' -print -quit 2>/dev/null || true)
+        if [ -s "${pid_directory}/supervisor.pid" ] &&
+            [ -e "${pid_directory}/ready" ] &&
+            [ -n "${status_file}" ]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if [ ! -s "${pid_directory}/supervisor.pid" ] ||
+        [ -z "${status_file}" ]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    supervisor_pid=$(cat "${pid_directory}/supervisor.pid")
+    guardian_pid=$(sed -n '6p' "${status_file}")
+    if ! [[ "${supervisor_pid}" =~ ^[0-9]+$ ]] ||
+        ! [[ "${guardian_pid}" =~ ^[0-9]+$ ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    kill -STOP "${supervisor_pid}"
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        process_state=$(ps -o stat= -p "${supervisor_pid}" 2>/dev/null || true)
+        if [ -n "${process_state}" ] &&
+            [[ "${process_state}" != T* ]] &&
+            [[ "${process_state}" != t* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    process_state=$(ps -o stat= -p "${supervisor_pid}" 2>/dev/null || true)
+    if [ -z "${process_state}" ] ||
+        [[ "${process_state}" == T* ]] ||
+        [[ "${process_state}" == t* ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    kill -STOP "${guardian_pid}"
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        process_state=$(ps -o stat= -p "${guardian_pid}" 2>/dev/null || true)
+        if [ -n "${process_state}" ] &&
+            [[ "${process_state}" != T* ]] &&
+            [[ "${process_state}" != t* ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    process_state=$(ps -o stat= -p "${guardian_pid}" 2>/dev/null || true)
+    if [ -z "${process_state}" ] ||
+        [[ "${process_state}" == T* ]] ||
+        [[ "${process_state}" == t* ]]; then
+        kill -TERM "${installer_pid}" 2>/dev/null || true
+        wait "${installer_pid}" 2>/dev/null || true
+        return 1
+    fi
+
+    local lock_was_held=1
+    if flock --exclusive --nonblock "${lock_file}" true; then
+        lock_was_held=0
+    fi
+
+    kill -TERM "${installer_pid}" 2>/dev/null || true
+    wait "${installer_pid}" || installer_status="${?}"
+    assert_equal "${installer_status}" "143"
+
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        if flock --exclusive --nonblock "${lock_file}" true; then
+            break
+        fi
+        sleep 0.05
+    done
+    run flock --exclusive --nonblock "${lock_file}" true
+    assert_success
+    assert_equal "${lock_was_held}" "1"
+}
+
 @test "lock acquisition rejects helpers that die during startup" {
     local cache_dir="${TEST_ROOT}/startup-race-cache"
     local lock_file="${cache_dir}/postinstall.lock"

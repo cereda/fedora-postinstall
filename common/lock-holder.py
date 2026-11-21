@@ -340,6 +340,7 @@ class ProcessObservation(Enum):
     ALIVE = "alive"
     EXITED = "exited"
     REPLACED = "replaced"
+    STOPPED = "stopped"
     UNKNOWN = "unknown"
 
 
@@ -798,12 +799,18 @@ def capture_process_identity_observation(
     boot_id = read_boot_id()
     if not boot_id:
         return None, ProcessObservation.UNKNOWN
-    return ProcessIdentity(start_time, boot_id), ProcessObservation.ALIVE
+    identity = ProcessIdentity(start_time, boot_id)
+    if state in {"T", "t"}:
+        return identity, ProcessObservation.STOPPED
+    return identity, ProcessObservation.ALIVE
 
 
 def capture_process_identity(process_id: int) -> ProcessIdentity | None:
     identity, observation = capture_process_identity_observation(process_id)
-    if observation != ProcessObservation.ALIVE:
+    if observation not in {
+        ProcessObservation.ALIVE,
+        ProcessObservation.STOPPED,
+    }:
         return None
     return identity
 
@@ -816,7 +823,10 @@ def wait_for_captured_process_identity(
     deadline = time.monotonic() + timeout
     while True:
         identity, observation = capture_process_identity_observation(process_id)
-        if observation == ProcessObservation.ALIVE:
+        if observation in {
+            ProcessObservation.ALIVE,
+            ProcessObservation.STOPPED,
+        }:
             return identity
         if observation in {
             ProcessObservation.EXITED,
@@ -851,14 +861,16 @@ def observe_process_identity(
         return ProcessObservation.UNKNOWN
     if boot_id != identity.boot_id:
         return ProcessObservation.REPLACED
+    if state in {"T", "t"}:
+        return ProcessObservation.STOPPED
     return ProcessObservation.ALIVE
 
 
 def process_matches_identity(process_id: int, identity: ProcessIdentity) -> bool:
-    return (
-        observe_process_identity(process_id, identity)
-        == ProcessObservation.ALIVE
-    )
+    return observe_process_identity(process_id, identity) in {
+        ProcessObservation.ALIVE,
+        ProcessObservation.STOPPED,
+    }
 
 
 def observe_parent_relationship(
@@ -878,6 +890,8 @@ def observe_parent_relationship(
         return ProcessObservation.EXITED
     if parent_process_id != expected_parent:
         return ProcessObservation.REPLACED
+    if state in {"T", "t"}:
+        return ProcessObservation.STOPPED
     return ProcessObservation.ALIVE
 
 
@@ -885,6 +899,118 @@ def process_parent_matches(process_id: int, expected_parent: int) -> bool:
     return (
         observe_parent_relationship(process_id, expected_parent)
         == ProcessObservation.ALIVE
+    )
+
+
+def open_verified_pidfd(
+    process_id: int,
+    identity: ProcessIdentity,
+) -> int:
+    """Open a pidfd only for the process with the recorded identity."""
+    observation = observe_process_identity(process_id, identity)
+    if observation in {
+        ProcessObservation.EXITED,
+        ProcessObservation.REPLACED,
+        ProcessObservation.UNKNOWN,
+    }:
+        return -1
+    try:
+        descriptor = os.pidfd_open(process_id)
+    except (AttributeError, OSError):
+        return -1
+
+    observation = observe_process_identity(process_id, identity)
+    if observation in {
+        ProcessObservation.EXITED,
+        ProcessObservation.REPLACED,
+        ProcessObservation.UNKNOWN,
+    }:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        return -1
+    return descriptor
+
+
+def signal_process_by_identity(
+    process_id: int,
+    identity: ProcessIdentity,
+    signal_number: int,
+) -> bool:
+    """Signal a process without targeting a replacement PID.
+
+    A pidfd is preferred because it remains bound to the original process.
+    The raw-PID fallback is retained for systems without pidfd support and
+    verifies the recorded identity immediately before sending the signal.
+    """
+    observation = observe_process_identity(process_id, identity)
+    if observation in {
+        ProcessObservation.EXITED,
+        ProcessObservation.REPLACED,
+    }:
+        return False
+    if observation == ProcessObservation.UNKNOWN:
+        raise MonitoringUnavailable(
+            f"unable to verify process {process_id} before signaling"
+        )
+
+    descriptor = open_verified_pidfd(process_id, identity)
+    if descriptor >= 0:
+        try:
+            if hasattr(signal, "pidfd_send_signal"):
+                try:
+                    signal.pidfd_send_signal(descriptor, signal_number)
+                    return True
+                except ProcessLookupError:
+                    return False
+                except OSError:
+                    pass
+        finally:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+
+    observation = observe_process_identity(process_id, identity)
+    if observation in {
+        ProcessObservation.EXITED,
+        ProcessObservation.REPLACED,
+    }:
+        return False
+    if observation == ProcessObservation.UNKNOWN:
+        raise MonitoringUnavailable(
+            f"unable to verify process {process_id} before signaling"
+        )
+    try:
+        os.kill(process_id, signal_number)
+        return True
+    except ProcessLookupError:
+        return False
+    except OSError as error:
+        raise MonitoringUnavailable(
+            f"unable to signal process {process_id}: {error}"
+        ) from error
+
+
+def resume_process(process_id: int, identity: ProcessIdentity) -> bool:
+    """Resume a stopped process after verifying its identity."""
+    observation = observe_process_identity(process_id, identity)
+    if observation in {
+        ProcessObservation.EXITED,
+        ProcessObservation.REPLACED,
+    }:
+        return False
+    if observation == ProcessObservation.UNKNOWN:
+        raise MonitoringUnavailable(
+            f"unable to verify stopped process {process_id}"
+        )
+    if observation != ProcessObservation.STOPPED:
+        return True
+    return signal_process_by_identity(
+        process_id,
+        identity,
+        signal.SIGCONT,
     )
 
 
@@ -897,7 +1023,15 @@ def wait_for_process_identity(
     deadline = time.monotonic() + timeout
     while True:
         observation = observe_process_identity(process_id, expected_identity)
-        if observation == ProcessObservation.ALIVE:
+        if observation in {
+            ProcessObservation.ALIVE,
+            ProcessObservation.STOPPED,
+        }:
+            if observation == ProcessObservation.STOPPED:
+                try:
+                    resume_process(process_id, expected_identity)
+                except MonitoringUnavailable:
+                    pass
             return True
         if observation in {
             ProcessObservation.EXITED,
@@ -931,6 +1065,11 @@ def wait_for_parent_relationship(
                 return False
             if identity_observation == ProcessObservation.UNKNOWN:
                 unknown = True
+            if identity_observation == ProcessObservation.STOPPED:
+                try:
+                    resume_process(process_id, expected_identity)
+                except MonitoringUnavailable:
+                    unknown = True
 
         parent_observation = observe_parent_relationship(
             process_id,
@@ -941,6 +1080,12 @@ def wait_for_parent_relationship(
             ProcessObservation.REPLACED,
         }:
             return False
+        if parent_observation == ProcessObservation.STOPPED:
+            if expected_identity is not None:
+                try:
+                    resume_process(process_id, expected_identity)
+                except MonitoringUnavailable:
+                    unknown = True
         if parent_observation == ProcessObservation.ALIVE and not unknown:
             return True
         if time.monotonic() >= deadline:
@@ -996,7 +1141,10 @@ def inspect_lock_status(
             ProcessObservation.REPLACED,
         }:
             return None, True
-        if observation == ProcessObservation.UNKNOWN:
+        if observation in {
+            ProcessObservation.UNKNOWN,
+            ProcessObservation.STOPPED,
+        }:
             unknown = True
 
     for process_id, expected_parent in parent_checks:
@@ -1006,7 +1154,10 @@ def inspect_lock_status(
             ProcessObservation.REPLACED,
         }:
             return None, True
-        if observation == ProcessObservation.UNKNOWN:
+        if observation in {
+            ProcessObservation.UNKNOWN,
+            ProcessObservation.STOPPED,
+        }:
             unknown = True
 
     if unknown:
@@ -1137,6 +1288,18 @@ class ProcessMonitor:
         self.poller.register(target.descriptor, select.POLLIN)
         self.descriptor_count += 1
 
+    def resume(self, target: MonitoredProcess) -> bool | None:
+        """Resume a stopped target without confusing it with an exit."""
+        if target.identity is None:
+            return None
+        try:
+            resumed = resume_process(target.process_id, target.identity)
+        except MonitoringUnavailable:
+            return None
+        if not resumed:
+            self.mark_exited(target)
+        return resumed
+
     def mark_exited(self, target: MonitoredProcess) -> None:
         target.exited = True
         if target.descriptor < 0:
@@ -1186,6 +1349,11 @@ class ProcessMonitor:
                 }:
                     self.mark_exited(target)
                     return target
+                if observation == ProcessObservation.STOPPED:
+                    resumed = self.resume(target)
+                    if resumed is False:
+                        return target
+                    continue
                 if observation == ProcessObservation.ALIVE:
                     self.try_open_descriptor(target)
 
@@ -1196,7 +1364,7 @@ class ProcessMonitor:
                 time.sleep(0.1)
                 continue
 
-            events = self.poller.poll(10)
+            events = self.poller.poll(0.1)
             if events:
                 for descriptor, _event in events:
                     for target in self.targets:
@@ -1311,6 +1479,11 @@ class ProcessMonitor:
                 }:
                     self.mark_exited(target)
                     break
+                if observation == ProcessObservation.STOPPED:
+                    resumed = self.resume(target)
+                    if resumed is False:
+                        break
+                    continue
                 if observation == ProcessObservation.ALIVE:
                     self.try_open_descriptor(target)
 
@@ -1318,7 +1491,7 @@ class ProcessMonitor:
                 time.sleep(0.1)
                 continue
 
-            events = self.poller.poll(10)
+            events = self.poller.poll(0.1)
             for descriptor, _event in events:
                 for event_target in self.targets:
                     if event_target.descriptor == descriptor:
@@ -1368,21 +1541,44 @@ def reap_child(process_id: int) -> bool:
     return False
 
 
-def terminate_child(process_id: int) -> None:
-    details = read_process_details(process_id)
-    if details is not None and details[0] != "Z":
-        try:
-            os.kill(process_id, signal.SIGUSR2)
-        except ProcessLookupError:
-            pass
+def terminate_child(
+    process_id: int,
+    expected_identity: ProcessIdentity | None = None,
+) -> None:
+    """Stop a child without signaling a process that reused its PID."""
+    if expected_identity is None:
+        # There is no safe identity with which to signal the process. It may
+        # already have exited; waitpid can still reap only this child.
+        reap_child(process_id)
+        return
+
+    observation = observe_process_identity(process_id, expected_identity)
+    if observation in {
+        ProcessObservation.EXITED,
+        ProcessObservation.REPLACED,
+    }:
+        reap_child(process_id)
+        return
+
+    try:
+        signal_process_by_identity(
+            process_id,
+            expected_identity,
+            signal.SIGUSR2,
+        )
+    except MonitoringUnavailable:
+        pass
     if reap_child(process_id):
         return
-    details = read_process_details(process_id)
-    if details is not None and details[0] != "Z":
-        try:
-            os.kill(process_id, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+
+    try:
+        signal_process_by_identity(
+            process_id,
+            expected_identity,
+            signal.SIGKILL,
+        )
+    except MonitoringUnavailable:
+        pass
     reap_child(process_id)
 
 
@@ -1509,8 +1705,16 @@ def validate_watchdog_startup(
             ProcessObservation.REPLACED,
         }:
             return False, True
-        if observation == ProcessObservation.UNKNOWN:
+        if observation in {
+            ProcessObservation.UNKNOWN,
+            ProcessObservation.STOPPED,
+        }:
             unknown = True
+            if observation == ProcessObservation.STOPPED:
+                try:
+                    resume_process(process_id, identity)
+                except MonitoringUnavailable:
+                    pass
 
     for process_id, expected_parent in expected_parents:
         observation = observe_parent_relationship(process_id, expected_parent)
@@ -1549,6 +1753,12 @@ def watchdog_helper_relationships_broken(
             ProcessObservation.REPLACED,
         }:
             return True
+        if observation == ProcessObservation.STOPPED:
+            try:
+                if not resume_process(process_id, identity):
+                    return True
+            except MonitoringUnavailable:
+                pass
 
     expected_parents = [
         (guardian_process_id, installer_process_id),
@@ -1575,7 +1785,10 @@ def open_verified_installer_pidfd(
         installer_process_id,
         installer_identity,
     )
-    if observation != ProcessObservation.ALIVE:
+    if observation not in {
+        ProcessObservation.ALIVE,
+        ProcessObservation.STOPPED,
+    }:
         return -1
     try:
         descriptor = os.pidfd_open(installer_process_id)
@@ -1586,7 +1799,10 @@ def open_verified_installer_pidfd(
         installer_process_id,
         installer_identity,
     )
-    if observation != ProcessObservation.ALIVE:
+    if observation not in {
+        ProcessObservation.ALIVE,
+        ProcessObservation.STOPPED,
+    }:
         try:
             os.close(descriptor)
         except OSError:
@@ -1722,7 +1938,10 @@ def watchdog_last_resort_loop(
             remove_decision(DECISION_PATH)
             return
 
-        if not notified and observation == ProcessObservation.ALIVE:
+        if not notified and observation in {
+            ProcessObservation.ALIVE,
+            ProcessObservation.STOPPED,
+        }:
             try:
                 notified = notify_watchdog_installer(
                     None,
@@ -2147,7 +2366,7 @@ def supervisor_loop(
         monitor.close()
         # The watchdog is intentionally not terminated here.  It is the
         # fail-safe owner of the descriptor when this supervisor fails.
-        terminate_child(worker_process_id)
+        terminate_child(worker_process_id, worker_identity)
     if installer_terminated:
         remove_status(status_path)
         remove_decision(DECISION_PATH)
@@ -2257,13 +2476,13 @@ def hold_lock(
         os._exit(0)
 
     os.close(ready_write)
+    worker_identity = wait_for_captured_process_identity(worker_process_id)
     worker_ready = wait_for_ready(ready_read)
     os.close(ready_read)
     if not worker_ready:
-        terminate_child(worker_process_id)
+        terminate_child(worker_process_id, worker_identity)
         fail("lock worker did not become ready")
 
-    worker_identity = wait_for_captured_process_identity(worker_process_id)
     if worker_identity is None:
         terminate_child(worker_process_id)
         fail("unable to capture the lock worker identity")
@@ -2272,7 +2491,7 @@ def hold_lock(
         os.getpid(),
         worker_identity,
     ):
-        terminate_child(worker_process_id)
+        terminate_child(worker_process_id, worker_identity)
         fail("lock worker is not a child of the lock supervisor")
 
     # Fork the watchdog only after the worker is ready.  The child inherits
@@ -2364,7 +2583,7 @@ def hold_lock(
         # The watchdog is deliberately left running.  It will observe the
         # supervisor's exit and retain the descriptor until the installer has
         # finished cleaning up.
-        terminate_child(worker_process_id)
+        terminate_child(worker_process_id, worker_identity)
         raise
 
     try:
