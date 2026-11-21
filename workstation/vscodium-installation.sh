@@ -4,30 +4,15 @@
 
 section "VSCodium installation and configuration"
 
-description "VSCodium is an open source, binary distribution of Microsoft's \
-Visual Studio Code (VS Code) editor, without the telemetry and proprietary \
-features. It provides the same core functionality as VS Code, but with a \
-focus on privacy and transparency by removing the Microsoft-specific branding \
-and tracking components."
-
+description "Install VSCodium from RPM and configure it."
 echo
 
-question "Do you want to install and configure VSCodium?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install and configure VSCodium?"; then
 
     # VSCodium is available as a third-party repository
 
     info "Adding the corresponding RPM repository (provided by Pavlo Rudyi)."
-    sudo tee "/etc/yum.repos.d/vscodium.repo" <<EOF
+    sudo tee "/etc/yum.repos.d/vscodium.repo" <<'REPO'
 [paulcarroty-vscodium-repo]
 name=Pavlo Rudyi's VSCodium repo
 baseurl=https://paulcarroty.gitlab.io/vscodium-deb-rpm-repo/rpms/
@@ -36,7 +21,7 @@ gpgcheck=1
 repo_gpgcheck=1
 gpgkey=https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
 metadata_expire=1h
-EOF
+REPO
 
     info "Installing the VSCodium application as an RPM package."
     sudo dnf install codium -y
@@ -48,21 +33,16 @@ EOF
 
     echo
 
-    # the simple configuration includes basic settings, whereas the fancy
-    # configuration provides additional settings to the workspace
     VSCODIUM_FLAVOUR=$("${GUM}" choose "Simple" "Fancy")
 
-    # fallback in case the user does not select a color theme, based on the
-    # -z check -- a test operator that checks if a string is null
     if [ -z "${VSCODIUM_FLAVOUR}" ]; then
         VSCODIUM_FLAVOUR="Simple"
     fi
 
-    # the simple configuration includes basic settings
     if [ "${VSCODIUM_FLAVOUR}" = "Simple" ]; then
 
         info "Writing the configuration file (simple)."
-        tee "${HOME}/.config/VSCodium/User/settings.json" <<EOF
+        cat >"${HOME}/.config/VSCodium/User/settings.json" <<'JSON'
 {
     "workbench.startupEditor": "none",
     "editor.fontFamily": "'JetBrainsMono Nerd Font', 'Droid Sans Mono', 'monospace', monospace",
@@ -73,14 +53,12 @@ EOF
     "window.restoreWindows": "none",
     "workbench.colorTheme": "Default Light Modern"
 }
-EOF
+JSON
 
     else
 
-        # fancy configuration
-
         info "Writing the configuration file (fancy)."
-        tee "${HOME}/.config/VSCodium/User/settings.json" <<EOF
+        cat >"${HOME}/.config/VSCodium/User/settings.json" <<'JSON'
 {
     "workbench.startupEditor": "none",
     "editor.fontFamily": "'Cascadia Code', 'JetBrainsMono Nerd Font', 'Droid Sans Mono', 'monospace', monospace",
@@ -141,7 +119,7 @@ EOF
 	// "vsicons.dontShowNewVersionMessage": true
     // ****************************************************
 }
-EOF
+JSON
 
     fi
 fi

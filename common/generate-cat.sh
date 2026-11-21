@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # generate a PNG image of a cat from a string encoded in Base 64
-cat <<EOF | base64 --decode >cat.png
+base64 --decode <<'BASE64' >cat.png
 iVBORw0KGgoAAAANSUhEUgAAATUAAAEfCAYAAAAgKFFUAAAABHNCSVQICAgIfAhkiAAAABl0RVh0
 U29mdHdhcmUAZ25vbWUtc2NyZWVuc2hvdO8Dvz4AAAAqdEVYdENyZWF0aW9uIFRpbWUAc+FiIDEz
 IGp1bCAyMDE5IDA4OjE1OjU1IC0wMxVjsB0AACAASURBVHiclL1Zl3XJedf5i9jDmYec36Gq9Nqq
@@ -2294,4 +2294,4 @@ fvLkCVarFcqyfNhYbolamvFTLMx8ZDorea3orvl7mbPzQoFFWQu5USnk8D5MPgp5XMfRQ7+fne2w
 h7xPivfelTTuUo74Oa0Dk60Am3cttWMxRx7nlhVIxvKiQJplqFsqMNzd32MXCi7GkLfILB6bzeYB
 MNV2HbXj6Z7Jt28zOg5Cl8w6cU9HCpG/cigq30cWS6QS5O9lbnt8xviMys8YK1Z5Xvm9xtcqHar/
 F7cOkebCiFNvAAAAAElFTkSuQmCC
-EOF
+BASE64

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 SHELL := /bin/bash
 
+DIFF_BASE ?= HEAD^
+
 BATS ?= bats
 JQ ?= jq
 PYTHON ?= python3
@@ -22,7 +24,7 @@ help:
 		'  python        Compile the Python helpers' \
 		'  json          Validate tracked JSON files' \
 		'  license       Validate SPDX license headers' \
-		'  diff-check    Check the working tree for whitespace errors'
+		'  diff-check    Check working tree and committed range for whitespace errors'
 
 check: format-check syntax shellcheck python json license test diff-check
 
@@ -61,3 +63,12 @@ license:
 diff-check:
 	@git diff --check
 	@git diff --cached --check
+	@base="$(DIFF_BASE)"; \
+	if [ -z "$$base" ] || [[ "$$base" =~ ^0+$$ ]]; then \
+		base="HEAD^"; \
+	fi; \
+	if ! git rev-parse --verify --quiet "$$base^{commit}" >/dev/null; then \
+		printf '%s\n' "Skipping committed-range whitespace check: base '$$base' is unavailable"; \
+	else \
+		git diff --check "$$base...HEAD"; \
+	fi

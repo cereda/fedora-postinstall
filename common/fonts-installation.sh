@@ -4,26 +4,10 @@
 
 section "Installation and configuration of custom fonts"
 
-description "The Nerd Fonts project provides patched versions of popular \
-programming fonts, adding support for a wide range of icons and symbols \
-to enhance the visual experience in code editors and terminal emulators."
-
+description "Install Nerd Fonts for terminals and editors."
 echo
 
-question "Do you want to install custom fonts?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # Note: GitHub may apply rate limits to the API endpoint, which could
-    # cause this section to fail (been there, done that)
+if question "Do you want to install custom fonts?"; then
 
     info "Getting the latest version of Nerd Fonts from GitHub."
     test -f nerd-fonts.json || wget -q -O nerd-fonts.json https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest

@@ -9,7 +9,12 @@ setup() {
     TEST_ROOT="${BATS_TEST_TMPDIR}/flavor-selection"
     MOCK_BIN="${TEST_ROOT}/bin"
     SANDBOX_REPO="${TEST_ROOT}/repo"
-    mkdir -p "${MOCK_BIN}" "${SANDBOX_REPO}"
+    mkdir -p \
+        "${MOCK_BIN}" \
+        "${SANDBOX_REPO}" \
+        "${TEST_ROOT}/home" \
+        "${TEST_ROOT}/cache" \
+        "${TEST_ROOT}/state"
 
     cp -R "${REPO_ROOT}/common" "${SANDBOX_REPO}/"
     cp -R "${REPO_ROOT}/extras" "${SANDBOX_REPO}/"
@@ -24,11 +29,17 @@ ID=fedora
 VERSION_ID=45
 EOF
     export POSTINSTALL_OS_RELEASE_FILE="${TEST_ROOT}/os-release"
+    export HOME="${TEST_ROOT}/home"
+    export XDG_CACHE_HOME="${TEST_ROOT}/cache"
+    export XDG_STATE_HOME="${TEST_ROOT}/state"
 
     cat > "${MOCK_BIN}/gum" <<'EOF'
 #!/usr/bin/env bash
 case "${1}" in
-    confirm) exit 0 ;;
+    confirm)
+        : > "${MOCK_GUM_CONFIRM_MARKER}"
+        exit 0
+        ;;
     choose)
         printf '%s\n' "${MOCK_FLAVOR:-}"
         exit "${MOCK_CHOOSE_STATUS:-0}"
@@ -54,6 +65,7 @@ fi
 EOF
 
     chmod +x "${MOCK_BIN}/gum" "${MOCK_BIN}/rpm"
+    export MOCK_GUM_CONFIRM_MARKER="${TEST_ROOT}/gum-confirm-called"
     export PATH="${MOCK_BIN}:${PATH}"
 }
 
@@ -105,6 +117,53 @@ EOF
     run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' _ "${TEST_ROOT}" "${SANDBOX_REPO}"
     assert_failure
     assert_output_contains "Invalid Fedora flavour 'Unknown Fedora'"
+}
+
+@test "a real install exits with the lock contention status before prompting" {
+    local lock_file="${TEST_ROOT}/install-contended.lock"
+    local marker_file="${TEST_ROOT}/lock-holder-ready"
+    local release_file="${TEST_ROOT}/release-lock-holder"
+    local holder
+
+    flock "${lock_file}" bash -c \
+        'touch "$1"; while [ ! -e "$2" ]; do sleep 0.05; done' \
+        _ "${marker_file}" "${release_file}" &
+    holder="${!}"
+    for _ in {1..100}; do
+        [ -e "${marker_file}" ] && break
+        sleep 0.05
+    done
+    if [ ! -e "${marker_file}" ]; then
+        kill "${holder}" 2>/dev/null || true
+        wait "${holder}" 2>/dev/null || true
+        return 1
+    fi
+
+    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh" install --lock-file "$3"' \
+        _ "${TEST_ROOT}" "${SANDBOX_REPO}" "${lock_file}"
+    touch "${release_file}"
+    wait "${holder}" 2>/dev/null || true
+
+    assert_equal "${status}" 75
+    assert_output_contains "another installer is already running"
+    assert_file_absent "${MOCK_GUM_CONFIRM_MARKER}"
+}
+
+@test "a failed real install releases its installation lock" {
+    local lock_file="${TEST_ROOT}/cache/fedora-postinstall/postinstall.lock"
+
+    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' \
+        _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    assert_failure
+    assert_output_contains "No Fedora flavour was selected"
+    refute_output_contains "another installer is already running"
+    assert_file_exists "${lock_file}"
+
+    run bash -c 'cd "$1" && exec bash "$2/fedora-postinstall.sh"' \
+        _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    assert_failure
+    assert_output_contains "No Fedora flavour was selected"
+    refute_output_contains "another installer is already running"
 }
 
 @test "a checkout reached through a directory symlink remains usable" {

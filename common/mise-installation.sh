@@ -4,29 +4,10 @@
 
 section "mise installation"
 
-description "mise is a command line tool designed for setting up and managing \
-development environments. It simplifies the installation of development tools \
-and runtimes, manages environment variables, and can act as a task runner. By \
-streamlining these processes, mise helps developers create consistent and \
-efficient workflows, allowing them to focus more on coding and less on \
-configuration."
-
+description "Install and configure mise."
 echo
 
-question "Do you want to install mise?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # Note: GitHub may apply rate limits to the API endpoint, which could
-    # cause this section to fail (been there, done that)
+if question "Do you want to install mise?"; then
 
     info "Getting latest version of mise from GitHub."
     test -f mise.json || wget -q -O mise.json https://api.github.com/repos/jdx/mise/releases/latest

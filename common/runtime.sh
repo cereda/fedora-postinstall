@@ -14,7 +14,6 @@ declare -g RUNTIME_MODULE_ACTIVE_DEPTH=0
 declare -g RUNTIME_MODULE_ERROR_COUNT=0
 declare -g RUNTIME_MODULE_FIRST_ERROR_STATUS=0
 declare -g RUNTIME_MODULE_FIRST_ERROR_COMMAND=""
-declare -g RUNTIME_EXPECTED_FAILURE=0
 declare -g RUNTIME_MODULE_FAILURE_STATUS=0
 declare -g RUNTIME_MODULE_FAILURE_MODULE=""
 declare -ga RUNTIME_MODULE_ERROR_STACK=()
@@ -23,6 +22,13 @@ declare -ga RUNTIME_PROFILE_MODULES=()
 declare -g RUNTIME_PROFILE_ENABLED=0
 declare -g RUNTIME_PROFILE_FILE=""
 declare -g RUNTIME_RUN_ID=""
+declare -g RUNTIME_LOCK_HELD=0
+declare -g RUNTIME_LOCK_COMMIT_FILE=""
+declare -g RUNTIME_LOCK_HOLDER_PID=""
+declare -g RUNTIME_LOCK_WORKER_PID=""
+declare -g RUNTIME_LOCK_PID=""
+declare -g RUNTIME_LOCK_STATUS_FILE=""
+declare -g RUNTIME_PENDING_LOCK_LOSS=0
 declare -g RUNTIME_STATE_SCHEMA_VERSION=1
 
 function runtime_is_true {
@@ -88,15 +94,6 @@ function runtime_profile_allows_module {
     return 1
 }
 
-function runtime_module_debug_handler {
-    if [ "${RUNTIME_MODULE_ACTIVE_DEPTH}" -gt 0 ] &&
-        [ "${RUNTIME_EXPECTED_FAILURE}" -eq 1 ] &&
-        [ "${BASH_COMMAND}" != "return 1" ]; then
-        RUNTIME_EXPECTED_FAILURE=0
-    fi
-    return 0
-}
-
 function runtime_module_error_handler {
     local runtime_local_status="${?}"
     local runtime_local_command="${BASH_COMMAND}"
@@ -110,14 +107,6 @@ function runtime_module_error_handler {
     # the child failure with a later successful command.
     if [ "${RUNTIME_MODULE_FAILURE_STATUS}" -ne 0 ]; then
         exit "${RUNTIME_MODULE_FAILURE_STATUS}"
-    fi
-
-    # A declined interactive question returns status 1 by design. The question
-    # helper marks that specific return so it is not treated as a module error.
-    if [ "${RUNTIME_EXPECTED_FAILURE}" -eq 1 ] &&
-        [ "${runtime_local_command}" = "return 1" ]; then
-        RUNTIME_EXPECTED_FAILURE=0
-        return 0
     fi
 
     # Command substitutions run in a subshell. Their parent command reports the
@@ -145,7 +134,6 @@ function runtime_module_error_begin {
     RUNTIME_MODULE_ERROR_STACK+=("${RUNTIME_MODULE_ERROR_COUNT}")
     RUNTIME_MODULE_STACK+=("${runtime_local_module}")
     RUNTIME_MODULE_ACTIVE_DEPTH=$((RUNTIME_MODULE_ACTIVE_DEPTH + 1))
-    RUNTIME_EXPECTED_FAILURE=0
     return 0
 }
 
@@ -168,7 +156,6 @@ function runtime_module_error_end {
     if [ "${RUNTIME_MODULE_ACTIVE_DEPTH}" -gt 0 ]; then
         RUNTIME_MODULE_ACTIVE_DEPTH=$((RUNTIME_MODULE_ACTIVE_DEPTH - 1))
     fi
-    RUNTIME_EXPECTED_FAILURE=0
 
     if [ "${RUNTIME_MODULE_ERROR_COUNT}" -gt "${runtime_local_baseline}" ]; then
         return "${RUNTIME_MODULE_FIRST_ERROR_STATUS:-1}"
@@ -211,17 +198,458 @@ function runtime_initialize {
         ;;
     esac
 
-    RUNTIME_RUN_ID="$(date -u +'%Y%m%dT%H%M%SZ')-$$-${RANDOM}"
+    if [ -z "${RUNTIME_RUN_ID}" ]; then
+        RUNTIME_RUN_ID="$(date -u +'%Y%m%dT%H%M%SZ')-$$-${RANDOM}"
+    fi
     RUNTIME_INITIALIZED=1
     set -E
     set -o pipefail
-    trap 'runtime_module_debug_handler' DEBUG
     trap 'runtime_module_error_handler' ERR
     trap 'runtime_cleanup' EXIT
     trap 'runtime_handle_signal 130 INT' INT
     trap 'runtime_handle_signal 143 TERM' TERM
     trap 'runtime_handle_signal 129 HUP' HUP
+    trap 'runtime_handle_lock_loss 141 lock-loss' USR1
     runtime_log "INFO" "Runtime initialized." "runtime.initialized" || return 1
+    return 0
+}
+
+function runtime_prepare_cache_directory {
+    local runtime_local_helper="${SCRIPT_PATH}/common/runtime-file.py"
+
+    if [ -z "${POSTINSTALL_CACHE_DIR:-}" ]; then
+        printf 'runtime: cache directory is not configured\n' >&2
+        return 73
+    fi
+    if [ ! -f "${runtime_local_helper}" ] || [ -L "${runtime_local_helper}" ]; then
+        printf 'runtime: secure file helper is unavailable\n' >&2
+        return 69
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        printf 'runtime: python3 is unavailable\n' >&2
+        return 69
+    fi
+    if ! python3 "${runtime_local_helper}" ensure-directory \
+        "${POSTINSTALL_CACHE_DIR}"; then
+        printf 'runtime: unable to prepare cache directory: %s\n' \
+            "${POSTINSTALL_CACHE_DIR}" >&2
+        return 73
+    fi
+    return 0
+}
+
+function runtime_prepare_lock_file {
+    local runtime_local_helper="${SCRIPT_PATH}/common/runtime-file.py"
+
+    if [ -z "${POSTINSTALL_LOCK_FILE:-}" ]; then
+        printf 'runtime: lock file is not configured\n' >&2
+        return 73
+    fi
+    if [ ! -f "${runtime_local_helper}" ] || [ -L "${runtime_local_helper}" ]; then
+        printf 'runtime: secure file helper is unavailable\n' >&2
+        return 69
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        printf 'runtime: python3 is unavailable\n' >&2
+        return 69
+    fi
+    if ! python3 "${runtime_local_helper}" create-lock "${POSTINSTALL_LOCK_FILE}"; then
+        printf 'runtime: unable to prepare lock file: %s\n' \
+            "${POSTINSTALL_LOCK_FILE}" >&2
+        return 73
+    fi
+    return 0
+}
+
+function runtime_capture_process_identity {
+    local runtime_identity_pid="${1:-}"
+    local runtime_identity_boot_id
+    local runtime_identity_stat
+    local runtime_identity_fields_text
+    local runtime_identity_start_time
+    local -a runtime_identity_fields=()
+
+    if ! [[ "${runtime_identity_pid}" =~ ^[0-9]+$ ]] ||
+        [ "${runtime_identity_pid}" -le 1 ]; then
+        return 1
+    fi
+    if ! IFS= read -r runtime_identity_boot_id \
+        <"/proc/sys/kernel/random/boot_id"; then
+        return 1
+    fi
+    if ! IFS= read -r runtime_identity_stat \
+        <"/proc/${runtime_identity_pid}/stat"; then
+        return 1
+    fi
+
+    # The command name in /proc/PID/stat may itself contain spaces or
+    # parentheses. The final ") " separates it from field 3 (state); field 22
+    # (start time) is therefore index 19 in the remaining field array.
+    runtime_identity_fields_text="${runtime_identity_stat##*) }"
+    read -r -a runtime_identity_fields <<<"${runtime_identity_fields_text}"
+    if [ "${#runtime_identity_fields[@]}" -le 19 ]; then
+        return 1
+    fi
+    if [ "${runtime_identity_fields[0]}" = "Z" ]; then
+        return 1
+    fi
+    runtime_identity_start_time="${runtime_identity_fields[19]}"
+    if ! [[ "${runtime_identity_start_time}" =~ ^[0-9]+$ ]] ||
+        [ "${runtime_identity_start_time}" -le 0 ]; then
+        return 1
+    fi
+
+    printf '%s:%s\n' \
+        "${runtime_identity_boot_id}" \
+        "${runtime_identity_start_time}"
+}
+
+function runtime_process_identity_matches {
+    local runtime_identity_pid="${1:-}"
+    local runtime_identity_expected="${2:-}"
+    local runtime_identity_current
+
+    if [ -z "${runtime_identity_expected}" ]; then
+        return 1
+    fi
+    if ! runtime_identity_current=$(runtime_capture_process_identity \
+        "${runtime_identity_pid}"); then
+        return 1
+    fi
+    [ "${runtime_identity_current}" = "${runtime_identity_expected}" ]
+}
+
+function runtime_acquire_install_lock {
+    local runtime_local_flock
+    local runtime_local_holder="${SCRIPT_PATH}/common/lock-holder.py"
+    local runtime_local_helper="${SCRIPT_PATH}/common/runtime-file.py"
+    local runtime_local_status
+    local runtime_local_holder_pid
+    local runtime_local_worker_pid
+    local runtime_local_lock_scope
+    local runtime_local_lock_fd
+    local runtime_local_lock_check_status
+    local runtime_local_attempt
+    local runtime_local_installer_pid="${BASHPID}"
+    local runtime_local_installer_identity
+    local runtime_local_wrapper_identity
+    local runtime_local_validation
+    local runtime_local_commit_file
+
+    if [ "${RUNTIME_LOCK_HELD}" -eq 1 ]; then
+        return 0
+    fi
+    if ! runtime_local_flock=$(command -v flock 2>/dev/null); then
+        printf 'runtime: flock is unavailable\n' >&2
+        return 69
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        printf 'runtime: python3 is unavailable\n' >&2
+        return 69
+    fi
+    if [ ! -f "${runtime_local_holder}" ] || [ -L "${runtime_local_holder}" ]; then
+        printf 'runtime: lock holder is unavailable\n' >&2
+        return 69
+    fi
+    if [ ! -f "${runtime_local_helper}" ] || [ -L "${runtime_local_helper}" ]; then
+        printf 'runtime: secure file helper is unavailable\n' >&2
+        return 69
+    fi
+
+    # Install the lock-loss handler before starting the guardian. The guardian
+    # can detect a helper failure before runtime_initialize installs the
+    # process-wide traps.
+    trap 'runtime_handle_lock_loss 141 lock-loss' USR1
+
+    runtime_prepare_cache_directory || return $?
+    runtime_prepare_lock_file || return $?
+
+    if [ -z "${RUNTIME_RUN_ID}" ]; then
+        RUNTIME_RUN_ID="$(date -u +'%Y%m%dT%H%M%SZ')-$$-${RANDOM}"
+    fi
+    runtime_local_lock_scope=$(printf '%s' "${POSTINSTALL_LOCK_FILE}" |
+        sha256sum | cut -c '1-16')
+    if ! [[ "${runtime_local_lock_scope}" =~ ^[0-9a-f]{16}$ ]]; then
+        printf 'runtime: unable to identify the installation lock scope\n' >&2
+        return 73
+    fi
+    RUNTIME_LOCK_STATUS_FILE="${POSTINSTALL_CACHE_DIR}/.postinstall-lock-${runtime_local_lock_scope}-${RUNTIME_RUN_ID}.acquired"
+    RUNTIME_LOCK_COMMIT_FILE="${POSTINSTALL_CACHE_DIR}/.postinstall-lock-${runtime_local_lock_scope}-${RUNTIME_RUN_ID}.committed"
+    runtime_local_commit_file="${RUNTIME_LOCK_COMMIT_FILE}"
+    if ! rm -f -- \
+        "${RUNTIME_LOCK_STATUS_FILE}" \
+        "${RUNTIME_LOCK_COMMIT_FILE}"; then
+        printf 'runtime: unable to prepare lock status file\n' >&2
+        return 73
+    fi
+
+    # Capture the installer identity before any persistent helper starts. The
+    # guardian verifies the same identity independently of the mutable status
+    # file and passes it to the Python supervisor.
+    if ! runtime_local_installer_identity=$(runtime_capture_process_identity \
+        "${runtime_local_installer_pid}"); then
+        printf 'runtime: unable to identify the installer process\n' >&2
+        return 73
+    fi
+
+    # The guardian owns the locked descriptor and starts a Python supervisor,
+    # which starts a second worker. All three processes retain the descriptor.
+    # The guardian ignores installer shutdown signals, detects supervisor exit
+    # without consulting the status file, and retains the descriptor until the
+    # installer has completed cleanup and terminated.
+    (
+        umask 077
+        trap - EXIT
+        trap - ERR
+        trap '' HUP TERM INT USR1
+
+        runtime_guardian_cancel_requested=0
+        runtime_guardian_supervisor_pid=""
+        runtime_guardian_supervisor_status=0
+        # Capture BASHPID in the guardian context. Inside an asynchronous
+        # command's expansion, BASHPID would identify the command's child
+        # process rather than this guardian.
+        runtime_guardian_process_id="${BASHPID}"
+
+        function runtime_guardian_cancel_acquisition {
+            if [ -e "${runtime_local_commit_file}" ]; then
+                return 0
+            fi
+            runtime_guardian_cancel_requested=1
+            if [ -n "${runtime_guardian_supervisor_pid}" ] &&
+                kill -0 "${runtime_guardian_supervisor_pid}" 2>/dev/null; then
+                kill -USR2 "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
+            fi
+        }
+        trap 'runtime_guardian_cancel_acquisition' USR2
+
+        runtime_guardian_installer_identity=$(runtime_capture_process_identity \
+            "${runtime_local_installer_pid}") || exit 73
+        if [ "${runtime_guardian_installer_identity}" != \
+            "${runtime_local_installer_identity}" ]; then
+            exit 73
+        fi
+
+        exec {runtime_local_lock_fd}<>"${POSTINSTALL_LOCK_FILE}" || exit 73
+        "${runtime_local_flock}" \
+            --exclusive \
+            --nonblock \
+            --conflict-exit-code 75 \
+            "${runtime_local_lock_fd}" || exit $?
+
+        python3 \
+            "${runtime_local_holder}" \
+            hold \
+            "${POSTINSTALL_LOCK_FILE}" \
+            "${RUNTIME_LOCK_STATUS_FILE}" \
+            "${runtime_local_commit_file}" \
+            "${runtime_local_installer_pid}" \
+            "${runtime_local_installer_identity}" \
+            "${runtime_guardian_process_id}" &
+        runtime_guardian_supervisor_pid="${!}"
+
+        if [ "${runtime_guardian_cancel_requested}" -eq 1 ]; then
+            kill -USR2 "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
+        fi
+
+        while :; do
+            wait "${runtime_guardian_supervisor_pid}"
+            runtime_guardian_supervisor_status="${?}"
+            if [ "${runtime_guardian_cancel_requested}" -eq 1 ]; then
+                break
+            fi
+            # A trapped signal can interrupt wait before the child exits. If
+            # the child is still present, resume waiting for its real status.
+            if kill -0 "${runtime_guardian_supervisor_pid}" 2>/dev/null; then
+                continue
+            fi
+            break
+        done
+
+        if [ "${runtime_guardian_cancel_requested}" -eq 1 ]; then
+            if kill -0 "${runtime_guardian_supervisor_pid}" 2>/dev/null; then
+                kill -USR2 "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
+            fi
+            wait "${runtime_guardian_supervisor_pid}" 2>/dev/null || true
+            rm -f -- \
+                "${RUNTIME_LOCK_STATUS_FILE}" \
+                "${runtime_local_commit_file}" || true
+            exit 73
+        fi
+
+        # Supervisor exit is authoritative. The guardian uses the identity it
+        # captured before startup, rather than mutable status-file contents,
+        # to notify the installer and wait through installer cleanup.
+        if ! python3 "${runtime_local_holder}" \
+            await-installer \
+            "${runtime_local_installer_identity}" \
+            "${runtime_local_installer_pid}"; then
+            printf 'runtime: unable to monitor installer after lock helper failure\n' >&2
+            if runtime_process_identity_matches \
+                "${runtime_local_installer_pid}" \
+                "${runtime_local_installer_identity}"; then
+                kill -USR1 "${runtime_local_installer_pid}" 2>/dev/null || true
+            fi
+            while runtime_process_identity_matches \
+                "${runtime_local_installer_pid}" \
+                "${runtime_local_installer_identity}"; do
+                sleep 0.05
+            done
+        fi
+        rm -f -- \
+            "${RUNTIME_LOCK_STATUS_FILE}" \
+            "${runtime_local_commit_file}" || true
+        exit "${runtime_guardian_supervisor_status}"
+    ) &
+    RUNTIME_LOCK_PID="${!}"
+
+    runtime_local_wrapper_identity=$(runtime_capture_process_identity \
+        "${RUNTIME_LOCK_PID}" 2>/dev/null || true)
+
+    for ((runtime_local_attempt = 0; runtime_local_attempt < 100; runtime_local_attempt++)); do
+        if [ -s "${RUNTIME_LOCK_STATUS_FILE}" ]; then
+            if ! runtime_local_validation=$(python3 "${runtime_local_holder}" \
+                validate-status \
+                "${RUNTIME_LOCK_STATUS_FILE}" \
+                "${RUNTIME_LOCK_PID}" \
+                "${runtime_local_installer_pid}" \
+                "${runtime_local_installer_identity}"); then
+                break
+            fi
+            IFS=' ' read -r runtime_local_holder_pid runtime_local_worker_pid \
+                <<<"${runtime_local_validation}"
+            if ! [[ "${runtime_local_holder_pid}" =~ ^[0-9]+$ ]] ||
+                ! [[ "${runtime_local_worker_pid}" =~ ^[0-9]+$ ]]; then
+                break
+            fi
+
+            runtime_local_lock_check_status=0
+            if "${runtime_local_flock}" \
+                --exclusive \
+                --nonblock \
+                --conflict-exit-code 75 \
+                "${POSTINSTALL_LOCK_FILE}" true; then
+                runtime_local_lock_check_status=0
+            else
+                runtime_local_lock_check_status="${?}"
+            fi
+            if [ "${runtime_local_lock_check_status}" -ne 75 ]; then
+                break
+            fi
+
+            # Revalidate after the conflict probe. This closes the startup
+            # window in which a helper can die before acquisition is reported
+            # as successful.
+            sleep 0.05
+            if ! python3 "${runtime_local_holder}" \
+                validate-status \
+                "${RUNTIME_LOCK_STATUS_FILE}" \
+                "${RUNTIME_LOCK_PID}" \
+                "${runtime_local_installer_pid}" \
+                "${runtime_local_installer_identity}" >/dev/null; then
+                break
+            fi
+
+            # State files from a previously interrupted run are stale once
+            # this process owns the exclusive lock.
+            if ! python3 "${runtime_local_helper}" prune-lock-state \
+                "${POSTINSTALL_CACHE_DIR}" \
+                "${runtime_local_lock_scope}" \
+                "${RUNTIME_LOCK_STATUS_FILE##*/}"; then
+                printf 'runtime: warning: unable to prune stale lock state files\n' >&2
+            fi
+
+            # The commit marker makes USR2 an acquisition-only cancellation
+            # signal. Once acquisition succeeds, group-directed USR2 cannot
+            # make the helpers release the lock prematurely.
+            if ! runtime_append_file \
+                "${RUNTIME_LOCK_COMMIT_FILE}" \
+                "committed\n"; then
+                break
+            fi
+            if ! python3 "${runtime_local_holder}" \
+                validate-status \
+                "${RUNTIME_LOCK_STATUS_FILE}" \
+                "${RUNTIME_LOCK_PID}" \
+                "${runtime_local_installer_pid}" \
+                "${runtime_local_installer_identity}" >/dev/null; then
+                rm -f -- "${RUNTIME_LOCK_COMMIT_FILE}" || true
+                break
+            fi
+
+            RUNTIME_LOCK_HOLDER_PID="${runtime_local_holder_pid}"
+            RUNTIME_LOCK_WORKER_PID="${runtime_local_worker_pid}"
+            RUNTIME_LOCK_HELD=1
+            return 0
+        fi
+
+        if [ -z "${runtime_local_wrapper_identity}" ]; then
+            runtime_local_wrapper_identity=$(runtime_capture_process_identity \
+                "${RUNTIME_LOCK_PID}" 2>/dev/null || true)
+        fi
+        if [ -n "${runtime_local_wrapper_identity}" ] &&
+            ! runtime_process_identity_matches \
+                "${RUNTIME_LOCK_PID}" \
+                "${runtime_local_wrapper_identity}"; then
+            break
+        fi
+        if [ -z "${runtime_local_wrapper_identity}" ] &&
+            ! kill -0 "${RUNTIME_LOCK_PID}" 2>/dev/null; then
+            break
+        fi
+        sleep 0.05
+    done
+
+    # Cancellation during acquisition uses USR2 rather than TERM. The guardian
+    # forwards it to the supervisor and releases the descriptor only after the
+    # helper process tree has stopped.
+    if [ -n "${runtime_local_wrapper_identity}" ] &&
+        runtime_process_identity_matches \
+            "${RUNTIME_LOCK_PID}" \
+            "${runtime_local_wrapper_identity}"; then
+        kill -USR2 "${RUNTIME_LOCK_PID}" 2>/dev/null || true
+    fi
+    runtime_local_status=1
+    if wait "${RUNTIME_LOCK_PID}" 2>/dev/null; then
+        runtime_local_status=0
+    else
+        runtime_local_status="${?}"
+    fi
+
+    rm -f -- \
+        "${RUNTIME_LOCK_STATUS_FILE}" \
+        "${RUNTIME_LOCK_COMMIT_FILE}" || true
+    RUNTIME_LOCK_PID=""
+    RUNTIME_LOCK_HOLDER_PID=""
+    RUNTIME_LOCK_WORKER_PID=""
+    RUNTIME_LOCK_COMMIT_FILE=""
+
+    if [ "${runtime_local_status}" -eq 75 ]; then
+        printf 'runtime: another installer is already running (lock: %s)\n' \
+            "${POSTINSTALL_LOCK_FILE}" >&2
+        return 75
+    fi
+    printf 'runtime: unable to lock file: %s\n' \
+        "${POSTINSTALL_LOCK_FILE}" >&2
+    return 73
+}
+
+function runtime_release_install_lock {
+    if [ "${RUNTIME_LOCK_HELD}" -ne 1 ]; then
+        return 0
+    fi
+
+    # The lock wrapper, supervisor, and worker deliberately retain the
+    # descriptor until they observe the installer's termination. The guardian
+    # removes the status and commit files after that observation. In
+    # particular, the commit marker must remain present throughout cleanup so
+    # USR2 cannot cancel an already-committed lock.
+    RUNTIME_LOCK_HOLDER_PID=""
+    RUNTIME_LOCK_WORKER_PID=""
+    RUNTIME_LOCK_PID=""
+    RUNTIME_LOCK_STATUS_FILE=""
+    RUNTIME_LOCK_COMMIT_FILE=""
+    RUNTIME_LOCK_HELD=0
     return 0
 }
 
@@ -317,7 +745,15 @@ function runtime_handle_signal {
     local runtime_local_status="${1:-1}"
     local runtime_local_name="${2:-signal}"
 
-    if [ "${RUNTIME_CRITICAL_DEPTH}" -gt 0 ]; then
+    # Lock loss is a security-sensitive terminal status. Once it is pending,
+    # an ordinary shutdown signal must not replace status 141 during cleanup.
+    if [ "${RUNTIME_PENDING_LOCK_LOSS}" -eq 1 ]; then
+        runtime_log "WARN" "Received ${runtime_local_name}; preserving pending lock-loss status 141." \
+            "runtime.lock.lost" || true
+        return 0
+    fi
+
+    if [ "${RUNTIME_CRITICAL_DEPTH}" -gt 0 ] || [ "${RUNTIME_CLEANING}" -eq 1 ]; then
         RUNTIME_PENDING_SIGNAL_STATUS="${runtime_local_status}"
         RUNTIME_PENDING_SIGNAL_NAME="${runtime_local_name}"
         runtime_log "WARN" "Received ${runtime_local_name}; deferring shutdown until the current operation completes."
@@ -328,8 +764,31 @@ function runtime_handle_signal {
     exit "${runtime_local_status}"
 }
 
+function runtime_handle_lock_loss {
+    local runtime_local_status="${1:-141}"
+
+    # Lock loss always takes precedence over a previously pending ordinary
+    # signal, and remains pending until the installer exits.
+    RUNTIME_PENDING_LOCK_LOSS=1
+    RUNTIME_PENDING_SIGNAL_STATUS="${runtime_local_status}"
+    RUNTIME_PENDING_SIGNAL_NAME="lock-loss"
+
+    if [ "${RUNTIME_CRITICAL_DEPTH}" -gt 0 ] || [ "${RUNTIME_CLEANING}" -eq 1 ]; then
+        runtime_log "ERROR" "The installation lock helpers failed; aborting after the current operation completes." \
+            "runtime.lock.lost" || true
+        printf 'runtime: installation lock helpers failed; aborting after cleanup\n' >&2
+        return 0
+    fi
+
+    runtime_log "ERROR" "The installation lock helpers failed; aborting immediately." \
+        "runtime.lock.lost" || true
+    printf 'runtime: installation lock was lost; aborting immediately\n' >&2
+    exit "${runtime_local_status}"
+}
+
 function runtime_cleanup {
     local runtime_local_status="${?}"
+    local runtime_local_final_status
     local runtime_local_index
     local runtime_local_name
     local runtime_local_callback
@@ -354,9 +813,16 @@ function runtime_cleanup {
         fi
     done
 
+    runtime_local_final_status="${runtime_local_status}"
+    if [ "${RUNTIME_PENDING_SIGNAL_STATUS}" -ne 0 ]; then
+        runtime_local_final_status="${RUNTIME_PENDING_SIGNAL_STATUS}"
+    fi
     RUNTIME_CLEANING=0
     RUNTIME_CLEANED=1
-    return "${runtime_local_status}"
+    if [ "${RUNTIME_PENDING_SIGNAL_STATUS}" -ne 0 ]; then
+        exit "${runtime_local_final_status}"
+    fi
+    return "${runtime_local_final_status}"
 }
 
 function runtime_append_file {

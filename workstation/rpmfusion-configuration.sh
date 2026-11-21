@@ -4,25 +4,10 @@
 
 section "RPMFusion installation and configuration"
 
-description "RPMFusion is an open source project that provides a repository \
-of additional software packages for various Linux distributions that use \
-the RPM package management system, such as Fedora and CentOS. It offers \
-access to a wide range of multimedia codecs, drivers, and other software \
-that are not included in the official distribution repositories."
-
+description "Configure RPM Fusion and optionally replace ffmpeg."
 echo
 
-question "Do you want to install and configure the RPMFusion repositories?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install and configure the RPMFusion repositories?"; then
 
     info "Configuring the free repository."
     sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm -y
@@ -30,7 +15,6 @@ if [ $? = 0 ]; then
     info "Configuring the non-free repository."
     sudo dnf install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm -y
 
-    # check if ffmpeg is already installed
     if [ "$(rpm -qa | grep -i ffmpeg)" ]; then
 
         section "ffmpeg configuration"
@@ -44,17 +28,7 @@ work with a wider range of media formats."
 
         echo
 
-        question "Do you want to replace Fedora's ffmpeg by RPMFusion's?"
-
-        # $? holds the exit status of the previous command execution; the
-        # logic applied throughout the post installation is
-        # +----+---------------+
-        # | $? | Semantics     |
-        # +----+---------------+
-        # | 0  | yes / success |
-        # | 1  | no / failure  |
-        # +----+---------------+
-        if [ $? = 0 ]; then
+        if question "Do you want to replace Fedora's ffmpeg by RPMFusion's?"; then
 
             info "Replacing Fedora's ffmpeg."
             sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y

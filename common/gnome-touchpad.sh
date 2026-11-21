@@ -4,23 +4,10 @@
 
 section "GNOME touchpad configuration"
 
-description "This section modifies the GNOME touchpad configuration to \
-enable tap-to-click functionality and two-finger scrolling, providing a \
-more intuitive and responsive touchpad experience."
-
+description "Configure the GNOME touchpad."
 echo
 
-question "Do you want to configure your laptop touchpad?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to configure your laptop touchpad?"; then
 
     info "Enabling tap to click."
     gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true

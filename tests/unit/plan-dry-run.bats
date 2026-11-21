@@ -68,7 +68,7 @@ printf 'forbidden command invoked: %s\n' "$*" >&2
 exit 99
 EOF
 
-    for command in sudo dnf flatpak gsettings hostnamectl curl wget toolbox git; do
+    for command in sudo dnf flatpak gsettings hostnamectl curl wget toolbox git flock; do
         cp "${MOCK_BIN}/forbidden" "${MOCK_BIN}/${command}"
     done
 
@@ -85,6 +85,7 @@ run_cli() {
         HOME="${TEST_HOME}" \
         XDG_CONFIG_HOME="${TEST_ROOT}/config" \
         XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         POSTINSTALL_STATE_FILE="${STATE_FILE}" \
@@ -120,9 +121,83 @@ run_cli() {
         .schema_version == 1 and
         .dry_run == true and
         .flavor.selected == "workstation" and
-        .architecture.selected == "x86_64"
+        .architecture.selected == "x86_64" and
+        (.paths.cache_dir | length > 0) and
+        (.paths.lock_file | length > 0)
     ' <<<"${output}"
     assert_success
+}
+
+@test "plans report paths without creating the cache or lock" {
+    local cache_dir="${TEST_ROOT}/reported-cache"
+    local lock_file="${TEST_ROOT}/locks/reported.lock"
+
+    run_cli plan --json --cache-dir "${cache_dir}" --lock-file "${lock_file}"
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${cache_dir}"'" and
+        .paths.lock_file == "'"${lock_file}"'"
+    ' <<<"${output}"
+    assert_success
+    assert_file_absent "${cache_dir}"
+    assert_file_absent "${lock_file}"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+
+    run_cli plan --cache-dir "${cache_dir}" --lock-file "${lock_file}"
+    assert_success
+    assert_output_contains "Cache directory: ${cache_dir}"
+    assert_output_contains "Lock file: ${lock_file}"
+
+    run_cli install --dry-run --cache-dir "${cache_dir}" --lock-file "${lock_file}"
+    assert_success
+    assert_file_absent "${cache_dir}"
+    assert_file_absent "${lock_file}"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+
+    run_cli extras --dry-run --tools fd --cache-dir "${cache_dir}" \
+        --lock-file "${lock_file}"
+    assert_success
+    assert_file_absent "${cache_dir}"
+    assert_file_absent "${lock_file}"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+
+    run_cli detect --cache-dir "${cache_dir}" --lock-file "${lock_file}"
+    assert_success
+    assert_file_absent "${cache_dir}"
+    assert_file_absent "${lock_file}"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+}
+
+@test "a plan succeeds while another process holds the selected lock" {
+    local cache_dir="${TEST_ROOT}/held-lock-cache"
+    local lock_file="${TEST_ROOT}/held.lock"
+    local marker_file="${TEST_ROOT}/lock-holder-ready"
+    local release_file="${TEST_ROOT}/release-lock-holder"
+    local flock_bin
+    local holder
+
+    flock_bin=$(command -v flock)
+    "${flock_bin}" "${lock_file}" bash -c \
+        'touch "$1"; while [ ! -e "$2" ]; do sleep 0.05; done' \
+        _ "${marker_file}" "${release_file}" &
+    holder="${!}"
+    for _ in {1..100}; do
+        [ -e "${marker_file}" ] && break
+        sleep 0.05
+    done
+    if [ ! -e "${marker_file}" ]; then
+        kill "${holder}" 2>/dev/null || true
+        wait "${holder}" 2>/dev/null || true
+        return 1
+    fi
+
+    run_cli plan --cache-dir "${cache_dir}" --lock-file "${lock_file}"
+    touch "${release_file}"
+    wait "${holder}" 2>/dev/null || true
+
+    assert_success
+    assert_file_absent "${cache_dir}"
+    assert_file_absent "${FORBIDDEN_MARKER}"
 }
 
 @test "a profile can omit the extras module" {

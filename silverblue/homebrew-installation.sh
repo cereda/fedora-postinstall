@@ -4,30 +4,15 @@
 
 section "Homebrew installation and configuration"
 
-description "Homebrew is a free and open source package manager for macOS \
-and Linux. It simplifies the installation and management of software on \
-these operating systems by automating the process of downloading, compiling, \
-and installing various applications and libraries."
-
+description "Install Homebrew in a Fedora toolbox."
 echo
 
-question "Do you want to install Homebrew?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install Homebrew?"; then
 
     info "Installing Homebrew."
     runtime_capture_output INSTALLER_SCRIPT curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh || return 1
     bash -c "${INSTALLER_SCRIPT}"
 
-    # get the Homebrew toolbox container name
     TOOLBOX_HOMEBREW_NAME=$(prompt_valid_container_name "Your Homebrew container name: " "f${FEDORA_VERSION}-homebrew")
 
     info "Creating and configuring the Homebrew container."
@@ -35,17 +20,7 @@ if [ $? = 0 ]; then
 
     echo
 
-    question "Homebrew requires the development tools group. Do you want to install them now?"
-
-    # $? holds the exit status of the previous command execution; the logic
-    # applied throughout the post installation is
-    # +----+---------------+
-    # | $? | Semantics     |
-    # +----+---------------+
-    # | 0  | yes / success |
-    # | 1  | no / failure  |
-    # +----+---------------+
-    if [ $? = 0 ]; then
+    if question "Homebrew requires the development tools group. Do you want to install them now?"; then
 
         info "Installing the development tools group."
         toolbox --container "${TOOLBOX_HOMEBREW_NAME}" run sudo dnf group install development-tools
@@ -56,26 +31,13 @@ if [ $? = 0 ]; then
 
     echo
 
-    question "Should Homebrew be available outside a toolbox environment?"
+    if question "Should Homebrew be available outside a toolbox environment?"; then
 
-    # $? holds the exit status of the previous command execution; the logic
-    # applied throughout the post installation is
-    # +----+---------------+
-    # | $? | Semantics     |
-    # +----+---------------+
-    # | 0  | yes / success |
-    # | 1  | no / failure  |
-    # +----+---------------+
-    if [ $? = 0 ]; then
-
-        # Homebrew will be available outside a toolbox environment; this means
-        # all command line tools installed via brew will be visible system-wide
-
-        # Caveat emptor: don't run brew outside a toolbox environment, as it
-        # requires development tools that are not available system-wide
+        # Expose Homebrew outside toolbox containers. The development toolchain
+        # remains scoped to the toolbox unless it is installed on the host.
 
         info "Creating Homebrew configuration file (global availability)."
-        tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<EOF
+        cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<'SH'
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 
@@ -88,7 +50,7 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     fi
 
     # mount point for Homebrew does not exist
-    if [[ ! \$(mount | grep linuxbrew) ]]; then
+    if [[ ! $(mount | grep linuxbrew) ]]; then
 
         # mount point binding to the existing Homebrew
         # directory in the host system
@@ -100,17 +62,15 @@ fi
 export HOMEBREW_NO_ENV_HINTS=1
 
 # source the Homebrew configuration
-eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-EOF
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+SH
 
     else
 
-        # Homebrew will be available only inside a toolbox environment; this
-        # means all command line tools installed via brew will not be visible
-        # system-wide
+        # Keep Homebrew and its tools scoped to the toolbox container.
 
         info "Creating Homebrew configuration file (local availability)."
-        tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<EOF
+        cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/homebrew.sh" <<'SH'
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 
@@ -123,7 +83,7 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     fi
 
     # mount point for Homebrew does not exist
-    if [[ ! \$(mount | grep linuxbrew) ]]; then
+    if [[ ! $(mount | grep linuxbrew) ]]; then
 
         # mount point binding to the existing Homebrew
         # directory in the host system
@@ -134,9 +94,9 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     export HOMEBREW_NO_ENV_HINTS=1
 
     # source the Homebrew configuration
-    eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
-EOF
+SH
 
     fi
 fi

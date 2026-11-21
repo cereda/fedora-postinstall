@@ -4,31 +4,17 @@
 
 section "forgit installation and configuration"
 
-description "forgit is a command line tool that combines the functionalities \
-of git and fzf to enhance the Git workflow. It allows users to navigate and \
-manage git repositories more efficiently by providing a fuzzy search \
-capability for branches, commits, and other elements, streamlining the \
-process of finding and interacting with various git objects."
-
+description "Install and configure forgit."
 echo
 
-question "Do you want to install forgit?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install forgit?"; then
 
     info "Cloning the repository."
     git clone https://github.com/wfxr/forgit "${ROOT_DIRECTORY_STRUCTURE}/applications/forgit"
 
     info "Writing helper script."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/forgit.sh" <<EOF
+    # Resolve managed paths now; escaped values remain runtime shell expressions.
+    cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/forgit.sh" <<SH
 #!/bin/bash
 export FORGIT_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/forgit"
 export FORGIT_NO_ALIASES="true"
@@ -47,6 +33,6 @@ pathmunge \${FORGIT_HOME}/bin after
 unset pathmunge
 
 source "${ROOT_DIRECTORY_STRUCTURE}/applications/forgit/forgit.plugin.sh"
-EOF
+SH
 
 fi

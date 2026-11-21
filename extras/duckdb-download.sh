@@ -2,12 +2,5 @@
 
 # SPDX-License-Identifier: MIT
 
-tool-section "duckdb"
-
-description "duckdb provides a lightweight, embedded SQL database engine, \
-allowing users to quickly query and analyze data directly from the terminal \
-without the need for a separate database server."
-
-echo
-
-download_extras_tool "duckdb"
+extras_describe_tool "duckdb" || return 1
+download_extras_tool "duckdb" || return 1

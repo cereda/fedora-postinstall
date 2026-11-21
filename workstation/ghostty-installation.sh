@@ -4,22 +4,10 @@
 
 section "Ghostty installation"
 
-description "Ghostty is a fast, feature-rich, and cross-platform terminal \
-emulator that uses platform-native UI and GPU acceleration."
-
+description "Install the Ghostty terminal emulator."
 echo
 
-question "Do you want to install Ghostty?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install Ghostty?"; then
 
     info "Enabling the Ghostty COPR."
     sudo dnf copr enable scottames/ghostty

@@ -4,11 +4,7 @@
 
 section "Unpinning Flatpak runtimes"
 
-description "In Fedora Silverblue, unpinning is used to allow the automatic \
-update of a Flatpak runtime. This ensures the runtime stays current with \
-security patches and new features, improving the overall system security \
-and stability."
-
+description "Allow Fedora Flatpak runtimes to update automatically."
 echo
 
 warning "In case this action fails, please run 'flatpak pin <runtime> \
@@ -16,17 +12,7 @@ warning "In case this action fails, please run 'flatpak pin <runtime> \
 
 echo
 
-question "Do you want to unpin the platform runtimes?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to unpin the platform runtimes?"; then
 
     # unpin only the Fedora platform runtimes for the current architecture and
     # release; other pins may have been created intentionally by the user

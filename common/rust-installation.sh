@@ -4,12 +4,7 @@
 
 section "Rust installation and configuration"
 
-description "Rust is an open source, systems programming language \
-that focuses on performance, safety, and concurrency. It is \
-designed to be a safe, concurrent, and practical language, \
-suitable for a wide range of applications, from low-level \
-system programming to high level web development and beyond."
-
+description "Install and configure Rust."
 echo
 
 warning "Note that Rust requires a C toolchain. Please install a C compiler \
@@ -18,17 +13,7 @@ also work). Alternatively, you can set up the C toolchain inside a toolbox."
 
 echo
 
-question "Do you want to install Rust?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install Rust?"; then
 
     info "Preparing the Rust environment."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments/rust"
@@ -37,15 +22,13 @@ if [ $? = 0 ]; then
     export CARGO_HOME="${ROOT_DIRECTORY_STRUCTURE}/environments/rust/cargo"
     export RUSTUP_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/rustup"
 
-    # rustup has its own installation script, setting both the rustup and
-    # the cargo directories via environment variables (as described in the
-    # documentation); to avoid path modification, a command line flag is
-    # also applied to the installation script
+    # Keep rustup and Cargo inside the managed applications directory.
     info "Installing binaries."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --no-modify-path
 
     info "Writing helper script."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" <<EOF
+    # Resolve managed paths now; escaped values remain runtime shell expressions.
+    cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" <<SH
 #!/bin/bash
 export CARGO_HOME="${ROOT_DIRECTORY_STRUCTURE}/environments/rust/cargo"
 export RUSTUP_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/rustup"
@@ -61,6 +44,6 @@ pathmunge () {
 }
 pathmunge \${CARGO_HOME}/bin after
 unset pathmunge
-EOF
+SH
 
 fi

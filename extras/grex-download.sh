@@ -2,12 +2,5 @@
 
 # SPDX-License-Identifier: MIT
 
-tool-section "grex"
-
-description "grex simplifies the creation of regular expressions, providing \
-an intuitive interface for generating and testing complex patterns to match \
-text and data."
-
-echo
-
-download_extras_tool "grex"
+extras_describe_tool "grex" || return 1
+download_extras_tool "grex" || return 1

@@ -2,6 +2,7 @@
 
 # SPDX-License-Identifier: MIT
 
+POSTINSTALL_INVOCATION_DIRECTORY=$(pwd -P) || exit 1
 SCRIPT_PATH=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 cd "${SCRIPT_PATH}" || exit 1
 
@@ -15,6 +16,7 @@ source "common/profile.sh" || exit 1
 source "common/plan.sh" || exit 1
 
 cli_parse_arguments "$@" || exit $?
+cli_apply_options
 
 case "${CLI_COMMAND}" in
 help)
@@ -100,7 +102,9 @@ fi
 plan_resolve_tools "${SELECTED_ARCHITECTURE}" || exit $?
 
 cli_apply_options
+runtime_acquire_install_lock || exit $?
 runtime_initialize || exit 1
+runtime_register_cleanup "install-lock" runtime_release_install_lock || exit 1
 
 source "common/gum-functions.sh" || exit 1
 source "common/validation.sh" || exit 1
@@ -127,11 +131,7 @@ fi
 if [ "${CLI_COMMAND}" = "install" ]; then
     chapter "Paulo's Fedora ${FEDORA_VERSION} post installation script"
 
-    description "Fedora Linux is a free and open source operating system \
-sponsored by Red Hat, focused on innovation, security, and community \
-collaboration. It provides a stable, cutting-edge platform for \
-developers, enthusiasts, and users seeking a modern, reliable Linux \
-distribution."
+    description "Install and configure the selected Fedora flavor."
 
     echo
 

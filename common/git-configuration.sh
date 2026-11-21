@@ -4,10 +4,7 @@
 
 section "Git configuration"
 
-description "Git is a distributed version control system used for tracking \
-changes in source code during software development, allowing multiple \
-developers to collaborate on a project."
-
+description "Configure Git identity, editor, pager, and hooks."
 echo
 
 warning "This configuration uses 'git-delta' as pager and 'vim' as editor. \
@@ -16,26 +13,19 @@ configuration to use your preferred settings."
 
 echo
 
-# ask for user input (name and e-mail address)
 GIT_USERNAME=$(prompt_valid_git_name)
 GIT_EMAIL=$(prompt_valid_git_email)
 
-# XDG-based configuration
-GIT_CONFIG_LOCATION="${HOME}/.config/git"
-
-# legacy configuration
-# GIT_CONFIG_LOCATION="${HOME}"
-
-# XDG-based configuration file
+# Store user configuration in XDG while keeping hooks in the managed tree.
+GIT_CONFIG_ROOT="${XDG_CONFIG_HOME:-${HOME}/.config}"
+if [[ "${GIT_CONFIG_ROOT}" != /* ]]; then
+    GIT_CONFIG_ROOT="${HOME}/.config"
+fi
+GIT_CONFIG_LOCATION="${GIT_CONFIG_ROOT}/git"
 GIT_CONFIG_FILE="config"
 
-# legacy configuration file
-# GIT_CONFIG_FILE=".gitconfig"
-
-# ensure XDG-based path exists
 mkdir -p "${GIT_CONFIG_LOCATION}"
 
-# ensure the hooks path exists
 mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/git/hooks"
 
 info "Generating configuration file for Git."

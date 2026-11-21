@@ -28,4 +28,5 @@ function require_runtime_dependencies {
     require_command "jq" "needed to inspect the command line tool manifest" || return 1
     require_command "git" "needed by several installers" || return 1
     require_command "realpath" "needed to validate configuration paths" || return 1
+    require_command "flock" "needed to serialize post-installation runs" || return 1
 }

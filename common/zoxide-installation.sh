@@ -4,27 +4,10 @@
 
 section "zoxide installation"
 
-description "zoxide is a command line tool designed to enhance navigation \
-in the terminal by allowing users to quickly jump to frequently accessed \
-directories. It uses a smart algorithm to track and prioritize directory \
-usage, enabling faster access through simple commands."
-
+description "Install and configure zoxide."
 echo
 
-question "Do you want to install zoxide?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # Note: GitHub may apply rate limits to the API endpoint, which could
-    # cause this section to fail (been there, done that)
+if question "Do you want to install zoxide?"; then
 
     info "Getting latest version of zoxide from GitHub."
     test -f zoxide.json || wget -q -O zoxide.json https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest

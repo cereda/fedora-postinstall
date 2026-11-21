@@ -4,25 +4,10 @@
 
 section "VSCodium installation and configuration"
 
-description "VSCodium is an open source, binary distribution of Microsoft's \
-Visual Studio Code (VS Code) editor, without the telemetry and proprietary \
-features. It provides the same core functionality as VS Code, but with a \
-focus on privacy and transparency by removing the Microsoft-specific branding \
-and tracking components."
-
+description "Install and configure VSCodium as a Flatpak."
 echo
 
-question "Do you want to install and configure VSCodium?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install and configure VSCodium?"; then
 
     info "Installing the VSCodium application as Flatpak."
     flatpak install flathub com.vscodium.codium
@@ -34,21 +19,16 @@ if [ $? = 0 ]; then
 
     echo
 
-    # the simple configuration includes basic settings, whereas the fancy
-    # configuration provides additional settings to the workspace
     VSCODIUM_FLAVOUR=$("${GUM}" choose "Simple" "Fancy")
 
-    # fallback in case the user does not select a color theme, based on the
-    # -z check -- a test operator that checks if a string is null
     if [ -z "${VSCODIUM_FLAVOUR}" ]; then
         VSCODIUM_FLAVOUR="Simple"
     fi
 
-    # the simple configuration includes basic settings
     if [ "${VSCODIUM_FLAVOUR}" = "Simple" ]; then
 
         info "Writing the configuration file (simple)."
-        tee "${HOME}/.var/app/com.vscodium.codium/config/VSCodium/User/settings.json" <<EOF
+        cat >"${HOME}/.var/app/com.vscodium.codium/config/VSCodium/User/settings.json" <<'JSON'
 {
     "workbench.startupEditor": "none",
     "editor.fontFamily": "'JetBrainsMono Nerd Font', 'Droid Sans Mono', 'monospace', monospace",
@@ -59,14 +39,12 @@ if [ $? = 0 ]; then
     "window.restoreWindows": "none",
     "workbench.colorTheme": "Default Light Modern"
 }
-EOF
+JSON
 
     else
 
-        # fancy configuration
-
         info "Writing the configuration file (fancy)."
-        tee "${HOME}/.var/app/com.vscodium.codium/config/VSCodium/User/settings.json" <<EOF
+        cat >"${HOME}/.var/app/com.vscodium.codium/config/VSCodium/User/settings.json" <<'JSON'
 {
     "workbench.startupEditor": "none",
     "editor.fontFamily": "'Cascadia Code', 'JetBrainsMono Nerd Font', 'Droid Sans Mono', 'monospace', monospace",
@@ -127,7 +105,7 @@ EOF
 	// "vsicons.dontShowNewVersionMessage": true
     // ****************************************************
 }
-EOF
+JSON
 
     fi
 fi

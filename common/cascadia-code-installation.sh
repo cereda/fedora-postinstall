@@ -4,26 +4,10 @@
 
 section "Cascadia Code font installation"
 
-description "Cascadia Code is a monospaced font designed for programming, \
-featuring clear letterforms, ligatures, and support for a wide range of \
-programming languages and symbols."
-
+description "Install the Cascadia Code programming font."
 echo
 
-question "Do you want to install Cascadia Code?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # Note: GitHub may apply rate limits to the API endpoint, which could
-    # cause this section to fail (been there, done that)
+if question "Do you want to install Cascadia Code?"; then
 
     info "Getting the latest version of Cascadia Code from GitHub."
     test -f cascadia-code.json || wget -q -O cascadia-code.json https://api.github.com/repos/microsoft/cascadia-code/releases/latest

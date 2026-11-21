@@ -4,27 +4,10 @@
 
 section "carapace-bin installation"
 
-description "carapace-bin is a command line tool that generates shell \
-completion scripts for various command line tools and applications. \
-It helps users easily set up tab completion for their favorite CLI \
-tools, improving productivity and user experience."
-
+description "Generate shell completions for command-line tools."
 echo
 
-question "Do you want to install carapace-bin?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # Note: GitHub may apply rate limits to the API endpoint, which could
-    # cause this section to fail (been there, done that)
+if question "Do you want to install carapace-bin?"; then
 
     info "Getting latest version of carapace-bin from GitHub."
     test -f carapace.json || wget -q -O carapace.json https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest

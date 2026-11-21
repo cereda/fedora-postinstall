@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 GUM_TEXT_WIDTH=75
+GUM_PROMPT_ACCEPTED=0
+GUM_PROMPT_DECLINED=1
 
 function chapter {
     "${GUM}" style --border double \
@@ -29,16 +31,37 @@ function tool-section {
         "Additional command line tools: $1"
 }
 
+# Prompt contract: status 0 means accepted, status 1 means declined, and any
+# other status is an operational failure that aborts the installer with that
+# status.
 function question {
-    if "${GUM}" confirm \
+    local prompt="${1:-}"
+    local gum="${GUM:-}"
+    local status
+
+    if [ -z "${gum}" ]; then
+        gum="$(command -v gum || true)"
+    fi
+    if [ -z "${gum}" ]; then
+        printf 'Unable to locate gum; aborting.\n' >&2
+        exit 127
+    fi
+
+    if "${gum}" confirm \
         --prompt.foreground=6 \
         --selected.background=6 \
-        "$1"; then
-        return 0
+        "${prompt}"; then
+        return "${GUM_PROMPT_ACCEPTED}"
     else
-        RUNTIME_EXPECTED_FAILURE=1
-        return 1
+        status="${?}"
     fi
+
+    if [ "${status}" -eq "${GUM_PROMPT_DECLINED}" ]; then
+        return "${GUM_PROMPT_DECLINED}"
+    fi
+
+    printf 'Prompt failed with status %s; aborting.\n' "${status}" >&2
+    exit "${status}"
 }
 
 function text {

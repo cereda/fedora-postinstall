@@ -93,6 +93,7 @@ run_cli() {
         HOME="${TEST_HOME}" \
         XDG_CONFIG_HOME="${TEST_ROOT}/config" \
         XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         bash "${SANDBOX_REPO}/fedora-postinstall.sh" "$@"
@@ -102,6 +103,8 @@ run_cli() {
     run_cli help
     assert_success
     assert_output_contains "Usage: bash fedora-postinstall.sh"
+    assert_output_contains "--cache-dir PATH"
+    assert_output_contains "--lock-file PATH"
     assert_file_absent "${FORBIDDEN_MARKER}"
 }
 
@@ -125,6 +128,145 @@ run_cli() {
     run_cli plan --profile-file=
     assert_equal "${status}" 64
     assert_output_contains "--profile-file requires a value"
+}
+
+@test "cache and lock options require values" {
+    run_cli plan --cache-dir
+    assert_equal "${status}" 64
+    assert_output_contains "--cache-dir requires a value"
+
+    run_cli plan --lock-file
+    assert_equal "${status}" 64
+    assert_output_contains "--lock-file requires a value"
+
+    run_cli plan --cache-dir=
+    assert_equal "${status}" 64
+    assert_output_contains "--cache-dir requires a value"
+
+    run_cli plan --lock-file=
+    assert_equal "${status}" 64
+    assert_output_contains "--lock-file requires a value"
+}
+
+@test "plans report the default cache and lock paths" {
+    run_cli plan --json
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${TEST_ROOT}"'/cache/fedora-postinstall" and
+        .paths.lock_file == "'"${TEST_ROOT}"'/cache/fedora-postinstall/postinstall.lock"
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "the default lock follows the effective cache directory" {
+    local cache_dir="${TEST_ROOT}/cache-only"
+
+    run_cli plan --json --cache-dir "${cache_dir}"
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${cache_dir}"'" and
+        .paths.lock_file == "'"${cache_dir}"'/postinstall.lock"
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "an explicit lock path is independent of the cache option order" {
+    local cache_dir="${TEST_ROOT}/ordered-cache"
+    local lock_file="${TEST_ROOT}/ordered.lock"
+
+    run_cli plan --json --lock-file "${lock_file}" --cache-dir "${cache_dir}"
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${cache_dir}"'" and
+        .paths.lock_file == "'"${lock_file}"'"
+    ' <<<"${output}"
+    assert_success
+
+    run_cli plan --json --cache-dir "${cache_dir}" --lock-file "${lock_file}"
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${cache_dir}"'" and
+        .paths.lock_file == "'"${lock_file}"'"
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "relative cache and lock paths resolve from the invocation directory" {
+    run env \
+        HOME="${TEST_HOME}" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash -c \
+            'cd "$1" && exec bash "$2/fedora-postinstall.sh" plan --json --cache-dir relative/cache --lock-file relative.lock' \
+            _ "${TEST_ROOT}" "${SANDBOX_REPO}"
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${TEST_ROOT}"'/relative/cache" and
+        .paths.lock_file == "'"${TEST_ROOT}"'/relative.lock"
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "cache and lock paths reject control characters" {
+    run_cli plan --cache-dir $'bad\ncache'
+    assert_equal "${status}" 64
+    assert_output_contains "invalid cache directory path"
+
+    run_cli plan --lock-file $'bad\nlock'
+    assert_equal "${status}" 64
+    assert_output_contains "invalid lock file path"
+}
+
+@test "cache and lock paths reject parent-directory components" {
+    run_cli plan --cache-dir "${TEST_ROOT}/cache/../cache"
+    assert_equal "${status}" 64
+    assert_output_contains "invalid cache directory path"
+
+    run_cli plan --lock-file "${TEST_ROOT}/locks/../install.lock"
+    assert_equal "${status}" 64
+    assert_output_contains "invalid lock file path"
+}
+
+@test "command-line cache and lock paths override the environment" {
+    local cache_dir="${TEST_ROOT}/custom cache"
+    local lock_file="${TEST_ROOT}/locks/custom lock"
+
+    run env \
+        HOME="${TEST_HOME}" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        POSTINSTALL_CACHE_DIR="${TEST_ROOT}/environment-cache" \
+        POSTINSTALL_LOCK_FILE="${TEST_ROOT}/environment-lock" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" plan --json \
+        --cache-dir "${cache_dir}" --lock-file "${lock_file}"
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${cache_dir}"'" and
+        .paths.lock_file == "'"${lock_file}"'"
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "environment cache and lock paths are reported" {
+    local cache_dir="${TEST_ROOT}/environment-cache"
+    local lock_file="${TEST_ROOT}/environment-lock"
+
+    run env \
+        HOME="${TEST_HOME}" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        POSTINSTALL_CACHE_DIR="${cache_dir}" \
+        POSTINSTALL_LOCK_FILE="${lock_file}" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" plan --json
+    assert_success
+    run jq -e '
+        .paths.cache_dir == "'"${cache_dir}"'" and
+        .paths.lock_file == "'"${lock_file}"'"
+    ' <<<"${output}"
+    assert_success
 }
 
 @test "CLI_TOOLS_ONLY keeps its presence-based default" {
@@ -212,6 +354,7 @@ run_cli() {
         HOME="${TEST_HOME}" \
         XDG_CONFIG_HOME="${TEST_ROOT}/config" \
         XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         POSTINSTALL_PROFILE=default \
@@ -229,6 +372,7 @@ run_cli() {
         HOME="${TEST_HOME}" \
         XDG_CONFIG_HOME="${TEST_ROOT}/config" \
         XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         POSTINSTALL_PROFILE_FILE="${profile}" \
@@ -244,6 +388,7 @@ run_cli() {
         HOME="${TEST_HOME}" \
         XDG_CONFIG_HOME="${TEST_ROOT}/config" \
         XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         POSTINSTALL_PROFILE=invalid \
@@ -263,6 +408,7 @@ run_cli() {
         HOME="${TEST_HOME}" \
         XDG_CONFIG_HOME="${TEST_ROOT}/config" \
         XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         POSTINSTALL_FLAVOR=silverblue \
@@ -277,6 +423,7 @@ run_cli() {
         HOME="${TEST_HOME}" \
         XDG_CONFIG_HOME="${TEST_ROOT}/config" \
         XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         POSTINSTALL_FLAVOR=silverblue \

@@ -4,24 +4,10 @@
 
 section "Miniconda installation"
 
-description "Miniconda is a lightweight distribution of the Anaconda Python \
-and R data science platform. It includes the Conda package manager and \
-Python, allowing users to create and manage virtual environments for \
-different projects and dependencies."
-
+description "Install and configure Miniconda."
 echo
 
-question "Do you want to install Miniconda?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to install Miniconda?"; then
 
     MINICONDA_INSTALLATION_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3"
 
@@ -41,12 +27,7 @@ if [ $? = 0 ]; then
         "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${MINICONDA_ARCHITECTURE}.sh" \
         -O miniconda-linux.sh
 
-    # Miniconda has its own installation script, run it with the
-    # following flags (as described in the documentation):
-    #
-    # -b: run install in batch mode
-    # -u: update an existing installation
-    # -p: install prefix
+    # Install in batch mode and update an existing managed installation.
     info "Installing Miniconda."
     bash miniconda-linux.sh -b -u -p "${MINICONDA_INSTALLATION_DIRECTORY}"
 

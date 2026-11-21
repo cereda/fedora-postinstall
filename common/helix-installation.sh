@@ -4,27 +4,10 @@
 
 section "Helix installation and configuration"
 
-description "Helix is an open source, modal code editor that aims to \
-provide a modern, efficient, and customizable text editing experience. \
-It's designed to be fast, lightweight, and highly extensible, with a \
-focus on productivity and developer experience."
-
+description "Install and configure the Helix editor."
 echo
 
-question "Do you want to install and configure Helix?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # Note: GitHub may apply rate limits to the API endpoint, which could
-    # cause this section to fail (been there, done that)
+if question "Do you want to install and configure Helix?"; then
 
     info "Getting latest version of Helix from GitHub."
     test -f helix-editor.json || wget -q -O helix-editor.json https://api.github.com/repos/helix-editor/helix/releases/latest
@@ -61,7 +44,7 @@ if [ $? = 0 ]; then
 
     info "Creating configuration file for Helix."
     mkdir -p "${HOME}/.config/helix"
-    tee "${HOME}/.config/helix/config.toml" <<EOF
+    cat >"${HOME}/.config/helix/config.toml" <<'TOML'
 theme = "onedark"
 
 [editor]
@@ -88,7 +71,7 @@ F5 = ":q!"
 
 [editor.soft-wrap]
 enable = true
-EOF
+TOML
 
     info "Creating symbolic link to make Helix available."
     mkdir -p "${HOME}/.local/bin"

@@ -9,13 +9,7 @@ source "extras/tools-deployment.sh"
 
 section "Additional command line tools"
 
-description "This section presents a collection of command line tools. \
-These tools cover a wide range of functionalities, such as terminal based \
-video recording, terminal sharing, vulnerability scanning, data processing, \
-system monitoring, web development, and much more, providing users with a \
-comprehensive set of utilities to enhance their productivity and workflow \
-within the terminal environment."
-
+description "Install selected command-line tools from the pinned manifest."
 echo
 
 text "Do you want to install any of these command line tools?"
@@ -150,6 +144,11 @@ text "You've selected ${#CLI_TOOLS_TO_INSTALL[@]} command line tool(s) to instal
 require_command "python3" "needed to safely extract downloaded tool archives"
 
 EXTRAS_WORKSPACE_ROOT="${TMPDIR:-/tmp}"
+if [ -z "${POSTINSTALL_CACHE_DIR:-}" ]; then
+    text "The command line tool cache directory is not configured."
+    return 1
+fi
+EXTRAS_CACHE_DIRECTORY="${POSTINSTALL_CACHE_DIR}/extras"
 if ! extras_validate_selected_tools "${CLI_TOOLS_TO_INSTALL[@]}"; then
     text "Unable to install the selected command line tools on ${EXTRAS_ARCHITECTURE}."
     return 1
@@ -166,7 +165,7 @@ if ! runtime_register_cleanup "extras-workspace" extras_cleanup_workspace; then
 fi
 
 if ! mkdir -p \
-    "${EXTRAS_WORKSPACE}/downloads" \
+    "${EXTRAS_WORKSPACE}/artifacts" \
     "${EXTRAS_WORKSPACE}/extracted" \
     "${EXTRAS_WORKSPACE}/staged" \
     "${EXTRAS_WORKSPACE}/backups"; then
@@ -180,6 +179,8 @@ if ! : >"${EXTRAS_ARTIFACT_LEDGER}" || ! : >"${EXTRAS_STAGE_LEDGER}"; then
     return 1
 fi
 
+# Conditional sourcing suppresses the ERR trap in Bash. Each wrapper checks
+# every fallible operation and returns a failure status explicitly.
 for CLI_TOOL_TO_INSTALL in "${CLI_TOOLS_TO_INSTALL[@]}"; do
     if ! source "extras/${CLI_TOOL_TO_INSTALL}-download.sh"; then
         text "Unable to download ${CLI_TOOL_TO_INSTALL}. No tools were deployed."

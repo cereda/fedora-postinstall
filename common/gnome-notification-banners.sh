@@ -4,23 +4,10 @@
 
 section "GNOME notification banners"
 
-description "This script adjusts the GNOME desktop settings by disabling the \
-display of notification banners and the appearance of notifications on the \
-lock screen."
-
+description "Disable GNOME notification banners."
 echo
 
-question "Do you want to disable notification banners?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to disable notification banners?"; then
 
     info "Disabling notification banners."
     gsettings set org.gnome.desktop.notifications show-banners false

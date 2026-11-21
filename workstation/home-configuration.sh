@@ -4,61 +4,83 @@
 
 section "Paulo's custom configuration for the home directory"
 
-description "A custom home directory setup provides improved \
-organization, security, and system performance by allowing \
-users to tailor the directory structure and access \
-permissions to their specific needs."
-
+description "Create the managed home-directory structure and shell configuration."
 echo
 
 # use a shell-safe command name independent from the host name
 COMMAND_NAME="host_${MACHINE_NAME//[^A-Za-z0-9_]/_}"
 
-question "Do you want to use a hidden directory structure? [recommended]"
+HIDDEN_DIRECTORY_PROMPT_STATUS=0
+question "Do you want to use a hidden directory structure? [recommended]" ||
+    HIDDEN_DIRECTORY_PROMPT_STATUS="${?}"
 
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+case "${HIDDEN_DIRECTORY_PROMPT_STATUS}" in
+0)
 
-    # the root directory will be defined based on the HOME
-    # directory + .<machine name> (hidden structure)
+    # Keep the managed tree hidden by default.
     ROOT_DIRECTORY_STRUCTURE="${HOME}/.${MACHINE_NAME}"
-else
-
-    # ask user to select a directory to store applications, scripts,
-    # settings, profile, and other relevant files
+    ;;
+1)
 
     text "Please select a directory. You can navigate \
 between directories using the left and right arrow keys, \
 and select one with the Enter key."
 
-    SELECT_DIRECTORY=null
+    HOME_CONFIGURATION_DIRECTORY_MAX_ATTEMPTS=3
+    HOME_CONFIGURATION_DIRECTORY_ATTEMPT=0
+    HOME_CONFIGURATION_DIRECTORY_SELECTED=0
+    ROOT_DIRECTORY_STRUCTURE=""
 
-    # the script will loop until the user selects a safe directory
-    while true; do
+    # Reject paths outside the user's home directory, but do not retry a
+    # cancelled or failed chooser indefinitely.
+    while [ "${HOME_CONFIGURATION_DIRECTORY_ATTEMPT}" -lt \
+        "${HOME_CONFIGURATION_DIRECTORY_MAX_ATTEMPTS}" ]; do
 
-        # show the directory chooser
-        if ! SELECT_DIRECTORY=$("${GUM}" file --all --permissions --directory); then
-            continue
+        HOME_CONFIGURATION_DIRECTORY_ATTEMPT=$((HOME_CONFIGURATION_DIRECTORY_ATTEMPT + 1))
+        SELECT_DIRECTORY=""
+        HOME_CONFIGURATION_DIRECTORY_STATUS=0
+
+        if SELECT_DIRECTORY=$("${GUM}" file --all --permissions --directory); then
+            HOME_CONFIGURATION_DIRECTORY_STATUS=0
+        else
+            HOME_CONFIGURATION_DIRECTORY_STATUS="${?}"
         fi
 
-        if [ -z "${SELECT_DIRECTORY}" ]; then
-            continue
-        fi
+        case "${HOME_CONFIGURATION_DIRECTORY_STATUS}" in
+        0)
+            if [ -z "${SELECT_DIRECTORY}" ]; then
+                text "No directory was selected. Aborting."
+                return 1
+            fi
 
-        ROOT_DIRECTORY_STRUCTURE=$(realpath -e -- "${SELECT_DIRECTORY}") || continue
-
-        if validate_root_directory "${ROOT_DIRECTORY_STRUCTURE}"; then
-            break
-        fi
+            if ROOT_DIRECTORY_STRUCTURE=$(realpath -e -- "${SELECT_DIRECTORY}"); then
+                if validate_root_directory "${ROOT_DIRECTORY_STRUCTURE}"; then
+                    HOME_CONFIGURATION_DIRECTORY_SELECTED=1
+                    break
+                fi
+            fi
+            ;;
+        1)
+            text "Directory selection was cancelled. Aborting."
+            return 1
+            ;;
+        *)
+            text "Unable to select a directory (status ${HOME_CONFIGURATION_DIRECTORY_STATUS}). Aborting."
+            return "${HOME_CONFIGURATION_DIRECTORY_STATUS}"
+            ;;
+        esac
     done
-fi
+
+    if [ "${HOME_CONFIGURATION_DIRECTORY_SELECTED}" -ne 1 ]; then
+        text "Unable to select a safe configuration directory after ${HOME_CONFIGURATION_DIRECTORY_MAX_ATTEMPTS} attempts. Aborting."
+        return 1
+    fi
+    ;;
+*)
+    text "Unable to read the directory-structure preference. Aborting."
+    return "${HIDDEN_DIRECTORY_PROMPT_STATUS}"
+    ;;
+esac
 
 if ! validate_root_directory "${ROOT_DIRECTORY_STRUCTURE}"; then
     text "The selected configuration directory is not safe to use. Aborting."
@@ -94,16 +116,17 @@ info "Creating directory for environments."
 mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments"
 
 info "Updating bash entry point."
-tee --append "${HOME}/.bashrc" <<EOF
+# Resolve managed paths when the shell configuration is generated.
+cat >>"${HOME}/.bashrc" <<BASH
 
 # my personal configuration
 if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" ]; then
     source "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh"
 fi
-EOF
+BASH
 
 info "Creating main file for bash."
-tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" <<EOF
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" <<SH
 # check if fortune exists and displays a message
 if [ -f /usr/bin/fortune ]; then
     /usr/bin/fortune
@@ -206,10 +229,10 @@ if [ -x "\$(command -v fzf)" ]; then
     # shell integration for fzf
     eval "\$(fzf --bash)"
 fi
-EOF
+SH
 
 info "Creating aliases file."
-tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<EOF
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<SH
 # wrapper around some tools and commands I typically use in this computer
 function ${COMMAND_NAME} {
     if [ "\$#" -ne 2 ]; then
@@ -375,7 +398,7 @@ function ${COMMAND_NAME} {
                 flatpak)
                     flatpak remove --unused -y
                     find "${HOME}/.var/app" -maxdepth 1 -mindepth 1 ${FLATPAKS_KEEP_CACHE_LIST:1} -type d -exec rm -rf "{}" \; 2>/dev/null
-                    find "/run/user/$(id --user)/app" -maxdepth 1 -mindepth 1 -type d -exec rm -rf "{}" \; 2>/dev/null
+                    find "/run/user/\$(id --user)/app" -maxdepth 1 -mindepth 1 -type d -exec rm -rf "{}" \; 2>/dev/null
                 ;;
 
                 files)
@@ -639,10 +662,10 @@ function audio-to-ogg {
 #     unset -f reset_path
 # }
 # **********************************************************************
-EOF
+SH
 
 info "Creating completion file."
-tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<EOF
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<SH
 _${COMMAND_NAME}()
 {
     local cur prev
@@ -682,10 +705,10 @@ _${COMMAND_NAME}()
 }
 
 complete -F _${COMMAND_NAME} ${COMMAND_NAME}
-EOF
+SH
 
 info "Creating toolbox file."
-tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<EOF
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<'TOOLBOX'
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 
@@ -693,11 +716,11 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     # e.g, path to TeX Live from the host system:
     #
     # pathmunge () {
-    #     if ! echo \$PATH | /bin/grep -E -q "(^|:)\$1(\$|:)" ; then
-    #         if [ "\$2" = "after" ] ; then
-    #             PATH=\$PATH:\$1
+    #     if ! echo $PATH | /bin/grep -E -q "(^|:)$1($|:)" ; then
+    #         if [ "$2" = "after" ] ; then
+    #             PATH=$PATH:$1
     #         else
-    #             PATH=\$1:\$PATH
+    #             PATH=$1:$PATH
     #         fi
     #     fi
     # }
@@ -706,4 +729,4 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     # unset pathmunge
     :
 fi
-EOF
+TOOLBOX

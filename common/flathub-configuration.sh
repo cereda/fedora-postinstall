@@ -4,27 +4,12 @@
 
 section "Flathub installation and configuration"
 
-description "Flathub is a centralized app store for Linux distributions \
-that use the Flatpak packaging format, providing a convenient way for \
-users to discover and install applications."
-
+description "Configure Flathub as a Flatpak source."
 echo
 
-question "Do you want to install and configure Flathub?"
+if question "Do you want to install and configure Flathub?"; then
 
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # the Flathub installation requires two steps: adding the repository as
-    # a remote reference and explicitly enabling it (as described in the
-    # documentation)
+    # Flathub must be added as a remote and then explicitly enabled.
 
     info "Installing and configuring Flathub."
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo

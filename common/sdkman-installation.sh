@@ -4,39 +4,21 @@
 
 section "SDKman installation and configuration"
 
-description "SDKman is an open source tool for managing multiple Software \
-Development Kits (SDKs) on Unix-based systems, including macOS and \
-Linux. It allows users to easily install, manage, and switch between \
-different versions of Java Virtual Machines, Gradle, Maven, and other \
-development tools, streamlining the setup and configuration of \
-development environments."
-
+description "Install and configure SDKMAN."
 echo
 
-question "Do you want to install and configure SDKman?"
+if question "Do you want to install and configure SDKman?"; then
 
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
-
-    # SDKman has its own installation script, setting the target directory
-    # via environment variable (as described in the documentation); there's
-    # also a URL request parameter that disables modification of shell
-    # configuration files (.bashrc, .zshrc, etc)
+    # Prevent SDKman from modifying shell startup files.
     info "Installing the SDKman binary."
     export SDKMAN_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman" && curl -s "https://get.sdkman.io?rcupdate=false" | bash
 
     info "Creating wrapper script."
-    tee "${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" <<EOF
+    # Resolve managed paths now; escaped values remain runtime shell expressions.
+    cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" <<SH
 # moving these lines to a single file to source it on demand
 export SDKMAN_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman"
 [[ -s "${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman/bin/sdkman-init.sh" ]] && source "${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman/bin/sdkman-init.sh"
-EOF
+SH
 
 fi

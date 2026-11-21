@@ -4,25 +4,10 @@
 
 section "Profile photo"
 
-description "Having a custom profile photo for a Linux machine can provide \
-a visual identifier that makes it easier to recognize the system at a \
-glance, especially in a multi-machine environment. This can be a convenient \
-way to quickly distinguish one machine from another and associate it with a \
-specific purpose or user."
-
+description "Install a generated desktop profile photo."
 echo
 
-question "Do you want to generate and copy the profile photo?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to generate and copy the profile photo?"; then
 
     info "Generating profile photo."
     bash common/generate-cat.sh

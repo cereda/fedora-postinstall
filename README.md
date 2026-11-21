@@ -6,13 +6,13 @@ Welcome to my personal Fedora post installation guide. This repository describes
 
 ## Requirements
 
-The project targets Fedora Workstation and Fedora Silverblue. It requires `rpm` and the following commands: `bash`, `coreutils` (including `install`, `mktemp`, and `sha256sum`), `curl`, `findutils`, `git`, `jq`, `python3`, `realpath`, `tar`, `unzip`, and `wget`. On Fedora, install the missing tools with:
+The project targets Fedora Workstation and Fedora Silverblue. It requires `rpm` and the following commands: `bash`, `coreutils` (including `install`, `mktemp`, and `sha256sum`), `curl`, `findutils`, `git`, `jq`, `python3`, `realpath`, `tar`, `unzip`, `wget`, and `flock` from `util-linux`. On Fedora, install the missing tools with:
 
 ```bash
-sudo dnf install coreutils curl findutils git jq python3 realpath tar unzip wget
+sudo dnf install coreutils curl findutils git jq python3 realpath tar unzip util-linux wget
 ```
 
-An interactive installation also requires a terminal and a working `sudo` session. The `detect`, `plan`, and `--dry-run` commands do not prompt, download files, or change the system.
+An interactive installation also requires a terminal and a working `sudo` session. The `detect`, `plan`, and `--dry-run` commands do not prompt, download files, create the cache or lock, or change the system.
 
 ## Command-line workflow
 
@@ -88,15 +88,19 @@ The main runtime controls are available as command-line options and environment 
 | Option | Environment | Purpose |
 |--------|-------------|---------|
 | `--state-file PATH` | `POSTINSTALL_STATE_FILE` | Select the typed TSV resume-state file. |
+| `--cache-dir PATH` | `POSTINSTALL_CACHE_DIR` | Select the cache root for verified additional-tool artifacts and the default lock scope. |
+| `--lock-file PATH` | `POSTINSTALL_LOCK_FILE` | Select the advisory lock file used by real installation runs. |
 | `--resume` | `POSTINSTALL_RESUME` | Reuse compatible completed modules and restored shared context. |
 | `--log-file PATH` | `POSTINSTALL_LOG_FILE` | Write runtime events to a log file. |
 | `--log-format json` | `POSTINSTALL_LOG_FORMAT=json` | Write JSON Lines logs. |
 | `--log-level LEVEL` | `POSTINSTALL_LOG_LEVEL` | Filter events by `debug`, `info`, `warn`, or `error`. |
 | `--log-stdout` | `POSTINSTALL_LOG_STDOUT=1` | Also write logs to standard output; JSON logs are routed to standard error so JSON output remains clean. |
 
-Other environment equivalents include `POSTINSTALL_FLAVOR`, `POSTINSTALL_ARCHITECTURE`, `POSTINSTALL_PROFILE`, `POSTINSTALL_PROFILE_FILE`, `POSTINSTALL_TOOLS`, and `POSTINSTALL_DRY_RUN`. Command-line options take precedence over environment values. Without an explicit command-line profile option, `POSTINSTALL_PROFILE` and `POSTINSTALL_PROFILE_FILE` cannot both be set; `--profile` and `--profile-file` cannot be combined.
+Other environment equivalents include `POSTINSTALL_FLAVOR`, `POSTINSTALL_ARCHITECTURE`, `POSTINSTALL_PROFILE`, `POSTINSTALL_PROFILE_FILE`, `POSTINSTALL_TOOLS`, `POSTINSTALL_CACHE_DIR`, `POSTINSTALL_LOCK_FILE`, and `POSTINSTALL_DRY_RUN`. Command-line options take precedence over environment values. Without an explicit command-line profile option, `POSTINSTALL_PROFILE` and `POSTINSTALL_PROFILE_FILE` cannot both be set; `--profile` and `--profile-file` cannot be combined.
 
-The default state file is `${XDG_STATE_HOME:-${HOME}/.local/state}/fedora-postinstall/state.tsv`. State records include the flavor, architecture, profile digest, explicit extras selection, module checksum, and shared values such as `MACHINE_NAME`, `ROOT_DIRECTORY_STRUCTURE`, `COMMAND_NAME`, and `TOOLBOX_NAME`. The runtime stops at the first unhandled module failure, runs cleanup callbacks, and rejects malformed or unsafe state files.
+The default state file is `${XDG_STATE_HOME:-${HOME}/.local/state}/fedora-postinstall/state.tsv`. The default cache directory is `${XDG_CACHE_HOME:-${HOME}/.cache}/fedora-postinstall`, and the default lock file is `postinstall.lock` inside the effective cache directory. Relative cache and lock paths resolve from the directory where the installer is invoked. Plans report both effective paths without creating them. A real `install` or `extras` run creates the cache and lock securely, holds an exclusive `flock` lock through installation and cleanup, and exits with status `75` when another run already holds that lock.
+
+State records include the flavor, architecture, profile digest, explicit extras selection, module checksum, and shared values such as `MACHINE_NAME`, `ROOT_DIRECTORY_STRUCTURE`, `COMMAND_NAME`, and `TOOLBOX_NAME`. The runtime stops at the first unhandled module failure, runs cleanup callbacks, and rejects malformed or unsafe state files.
 
 ## What does this script do?
 
@@ -169,49 +173,50 @@ GNOME configurations and tweaks:
 
 Additional command line tools (deployed in `${HOME}/.local/bin`):
 
-Downloads use the pinned URLs and SHA-256 checksums in `extras/tools-manifest.json`. Each selected tool is downloaded and verified in an isolated temporary workspace; only the exact tracked artifact is unpacked, and deployment replaces each executable atomically. Temporary files are removed when the script exits. The manifest provides native x86-64 and AArch64 releases where upstream publishes them (`jless` currently supports x86-64 only).
+Downloads use the pinned URLs and SHA-256 checksums in `extras/tools-manifest.json`. Each selected tool is downloaded into the cache when no matching artifact exists, or reused from the cache after its pinned checksum is verified; verified interrupted downloads are recovered for retry without another transfer. The artifact is then unpacked in an isolated temporary workspace. Only the exact verified artifact is unpacked, and deployment replaces each executable atomically. Verified artifacts are retained under `${POSTINSTALL_CACHE_DIR}/extras/`. Temporary extraction and deployment files are removed when the script exits. The manifest provides native x86-64 and AArch64 releases where upstream publishes them (`jless` currently supports x86-64 only).
 
 | Tool | Description |
 |------|-------------|
-| `binsider` | Analyzes the contents of binary files. |
-| `bottom` | System monitoring tool, deployed as `btm`. |
-| `bun` | A fast JavaScript runtime that provides a command line interface for building, testing, and running web applications. |
-| `caddy` | A powerful tool that simplifies the process of setting up and managing web servers. |
-| `deno` | A modern, secure, and fast runtime for executing JavaScript and TypeScript. |
-| `duckdb` | A lightweight, embedded SQL database engine. |
-| `duf` | Provides a detailed and user-friendly overview of disk usage across file systems. |
-| `f2` | Quick and safe batch renaming of files and directories. |
-| `fd` | An alternative to the standard `find` command. |
-| `freeze` | Captures images of code snippets and terminal output. |
-| `fx` | Interactive exploration and manipulation of JSON data. |
-| `glow` | Renders Markdown documents with syntax highlighting and other formatting enhancements. |
-| `gping` | Monitors network connectivity and latency. |
-| `grex` | Generates and tests complex regex patterns to match text and data. |
-| `gum` | A set of interactive prompts and widgets for building terminal user interfaces. |
-| `hexyl` | A user-friendly hexadecimal viewer. |
-| `ipinfo` | Provides detailed information about IP addresses, including geolocation data, network details, and other relevant metadata. |
-| `jless` | Views and explores JSON data. |
-| `lapce` | A feature-rich, terminal-based code editor. |
-| `lsd` | A directory listing tool with support for icons, file type indicators, and color coding. |
-| `ouch` | A utility for compressing and decompressing files and directories. |
-| `picocrypt` | A simple and secure way to encrypt and decrypt files. |
-| `pingu` | A modern implementation of the classic `ping` utility. |
-| `procs` | Monitors running processes and their resource usage. |
-| `ripgrep` | Searches text across files and directories, deployed as `rg`. |
-| `surreal` | An interface for working with the SurrealDB database. |
-| `tlrc` | The official tldr client, deployed as `tldr`. |
-| `trdsql` | Executes SQL queries against various data sources. |
-| `trippy` | A network diagnostic tool, deployed as `trip`. |
-| `trivy` | Scans container images, file systems, and Git repositories for known vulnerabilities. |
-| `ttyd` | Shares terminal sessions over the web. |
-| `unimatrix` | Python script to simulate the display from "The Matrix" in terminal. |
-| `usage` | A spec and CLI for defining CLI tools. |
-| `vhs` | Records and plays back terminal sessions. |
-| `vimv` | Renames files and directories. |
-| `vivid` | Generates color themes for the terminal. |
-| `yazi` | A blazing fast terminal file manager, deployed as `yazi` and `ya`. |
-| `yq` | Manipulates YAML files. |
-| `zellij` | A modern, feature-rich terminal multiplexer. |
+| `binsider` | Inspect binary files and extract their contents. |
+| `bottom` | Monitor system resources and processes (deployed as btm). |
+| `bun` | Run JavaScript applications and manage packages. |
+| `caddy` | Serve HTTP and HTTPS applications. |
+| `deno` | Run JavaScript and TypeScript applications. |
+| `duckdb` | Query data with an embedded SQL database. |
+| `duf` | Inspect disk usage across file systems. |
+| `eza` | List files with colors and metadata. |
+| `f2` | Rename files and directories in batches. |
+| `fd` | Find files by name or pattern. |
+| `freeze` | Capture terminal output as an image. |
+| `fx` | Explore and transform JSON data. |
+| `glow` | Render Markdown in the terminal. |
+| `gping` | Show ping latency with a terminal interface. |
+| `grex` | Generate regular expressions from sample text. |
+| `gum` | Build interactive command-line interfaces. |
+| `hexyl` | Inspect binary data in hexadecimal. |
+| `ipinfo` | Show information about an IP address. |
+| `jless` | Explore and filter JSON data. |
+| `lapce` | Edit files from the terminal. |
+| `lsd` | List files with icons and file-type indicators. |
+| `ouch` | Compress and decompress files and directories. |
+| `picocrypt` | Encrypt and decrypt files. |
+| `pingu` | Show colored ping results. |
+| `procs` | Inspect running processes. |
+| `ripgrep` | Search file contents with regular expressions (deployed as rg). |
+| `surreal` | Query a SurrealDB database. |
+| `tlrc` | Show concise command examples from tldr (deployed as tldr). |
+| `trdsql` | Query CSV, JSON, and databases with SQL. |
+| `trippy` | Diagnose network routes and latency (deployed as trip). |
+| `trivy` | Scan images, filesystems, and repositories for vulnerabilities. |
+| `ttyd` | Share a terminal session through a web browser. |
+| `unimatrix` | Display animated Matrix-style characters. |
+| `usage` | Define reusable command-line tools. |
+| `vhs` | Record and replay terminal sessions. |
+| `vimv` | Rename files from Vim. |
+| `vivid` | Generate terminal color themes. |
+| `yazi` | Browse files from the terminal (deployed as yazi and ya). |
+| `yq` | Query and transform YAML files. |
+| `zellij` | Manage terminal panes, tabs, and sessions. |
 
 ## What to do if something goes wrong?
 

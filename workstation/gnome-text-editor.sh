@@ -4,24 +4,10 @@
 
 section "GNOME text editor"
 
-description "This section applies a set of tweaks to the GNOME text editor, \
-including highlighting the current line, disabling session restoration, \
-showing the grid, line numbers, and right margin, as well as disabling \
-spellcheck, to customize the text editing experience."
-
+description "Configure the GNOME Text Editor."
 echo
 
-question "Do you want to configure the GNOME text editor?"
-
-# $? holds the exit status of the previous command execution; the logic applied
-# throughout the post installation is
-# +----+---------------+
-# | $? | Semantics     |
-# +----+---------------+
-# | 0  | yes / success |
-# | 1  | no / failure  |
-# +----+---------------+
-if [ $? = 0 ]; then
+if question "Do you want to configure the GNOME text editor?"; then
 
     info "Highlighting current line."
     gsettings set org.gnome.TextEditor highlight-current-line true

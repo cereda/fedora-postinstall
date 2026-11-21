@@ -19,6 +19,8 @@ declare -g CLI_PROFILE_DIGEST=""
 declare -g CLI_DRY_RUN=0
 declare -g CLI_RESUME=0
 declare -g CLI_STATE_FILE=""
+declare -g CLI_CACHE_DIR=""
+declare -g CLI_LOCK_FILE=""
 declare -g CLI_LOG_FILE=""
 declare -g CLI_LOG_STDOUT=0
 declare -g CLI_LOG_FORMAT="plain"
@@ -185,6 +187,93 @@ function cli_split_tool_list {
     return 0
 }
 
+function cli_path_is_valid {
+    local cli_local_path="${1:-}"
+
+    [ -n "${cli_local_path}" ] || return 1
+    [[ ! "${cli_local_path}" =~ [[:cntrl:]] ]] || return 1
+    case "/${cli_local_path}/" in
+    */../*) return 1 ;;
+    esac
+    return 0
+}
+
+function cli_normalize_path {
+    local cli_local_path="${1:-}"
+    local cli_local_base
+    local cli_local_component
+    local -a cli_local_components=()
+    local -a cli_local_normalized=()
+
+    if [[ "${cli_local_path}" != /* ]]; then
+        if [ -n "${POSTINSTALL_INVOCATION_DIRECTORY:-}" ]; then
+            cli_local_base="${POSTINSTALL_INVOCATION_DIRECTORY}"
+        elif [ -n "${SCRIPT_PATH:-}" ]; then
+            cli_local_base="${SCRIPT_PATH}"
+        else
+            cli_local_base=$(pwd -P) || return 1
+        fi
+        cli_local_path="${cli_local_base}/${cli_local_path}"
+    fi
+
+    IFS='/' read -r -a cli_local_components <<<"${cli_local_path}"
+    for cli_local_component in "${cli_local_components[@]}"; do
+        case "${cli_local_component}" in
+        "" | .) ;;
+        ..)
+            if [ "${#cli_local_normalized[@]}" -gt 0 ]; then
+                unset "cli_local_normalized[$((${#cli_local_normalized[@]} - 1))]"
+            fi
+            ;;
+        *) cli_local_normalized+=("${cli_local_component}") ;;
+        esac
+    done
+
+    if [ "${#cli_local_normalized[@]}" -eq 0 ]; then
+        printf '/\n'
+        return 0
+    fi
+
+    local IFS='/'
+    printf '/%s\n' "${cli_local_normalized[*]}"
+}
+
+function cli_default_cache_dir {
+    local cli_local_cache_root="${XDG_CACHE_HOME:-}"
+    local cli_local_home="${HOME:-}"
+
+    if [[ "${cli_local_cache_root}" != /* ]]; then
+        if [ -n "${cli_local_home}" ]; then
+            cli_local_cache_root="${cli_local_home}/.cache"
+        else
+            cli_local_cache_root="${POSTINSTALL_INVOCATION_DIRECTORY:-${SCRIPT_PATH:-$(pwd -P)}}/.cache"
+        fi
+    fi
+
+    cli_normalize_path "${cli_local_cache_root%/}/fedora-postinstall"
+}
+
+function cli_finalize_paths {
+    if [ -z "${CLI_CACHE_DIR}" ]; then
+        CLI_CACHE_DIR=$(cli_default_cache_dir) || return 1
+    fi
+    if ! cli_path_is_valid "${CLI_CACHE_DIR}"; then
+        printf 'cli: invalid cache directory path\n' >&2
+        return 1
+    fi
+    CLI_CACHE_DIR=$(cli_normalize_path "${CLI_CACHE_DIR}") || return 1
+
+    if [ -z "${CLI_LOCK_FILE}" ]; then
+        CLI_LOCK_FILE="${CLI_CACHE_DIR}/postinstall.lock"
+    fi
+    if ! cli_path_is_valid "${CLI_LOCK_FILE}"; then
+        printf 'cli: invalid lock file path\n' >&2
+        return 1
+    fi
+    CLI_LOCK_FILE=$(cli_normalize_path "${CLI_LOCK_FILE}") || return 1
+    return 0
+}
+
 function cli_reset_options {
     CLI_COMMAND=""
     CLI_COMMAND_EXPLICIT=0
@@ -209,6 +298,8 @@ function cli_reset_options {
     CLI_DRY_RUN=0
     CLI_RESUME=0
     CLI_STATE_FILE="${POSTINSTALL_STATE_FILE:-}"
+    CLI_CACHE_DIR="${POSTINSTALL_CACHE_DIR:-}"
+    CLI_LOCK_FILE="${POSTINSTALL_LOCK_FILE:-}"
     CLI_LOG_FILE="${POSTINSTALL_LOG_FILE:-}"
     CLI_LOG_STDOUT=0
     CLI_LOG_FORMAT="plain"
@@ -401,6 +492,42 @@ function cli_parse_arguments {
             cli_local_all_option_set=1
             shift
             ;;
+        --cache-dir=*)
+            cli_local_value="${cli_local_argument#*=}"
+            if [ -z "${cli_local_value}" ]; then
+                printf 'cli: --cache-dir requires a value\n' >&2
+                return 64
+            fi
+            CLI_CACHE_DIR="${cli_local_value}"
+            shift
+            ;;
+        --cache-dir)
+            shift
+            if [ "$#" -eq 0 ] || [ -z "${1}" ]; then
+                printf 'cli: --cache-dir requires a value\n' >&2
+                return 64
+            fi
+            CLI_CACHE_DIR="${1}"
+            shift
+            ;;
+        --lock-file=*)
+            cli_local_value="${cli_local_argument#*=}"
+            if [ -z "${cli_local_value}" ]; then
+                printf 'cli: --lock-file requires a value\n' >&2
+                return 64
+            fi
+            CLI_LOCK_FILE="${cli_local_value}"
+            shift
+            ;;
+        --lock-file)
+            shift
+            if [ "$#" -eq 0 ] || [ -z "${1}" ]; then
+                printf 'cli: --lock-file requires a value\n' >&2
+                return 64
+            fi
+            CLI_LOCK_FILE="${1}"
+            shift
+            ;;
         --state-file=*)
             CLI_STATE_FILE="${cli_local_argument#*=}"
             shift
@@ -515,6 +642,8 @@ function cli_parse_arguments {
         esac
     done
 
+    cli_finalize_paths || return 64
+
     if [ "${cli_local_profile_option_set}" -eq 1 ] &&
         [ "${cli_local_profile_file_option_set}" -eq 1 ]; then
         printf 'cli: --profile and --profile-file cannot be used together\n' >&2
@@ -616,6 +745,8 @@ function cli_apply_options {
         export POSTINSTALL_PROFILE="${CLI_PROFILE_REQUEST}"
     fi
     export POSTINSTALL_STATE_FILE="${CLI_STATE_FILE}"
+    export POSTINSTALL_CACHE_DIR="${CLI_CACHE_DIR}"
+    export POSTINSTALL_LOCK_FILE="${CLI_LOCK_FILE}"
     export POSTINSTALL_LOG_FILE="${CLI_LOG_FILE}"
     export POSTINSTALL_PROFILE_FILE="${CLI_PROFILE_FILE}"
     export POSTINSTALL_TOOL_SELECTION_MODE="${CLI_TOOL_SELECTION_MODE}"
@@ -623,7 +754,7 @@ function cli_apply_options {
 }
 
 function cli_render_help {
-    cat <<'EOF'
+    cat <<'HELP'
 Usage: bash fedora-postinstall.sh [COMMAND] [OPTIONS]
 
 Commands:
@@ -638,6 +769,8 @@ Options:
   --architecture NAME  Target architecture: auto, x86_64, or aarch64
   --profile NAME|PATH  Built-in/user profile name or JSON profile path
   --profile-file PATH  Read a profile from an explicit JSON file
+  --cache-dir PATH     Cache directory for verified tool downloads
+  --lock-file PATH     Installer lock file
   --tool ID            Select an extra tool (repeatable)
   --tools LIST         Select comma-separated extra tools
   --all-extras         Select every extra tool available for the architecture
@@ -653,9 +786,10 @@ Options:
 
 Environment equivalents include POSTINSTALL_FLAVOR, POSTINSTALL_ARCHITECTURE,
 POSTINSTALL_PROFILE, POSTINSTALL_PROFILE_FILE, POSTINSTALL_TOOLS,
-POSTINSTALL_DRY_RUN, POSTINSTALL_RESUME, POSTINSTALL_STATE_FILE,
-POSTINSTALL_LOG_FILE, POSTINSTALL_LOG_FORMAT, POSTINSTALL_LOG_LEVEL, and
+POSTINSTALL_CACHE_DIR, POSTINSTALL_LOCK_FILE, POSTINSTALL_DRY_RUN,
+POSTINSTALL_RESUME, POSTINSTALL_STATE_FILE, POSTINSTALL_LOG_FILE,
+POSTINSTALL_LOG_FORMAT, POSTINSTALL_LOG_LEVEL, and
 POSTINSTALL_LOG_STDOUT. CLI_TOOLS_ONLY retains its legacy presence-based
 behavior and selects the extras flow.
-EOF
+HELP
 }

@@ -4,13 +4,7 @@
 
 section "Hostname configuration"
 
-description "Having a custom hostname for a Linux machine provides \
-convenience by allowing you to easily identify and remember the \
-machine. This can be especially useful in a network with multiple \
-machines, as it makes it simpler to refer to and access a specific \
-system. A custom hostname can also help organize and manage your \
-infrastructure more effectively."
-
+description "Set the system hostname."
 echo
 
 MACHINE_NAME=$(prompt_valid_hostname)

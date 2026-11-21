@@ -89,10 +89,19 @@ function runtime_validate_module_inventory {
 function runtime_module_inventory_rows {
     local runtime_local_flavor="${1:-}"
     local runtime_local_path
+    local runtime_local_module
+    local runtime_local_effect
+    local runtime_local_states
 
     runtime_local_path=$(runtime_module_inventory_path "${runtime_local_flavor}") || return 1
     runtime_validate_module_inventory "${runtime_local_path}" || return 1
-    cat -- "${runtime_local_path}"
+
+    while IFS='|' read -r runtime_local_module runtime_local_effect runtime_local_states; do
+        [ -n "${runtime_local_module}" ] || continue
+        [[ "${runtime_local_module}" == \#* ]] && continue
+        printf '%s|%s|%s\n' \
+            "${runtime_local_module}" "${runtime_local_effect}" "${runtime_local_states}"
+    done <"${runtime_local_path}"
 }
 
 function runtime_module_inventory_modules {

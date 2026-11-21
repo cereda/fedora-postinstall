@@ -2,12 +2,5 @@
 
 # SPDX-License-Identifier: MIT
 
-tool-section "Trippy"
-
-description "Trippy is a network diagnostic tool that combines the \
-functionality of traceroute and ping and is designed to assist with \
-the analysis of networking issues."
-
-echo
-
-download_extras_tool "trippy"
+extras_describe_tool "trippy" "Trippy" || return 1
+download_extras_tool "trippy" || return 1
