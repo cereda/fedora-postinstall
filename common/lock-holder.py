@@ -403,6 +403,18 @@ class SentinelRetirementResult(Enum):
     INSTALLER_EXITED = "installer-exited"
 
 
+class TerminationResult(Enum):
+    TERMINATED = "terminated"
+    ALREADY_EXITED = "already-exited"
+    FAILED = "failed"
+
+
+class StopResult(Enum):
+    STOPPED = "stopped"
+    ALREADY_EXITED = "already-exited"
+    FAILED = "failed"
+
+
 @dataclass(frozen=True)
 class ProcessIdentity:
     start_time: int
@@ -738,7 +750,7 @@ def write_status(path: str, content: str) -> None:
         fail(str(error))
 
     descriptor = -1
-    temporary_name = f".{name}.{os.getpid()}.tmp"
+    temporary_name = f"{name}.{os.getpid()}.tmp"
     try:
         metadata = os.fstat(parent)
         mode = stat.S_IMODE(metadata.st_mode)
@@ -1378,6 +1390,31 @@ def validate_owner_retirement_transaction(
         and acknowledgement.installer_process_id == installer_process_id
         and marker.installer_identity == installer_identity
         and acknowledgement.installer_identity == installer_identity
+    )
+
+
+def validate_owner_retirement_marker(
+    marker_path: str,
+    run_id: str,
+    owner_process_id: int,
+    owner_identity: ProcessIdentity,
+    sentinel_process_id: int,
+    sentinel_identity: ProcessIdentity,
+    installer_process_id: int,
+    installer_identity: ProcessIdentity,
+) -> bool:
+    """Validate one strictly bound owner-retirement marker."""
+    marker = read_owner_retirement_marker(marker_path)
+    if marker is None or marker.state != OWNER_RETIREMENT_MARKER_STATE:
+        return False
+    return (
+        marker.run_id == run_id
+        and marker.owner_process_id == owner_process_id
+        and marker.owner_identity == owner_identity
+        and marker.sentinel_process_id == sentinel_process_id
+        and marker.sentinel_identity == sentinel_identity
+        and marker.installer_process_id == installer_process_id
+        and marker.installer_identity == installer_identity
     )
 
 
@@ -2535,6 +2572,12 @@ class ProcessMonitor:
                     self.mark_exited(target)
                     return target
                 if observation == ProcessObservation.STOPPED:
+                    if target.label == "installer":
+                        # The installer owns its shutdown state. Observing a
+                        # stopped installer must not resume it behind the
+                        # installer's back; keep polling for its exit.
+                        time.sleep(0.01)
+                        continue
                     resumed = self.resume(target)
                     if resumed is False:
                         return target
@@ -2657,8 +2700,13 @@ class ProcessMonitor:
             raise ValueError(f"unknown monitored process: {label}")
 
         while not target.exited:
-            if CANCELLATION_REQUESTED and raise_on_cancellation:
-                raise AcquisitionCancelled()
+            if raise_on_cancellation:
+                if CANCELLATION_REQUESTED:
+                    raise AcquisitionCancelled()
+                if CANCELLATION_ABORT_REQUESTED:
+                    raise AcquisitionDecisionUnknown(
+                        "the installation lock decision could not be classified"
+                    )
             if interruption_callback is not None and interruption_callback():
                 break
             if target.identity is not None:
@@ -2674,6 +2722,12 @@ class ProcessMonitor:
                     self.mark_exited(target)
                     break
                 if observation == ProcessObservation.STOPPED:
+                    if target.label == "installer":
+                        # The installer owns its shutdown state. Observing a
+                        # stopped installer must not resume it behind the
+                        # installer's back; keep polling for its exit.
+                        time.sleep(0.01)
+                        continue
                     resumed = self.resume(target)
                     if resumed is False:
                         break
@@ -2810,18 +2864,66 @@ def terminate_unidentified_child(process_id: int) -> None:
     reap_child(process_id)
 
 
-def terminate_process_by_identity(
+def stop_process_by_identity_result(
     process_id: int,
     identity: ProcessIdentity,
     deadline: float | None = None,
-) -> bool:
-    """Terminate one process without signaling a reused PID."""
+) -> StopResult:
+    """Stop a verified process and require a fresh stopped observation."""
+    if deadline is None:
+        deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline:
+        observation = observe_process_identity(process_id, identity)
+        if observation in {
+            ProcessObservation.EXITED,
+            ProcessObservation.REPLACED,
+        }:
+            return StopResult.ALREADY_EXITED
+        if observation == ProcessObservation.UNKNOWN:
+            raise MonitoringUnavailable(
+                f"unable to verify process {process_id} before stopping"
+            )
+        if observation == ProcessObservation.STOPPED:
+            return StopResult.STOPPED
+
+        try:
+            delivered = signal_process_by_identity(
+                process_id,
+                identity,
+                signal.SIGSTOP,
+            )
+        except MonitoringUnavailable:
+            raise
+        if not delivered:
+            return StopResult.ALREADY_EXITED
+        time.sleep(0.01)
+    return StopResult.FAILED
+
+
+def terminate_process_by_identity_result(
+    process_id: int,
+    identity: ProcessIdentity,
+    deadline: float | None = None,
+    require_stopped: bool = False,
+) -> TerminationResult:
+    """Terminate one process and distinguish delivery from prior exit."""
+    if require_stopped:
+        stop_result = stop_process_by_identity_result(
+            process_id,
+            identity,
+            deadline,
+        )
+        if stop_result == StopResult.ALREADY_EXITED:
+            return TerminationResult.ALREADY_EXITED
+        if stop_result == StopResult.FAILED:
+            return TerminationResult.FAILED
+
     observation = observe_process_identity(process_id, identity)
     if observation in {
         ProcessObservation.EXITED,
         ProcessObservation.REPLACED,
     }:
-        return True
+        return TerminationResult.ALREADY_EXITED
     if observation == ProcessObservation.UNKNOWN:
         raise MonitoringUnavailable(
             f"unable to verify process {process_id} before termination"
@@ -2832,7 +2934,7 @@ def terminate_process_by_identity(
         identity,
         signal.SIGKILL,
     ):
-        return True
+        return TerminationResult.ALREADY_EXITED
 
     if deadline is None:
         deadline = time.monotonic() + 2.0
@@ -2842,9 +2944,22 @@ def terminate_process_by_identity(
             ProcessObservation.EXITED,
             ProcessObservation.REPLACED,
         }:
-            return True
+            return TerminationResult.TERMINATED
         time.sleep(0.01)
-    return False
+    return TerminationResult.FAILED
+
+
+def terminate_process_by_identity(
+    process_id: int,
+    identity: ProcessIdentity,
+    deadline: float | None = None,
+) -> bool:
+    """Terminate one process without signaling a reused PID."""
+    result = terminate_process_by_identity_result(process_id, identity, deadline)
+    return result in {
+        TerminationResult.TERMINATED,
+        TerminationResult.ALREADY_EXITED,
+    }
 
 
 def read_process_group_members(
@@ -4228,7 +4343,7 @@ def worker_loop(
                 # cancellation had already won the atomic decision.
                 return
             if signal_installer_loss(monitor):
-                monitor.wait_for("installer")
+                monitor.wait_for("installer", raise_on_cancellation=False)
             installer_exited = True
     finally:
         monitor.close()
@@ -4281,7 +4396,7 @@ def supervisor_loop(
             if decision == DECISION_CANCELLED:
                 raise AcquisitionCancelled()
             if signal_installer_loss(monitor):
-                monitor.wait_for("installer")
+                monitor.wait_for("installer", raise_on_cancellation=False)
             installer_terminated = True
         elif exited.label == "installer":
             installer_terminated = True
@@ -4292,7 +4407,7 @@ def supervisor_loop(
             if decision == DECISION_CANCELLED:
                 raise AcquisitionCancelled()
             if signal_installer_loss(monitor):
-                monitor.wait_for("installer")
+                monitor.wait_for("installer", raise_on_cancellation=False)
             installer_terminated = True
     finally:
         monitor.close()
@@ -4340,7 +4455,7 @@ def wait_for_installer(
         if target.exited:
             return
         if signal_installer_loss(monitor):
-            monitor.wait_for("installer")
+            monitor.wait_for("installer", raise_on_cancellation=False)
     finally:
         monitor.close()
 
@@ -4892,20 +5007,28 @@ def retire_sentinel_owner(
             # cannot turn an earlier acknowledgement into a false one.
             confirmed_marker = read_owner_retirement_marker(retirement_marker_path)
             if confirmed_marker != marker:
+                remove_status(retirement_marker_path)
                 return SentinelRetirementResult.OWNER_LOST
-            write_status(
-                teardown_ack_path,
-                encode_owner_retirement_ack(
-                    run_id,
-                    request_id,
-                    owner_process_id,
-                    owner_identity,
-                    process_process_id,
-                    process_identity,
-                    installer_process_id,
-                    installer_identity,
-                ),
-            )
+            try:
+                write_status(
+                    teardown_ack_path,
+                    encode_owner_retirement_ack(
+                        run_id,
+                        request_id,
+                        owner_process_id,
+                        owner_identity,
+                        process_process_id,
+                        process_identity,
+                        installer_process_id,
+                        installer_identity,
+                    ),
+                )
+            except BaseException:
+                # The marker is only a pending retirement transaction. If its
+                # acknowledgement cannot be published, leave no stale marker
+                # that could be mistaken for a valid transaction later.
+                remove_status(retirement_marker_path)
+                raise
             return SentinelRetirementResult.RETIRED
         if observation in {
             ProcessObservation.EXITED,
@@ -5356,6 +5479,22 @@ def main() -> None:
             raise SystemExit(1)
         return
 
+    if len(sys.argv) == 4 and sys.argv[1] == "terminate-process-required":
+        configure_signal_handlers(allow_cancellation=False)
+        process_identity = parse_process_identity(sys.argv[3])
+        if process_identity is None:
+            fail("invalid process identity")
+        result = terminate_process_by_identity_result(
+            int(sys.argv[2]),
+            process_identity,
+            require_stopped=True,
+        )
+        if result == TerminationResult.TERMINATED:
+            return
+        if result == TerminationResult.ALREADY_EXITED:
+            raise SystemExit(75)
+        raise SystemExit(1)
+
     if len(sys.argv) in {4, 6} and sys.argv[1] == "terminate-group":
         configure_signal_handlers(allow_cancellation=False)
         process_identity = parse_process_identity(sys.argv[3])
@@ -5515,6 +5654,37 @@ def main() -> None:
         )
         return
 
+    if len(sys.argv) == 10 and sys.argv[1] == "validate-owner-retirement-marker":
+        run_id = validate_support_run_id(sys.argv[3])
+        owner_process_id = parse_support_process_id(sys.argv[4])
+        owner_identity = parse_strict_process_identity(sys.argv[5])
+        sentinel_process_id = parse_support_process_id(sys.argv[6])
+        sentinel_identity = parse_strict_process_identity(sys.argv[7])
+        installer_process_id = parse_support_process_id(sys.argv[8])
+        installer_identity = parse_strict_process_identity(sys.argv[9])
+        if (
+            run_id is None
+            or owner_process_id is None
+            or owner_identity is None
+            or sentinel_process_id is None
+            or sentinel_identity is None
+            or installer_process_id is None
+            or installer_identity is None
+        ):
+            fail("invalid owner retirement marker expectation")
+        if not validate_owner_retirement_marker(
+            sys.argv[2],
+            run_id,
+            owner_process_id,
+            owner_identity,
+            sentinel_process_id,
+            sentinel_identity,
+            installer_process_id,
+            installer_identity,
+        ):
+            raise SystemExit(1)
+        return
+
     if len(sys.argv) == 11 and sys.argv[1] == "validate-owner-retirement":
         run_id = validate_support_run_id(sys.argv[4])
         owner_process_id = parse_support_process_id(sys.argv[5])
@@ -5619,6 +5789,7 @@ def main() -> None:
             "lock-holder.py signal-process PID IDENTITY SIGNAL or "
             "lock-holder.py resume-process PID IDENTITY or "
             "lock-holder.py terminate-process PID IDENTITY or "
+            "lock-holder.py terminate-process-required PID IDENTITY or "
             "lock-holder.py terminate-group PGID IDENTITY [DEVICE INODE] or "
             "lock-holder.py verify-group-empty PGID or "
             "lock-holder.py validate-status STATUS WRAPPER_PID INSTALLER_PID "

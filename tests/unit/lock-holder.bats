@@ -2444,3 +2444,691 @@ PY
     assert_output_contains \
         "setsid EPERM accepted only for an independent singleton group"
 }
+
+@test "wait_for classifies cancelled and unknown decisions without releasing the lock" {
+    local test_script="${TEST_ROOT}/wait-for-decisions.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+identity = module.ProcessIdentity(123, "boot-id")
+
+
+def unavailable_pidfd(_process_id):
+    raise OSError("pidfd unavailable")
+
+
+module.os.pidfd_open = unavailable_pidfd
+module.observe_process_identity = lambda _process_id, _identity: (
+    module.ProcessObservation.ALIVE
+)
+
+module.CANCELLATION_REQUESTED = False
+module.CANCELLATION_ABORT_REQUESTED = True
+monitor = module.ProcessMonitor([("installer", 42, identity)])
+try:
+    monitor.wait_for("installer")
+except module.AcquisitionDecisionUnknown:
+    pass
+else:
+    raise SystemExit("an unknown decision was ignored by wait_for")
+finally:
+    monitor.close()
+
+module.CANCELLATION_REQUESTED = True
+monitor = module.ProcessMonitor([("installer", 42, identity)])
+try:
+    monitor.wait_for("installer")
+except module.AcquisitionCancelled:
+    pass
+else:
+    raise SystemExit("a cancelled decision was ignored by wait_for")
+finally:
+    monitor.close()
+
+module.CANCELLATION_REQUESTED = False
+module.CANCELLATION_ABORT_REQUESTED = True
+monitor = module.ProcessMonitor([("installer", 42, identity)])
+try:
+    target = monitor.wait_for(
+        "installer",
+        raise_on_cancellation=False,
+        interruption_callback=lambda: True,
+    )
+    if target.exited:
+        raise SystemExit("the notify-and-wait path released the locked installer")
+finally:
+    monitor.close()
+
+print("wait_for classified cancellation and preserved the locked wait path")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${LOCK_HOLDER}"
+    assert_success
+    assert_output_contains \
+        "wait_for classified cancellation and preserved the locked wait path"
+}
+
+@test "ProcessMonitor never resumes a stopped installer" {
+    local test_script="${TEST_ROOT}/process-monitor-stopped-installer.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+identity = module.ProcessIdentity(123, "boot-id")
+resume_count = 0
+sequences = {
+    42: iter([]),
+    43: iter([]),
+}
+
+
+def unavailable_pidfd(_process_id):
+    raise OSError("pidfd unavailable")
+
+
+def observe_process_identity(process_id, _identity):
+    try:
+        return next(sequences[process_id])
+    except StopIteration:
+        return module.ProcessObservation.EXITED
+
+
+def resume_process(_process_id, _identity):
+    global resume_count
+    resume_count += 1
+    return True
+
+
+module.os.pidfd_open = unavailable_pidfd
+module.observe_process_identity = observe_process_identity
+module.resume_process = resume_process
+
+sequences[42] = iter(
+    [
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.EXITED,
+    ]
+)
+monitor = module.ProcessMonitor([("installer", 42, identity)])
+try:
+    target = monitor.wait_for("installer")
+    if not target.exited:
+        raise SystemExit("the stopped installer wait did not observe its exit")
+finally:
+    monitor.close()
+if resume_count != 0:
+    raise SystemExit(f"a stopped installer was resumed {resume_count} times")
+
+sequences[42] = iter(
+    [
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.EXITED,
+    ]
+)
+monitor = module.ProcessMonitor([("installer", 42, identity)])
+try:
+    target = monitor.wait()
+    if target is None or not target.exited:
+        raise SystemExit("the monitor did not observe the stopped installer's exit")
+finally:
+    monitor.close()
+if resume_count != 0:
+    raise SystemExit(f"the monitor resumed a stopped installer {resume_count} times")
+
+sequences[43] = iter(
+    [
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.ALIVE,
+        module.ProcessObservation.EXITED,
+    ]
+)
+monitor = module.ProcessMonitor([("helper", 43, identity)])
+try:
+    target = monitor.wait_for("helper")
+    if not target.exited:
+        raise SystemExit("the stopped helper wait did not observe its exit")
+finally:
+    monitor.close()
+if resume_count != 1:
+    raise SystemExit(f"the stopped helper resume count was wrong: {resume_count}")
+
+print("ProcessMonitor resumed helpers but never resumed the installer")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${LOCK_HOLDER}"
+    assert_success
+    assert_output_contains \
+        "ProcessMonitor resumed helpers but never resumed the installer"
+}
+
+@test "failed owner retirement transactions remove their marker" {
+    local test_script="${TEST_ROOT}/owner-retirement-cleanup.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import os
+import sys
+import tempfile
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+owner_identity = module.ProcessIdentity(101, "boot-id")
+sentinel_identity = module.ProcessIdentity(202, "boot-id")
+installer_identity = module.ProcessIdentity(505, "boot-id")
+owner_target = module.MonitoredProcess(
+    "owner",
+    303,
+    descriptor=42,
+    identity=owner_identity,
+)
+
+
+class Monitor:
+    def __init__(self):
+        self.targets = [owner_target]
+
+    def resume(self, _target):
+        return True
+
+    def mark_exited(self, _target):
+        return None
+
+
+def as_retiring_marker(marker):
+    return module.OwnerRetirementMarker(
+        state=module.OWNER_RETIREMENT_MARKER_STATE,
+        run_id=marker.run_id,
+        request_id=marker.request_id,
+        owner_process_id=marker.owner_process_id,
+        owner_identity=marker.owner_identity,
+        sentinel_process_id=marker.sentinel_process_id,
+        sentinel_identity=marker.sentinel_identity,
+        installer_process_id=marker.installer_process_id,
+        installer_identity=marker.installer_identity,
+    )
+
+
+real_read_marker = module.read_owner_retirement_marker
+real_write_status = module.write_status
+module.signal_pidfd = lambda _descriptor, _signal_number: True
+
+with tempfile.TemporaryDirectory(prefix="owner-retirement-cleanup-") as directory:
+    marker_path = os.path.join(directory, "owner-retiring")
+    ack_path = os.path.join(directory, "sentinel.ack")
+    owner_observations = 0
+
+    def observe_process_identity(process_id, _identity):
+        global owner_observations
+        if process_id == 505:
+            return module.ProcessObservation.ALIVE
+        owner_observations += 1
+        if owner_observations == 1:
+            return module.ProcessObservation.ALIVE
+        return module.ProcessObservation.EXITED
+
+    module.observe_process_identity = observe_process_identity
+    marker_reads = 0
+
+    def mismatched_marker_read(path):
+        global marker_reads
+        marker = real_read_marker(path)
+        if marker is None:
+            return None
+        marker_reads += 1
+        matching = as_retiring_marker(marker)
+        if marker_reads == 2:
+            return module.OwnerRetirementMarker(
+                state=matching.state,
+                run_id=matching.run_id,
+                request_id="f" * 64,
+                owner_process_id=matching.owner_process_id,
+                owner_identity=matching.owner_identity,
+                sentinel_process_id=matching.sentinel_process_id,
+                sentinel_identity=matching.sentinel_identity,
+                installer_process_id=matching.installer_process_id,
+                installer_identity=matching.installer_identity,
+            )
+        return matching
+
+    module.read_owner_retirement_marker = mismatched_marker_read
+    result = module.retire_sentinel_owner(
+        Monitor(),
+        owner_target.process_id,
+        owner_identity,
+        ack_path,
+        marker_path,
+        "run-cleanup",
+        404,
+        sentinel_identity,
+        505,
+        installer_identity,
+    )
+    if result != module.SentinelRetirementResult.OWNER_LOST:
+        raise SystemExit(f"a mismatched marker was not rejected: {result!r}")
+    if os.path.exists(marker_path):
+        raise SystemExit("a mismatched retirement marker was left behind")
+    if os.path.exists(ack_path):
+        raise SystemExit("a mismatched retirement transaction was acknowledged")
+
+    owner_observations = 0
+    module.read_owner_retirement_marker = lambda path: (
+        as_retiring_marker(real_read_marker(path))
+        if real_read_marker(path) is not None
+        else None
+    )
+
+    def failing_ack_write(path, content):
+        if os.path.abspath(path) == os.path.abspath(ack_path):
+            raise OSError("acknowledgement publication failed")
+        real_write_status(path, content)
+
+    module.write_status = failing_ack_write
+    try:
+        module.retire_sentinel_owner(
+            Monitor(),
+            owner_target.process_id,
+            owner_identity,
+            ack_path,
+            marker_path,
+            "run-cleanup",
+            404,
+            sentinel_identity,
+            505,
+            installer_identity,
+        )
+    except OSError:
+        pass
+    else:
+        raise SystemExit("the acknowledgement publication failure was ignored")
+    if os.path.exists(marker_path):
+        raise SystemExit("a failed acknowledgement left its retirement marker")
+    if os.path.exists(ack_path):
+        raise SystemExit("a failed acknowledgement was published")
+
+print("failed owner retirement transactions removed their markers")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${LOCK_HOLDER}"
+    assert_success
+    assert_output_contains \
+        "failed owner retirement transactions removed their markers"
+}
+
+@test "strict termination distinguishes an already-exited target" {
+    local test_script="${TEST_ROOT}/strict-termination.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import os
+import subprocess
+import sys
+import time
+
+sys.dont_write_bytecode = True
+lock_holder = sys.argv[1]
+spec = importlib.util.spec_from_file_location("lock_holder", lock_holder)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+real_observe = module.observe_process_identity
+real_signal_pidfd = module.signal_pidfd
+real_signal_process = module.signal_process_by_identity
+identity = module.ProcessIdentity(123, "boot-id")
+module.observe_process_identity = lambda _process_id, _identity: (
+    module.ProcessObservation.EXITED
+)
+result = module.terminate_process_by_identity_result(
+    42,
+    identity,
+    require_stopped=True,
+)
+if result != module.TerminationResult.ALREADY_EXITED:
+    raise SystemExit(f"an exited target was not distinguished: {result!r}")
+
+observations = iter(
+    [
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.STOPPED,
+        module.ProcessObservation.EXITED,
+    ]
+)
+module.observe_process_identity = lambda _process_id, _identity: next(observations)
+module.signal_process_by_identity = lambda _process_id, _identity, _signal: True
+result = module.terminate_process_by_identity_result(
+    42,
+    identity,
+    require_stopped=True,
+)
+if result != module.TerminationResult.TERMINATED:
+    raise SystemExit(f"a delivered termination was not distinguished: {result!r}")
+
+module.observe_process_identity = real_observe
+module.signal_process_by_identity = real_signal_process
+zombie_child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+try:
+    zombie_identity = module.capture_process_identity(zombie_child.pid)
+    if zombie_identity is None:
+        raise SystemExit("unable to capture the zombie test child identity")
+
+    def signal_after_zombie(descriptor, signal_number):
+        if signal_number == module.signal.SIGSTOP:
+            zombie_child.kill()
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                try:
+                    with open(
+                        f"/proc/{zombie_child.pid}/stat",
+                        "r",
+                        encoding="utf-8",
+                    ) as stat_file:
+                        state = stat_file.read().split(") ", 1)[1][0]
+                except (FileNotFoundError, IndexError):
+                    state = ""
+                if state == "Z":
+                    break
+                time.sleep(0.01)
+            else:
+                raise SystemExit("the strict termination child did not become a zombie")
+        return real_signal_pidfd(descriptor, signal_number)
+
+    module.signal_pidfd = signal_after_zombie
+    result = module.terminate_process_by_identity_result(
+        zombie_child.pid,
+        zombie_identity,
+        require_stopped=True,
+    )
+    if result != module.TerminationResult.ALREADY_EXITED:
+        raise SystemExit(f"a zombie target was classified as terminated: {result!r}")
+finally:
+    module.signal_pidfd = real_signal_pidfd
+    if zombie_child.poll() is None:
+        zombie_child.kill()
+    zombie_child.wait(timeout=5.0)
+
+live_child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+try:
+    live_identity = module.capture_process_identity(live_child.pid)
+    if live_identity is None:
+        raise SystemExit("unable to capture the live test child identity")
+    command = subprocess.run(
+        [
+            sys.executable,
+            lock_holder,
+            "terminate-process-required",
+            str(live_child.pid),
+            module.encode_process_identity(live_identity),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if command.returncode != 0 or command.stdout or command.stderr:
+        raise SystemExit(f"the live strict termination failed: {command!r}")
+finally:
+    if live_child.poll() is None:
+        live_child.kill()
+    live_child.wait(timeout=5.0)
+
+command = subprocess.run(
+    [
+        sys.executable,
+        lock_holder,
+        "terminate-process-required",
+        "2147483647",
+        module.encode_process_identity(identity),
+    ],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True,
+)
+if command.returncode != 75 or command.stdout or command.stderr:
+    raise SystemExit(f"the strict termination status was wrong: {command!r}")
+
+print("strict termination distinguished prior exit from signal delivery")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${LOCK_HOLDER}"
+    assert_success
+    assert_output_contains \
+        "strict termination distinguished prior exit from signal delivery"
+}
+
+@test "owner retirement markers are strictly bound for fallback classification" {
+    local test_script="${TEST_ROOT}/owner-retirement-marker-validation.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import os
+import subprocess
+import sys
+import tempfile
+from dataclasses import replace
+
+sys.dont_write_bytecode = True
+lock_holder = sys.argv[1]
+spec = importlib.util.spec_from_file_location("lock_holder", lock_holder)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+owner_identity = module.ProcessIdentity(101, "boot-id")
+sentinel_identity = module.ProcessIdentity(202, "boot-id")
+installer_identity = module.ProcessIdentity(303, "boot-id")
+marker = module.OwnerRetirementMarker(
+    state=module.OWNER_RETIREMENT_MARKER_STATE,
+    run_id="run-marker",
+    request_id="a" * 64,
+    owner_process_id=111,
+    owner_identity=owner_identity,
+    sentinel_process_id=222,
+    sentinel_identity=sentinel_identity,
+    installer_process_id=333,
+    installer_identity=installer_identity,
+)
+
+with tempfile.TemporaryDirectory(prefix="owner-retirement-marker-") as directory:
+    marker_path = os.path.join(directory, "owner-retiring")
+    expected = (
+        "run-marker",
+        111,
+        owner_identity,
+        222,
+        sentinel_identity,
+        333,
+        installer_identity,
+    )
+
+    def validation_command(expectation):
+        (
+            run_id,
+            owner_process_id,
+            expected_owner_identity,
+            sentinel_process_id,
+            expected_sentinel_identity,
+            installer_process_id,
+            expected_installer_identity,
+        ) = expectation
+        return [
+            sys.executable,
+            lock_holder,
+            "validate-owner-retirement-marker",
+            marker_path,
+            run_id,
+            str(owner_process_id),
+            module.encode_process_identity(expected_owner_identity),
+            str(sentinel_process_id),
+            module.encode_process_identity(expected_sentinel_identity),
+            str(installer_process_id),
+            module.encode_process_identity(expected_installer_identity),
+        ]
+
+    module.write_status(marker_path, module.encode_owner_retirement_marker(marker))
+    if not module.validate_owner_retirement_marker(marker_path, *expected):
+        raise SystemExit("the bound owner retirement marker was rejected")
+
+    command = subprocess.run(
+        validation_command(expected),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if command.returncode != 0 or command.stdout or command.stderr:
+        raise SystemExit(f"the marker validation command failed: {command!r}")
+
+    rejections = [
+        (
+            "wrong run",
+            marker,
+            (
+                "wrong-run",
+                111,
+                owner_identity,
+                222,
+                sentinel_identity,
+                333,
+                installer_identity,
+            ),
+        ),
+        (
+            "requested state",
+            replace(marker, state=module.OWNER_RETIREMENT_REQUEST_STATE),
+            expected,
+        ),
+        (
+            "owner PID",
+            replace(marker, owner_process_id=112),
+            expected,
+        ),
+        (
+            "owner identity",
+            replace(marker, owner_identity=module.ProcessIdentity(112, "other-boot")),
+            expected,
+        ),
+        (
+            "sentinel PID",
+            replace(marker, sentinel_process_id=223),
+            expected,
+        ),
+        (
+            "sentinel identity",
+            replace(
+                marker,
+                sentinel_identity=module.ProcessIdentity(223, "other-boot"),
+            ),
+            expected,
+        ),
+        (
+            "installer PID",
+            replace(marker, installer_process_id=334),
+            expected,
+        ),
+        (
+            "installer identity",
+            replace(
+                marker,
+                installer_identity=module.ProcessIdentity(334, "other-boot"),
+            ),
+            expected,
+        ),
+    ]
+    for label, candidate, expectation in rejections:
+        module.write_status(
+            marker_path,
+            module.encode_owner_retirement_marker(candidate),
+        )
+        if module.validate_owner_retirement_marker(marker_path, *expectation):
+            raise SystemExit(f"an owner retirement marker accepted the wrong {label}")
+        command = subprocess.run(
+            validation_command(expectation),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if command.returncode != 1 or command.stdout or command.stderr:
+            raise SystemExit(f"the wrong {label} marker was accepted: {command!r}")
+
+print("owner retirement markers were strictly bound")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${LOCK_HOLDER}"
+    assert_success
+    assert_output_contains "owner retirement markers were strictly bound"
+}
+
+@test "status publication keeps temporary names in the lock scope" {
+    local test_script="${TEST_ROOT}/status-temporary-name.py"
+
+    cat > "${test_script}" <<'PY'
+import importlib.util
+import os
+import sys
+import tempfile
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("lock_holder", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+real_replace = module.os.replace
+captured = []
+
+
+def fail_replace(source, _destination, **_keywords):
+    captured.append(source)
+    raise OSError("publication failed")
+
+
+module.os.replace = fail_replace
+try:
+    with tempfile.TemporaryDirectory(prefix="status-temporary-name-") as directory:
+        status_path = os.path.join(
+            directory,
+            ".postinstall-lock-0123456789abcdef-run.owner",
+        )
+        try:
+            module.write_status(status_path, "status\n")
+        except OSError:
+            pass
+        else:
+            raise SystemExit("the failed status publication was ignored")
+finally:
+    module.os.replace = real_replace
+
+expected = f"{os.path.basename(status_path)}.{os.getpid()}.tmp"
+if captured != [expected]:
+    raise SystemExit(f"the status temporary name escaped its scope: {captured!r}")
+if os.path.exists(status_path):
+    raise SystemExit("the failed status publication left its final path")
+
+print("status publication kept its temporary name in the lock scope")
+PY
+
+    run env PYTHONDONTWRITEBYTECODE=1 python3 \
+        "${test_script}" "${LOCK_HOLDER}"
+    assert_success
+    assert_output_contains \
+        "status publication kept its temporary name in the lock scope"
+}

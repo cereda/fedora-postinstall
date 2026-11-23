@@ -1074,6 +1074,8 @@ EOF
     local status_name=".postinstall-lock-${lock_scope}-current.acquired"
     local decision_name=".postinstall-lock-${lock_scope}-current.decision"
     local candidate_name="${decision_name}.123.tmp"
+    local status_temporary_name="${status_name}.123.tmp"
+    local legacy_status_temporary_name=".${status_name}.123.tmp"
     local stale_name=".postinstall-lock-${lock_scope}-stale.decision"
 
     mkdir -p "${cache_dir}"
@@ -1081,6 +1083,8 @@ EOF
     printf 'status\n' > "${cache_dir}/${status_name}"
     printf 'cancelled' > "${cache_dir}/${decision_name}"
     printf 'candidate\n' > "${cache_dir}/${candidate_name}"
+    printf 'temporary\n' > "${cache_dir}/${status_temporary_name}"
+    printf 'legacy-temporary\n' > "${cache_dir}/${legacy_status_temporary_name}"
     printf 'stale\n' > "${cache_dir}/${stale_name}"
 
     run env PYTHONDONTWRITEBYTECODE=1 python3 \
@@ -1093,6 +1097,8 @@ EOF
     assert_file_exists "${cache_dir}/${status_name}"
     assert_file_exists "${cache_dir}/${decision_name}"
     assert_file_exists "${cache_dir}/${candidate_name}"
+    assert_file_absent "${cache_dir}/${status_temporary_name}"
+    assert_file_absent "${cache_dir}/${legacy_status_temporary_name}"
     assert_file_absent "${cache_dir}/${stale_name}"
 }
 
@@ -2579,6 +2585,149 @@ EOF
     assert_success
     run flock --exclusive --nonblock "${cache_dir}" true
     assert_success
+}
+
+@test "the retirement fallback records owner loss after the sentinel is removed" {
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            RUNTIME_LOCK_ACQUIRED=1
+            RUNTIME_LOCK_OWNER_RETIREMENT_ACK=0
+            RUNTIME_LOCK_SUPPORT_TEARDOWN_ACTIVE=0
+            RUNTIME_LOCK_SENTINEL_ARMED=1
+            RUNTIME_LOCK_OWNER_PID=111
+            RUNTIME_LOCK_OWNER_IDENTITY="boot-id:222"
+            RUNTIME_LOCK_SENTINEL_PID=333
+            RUNTIME_LOCK_SENTINEL_IDENTITY="boot-id:444"
+            RUNTIME_LOCK_SENTINEL_ACK_FILE="$2/ack"
+            RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE="$2/marker"
+            rm -f -- \
+                "${RUNTIME_LOCK_SENTINEL_ACK_FILE}" \
+                "${RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE}"
+            runtime_set_pending_signal_status 143 TERM
+
+            sentinel_terminated=0
+            runtime_process_identity_matches() {
+                return 0
+            }
+            runtime_resume_lock_helper() {
+                return 0
+            }
+            runtime_signal_lock_helper() {
+                return 0
+            }
+            runtime_terminate_lock_helper() {
+                if [ "${1}" = "${RUNTIME_LOCK_SENTINEL_PID}" ]; then
+                    sentinel_terminated=1
+                    return 0
+                fi
+                if [ "${1}" = "${RUNTIME_LOCK_OWNER_PID}" ] &&
+                    [ "${3:-}" = "required" ] &&
+                    [ "${sentinel_terminated}" -eq 1 ]; then
+                    return 75
+                fi
+                return 0
+            }
+            sleep() {
+                return 0
+            }
+
+            runtime_retire_lock_owner || exit $?
+            printf "pending_loss=%s pending_status=%s teardown=%s\\n" \
+                "${RUNTIME_PENDING_LOCK_LOSS}" \
+                "${RUNTIME_PENDING_SIGNAL_STATUS}" \
+                "${RUNTIME_LOCK_SUPPORT_TEARDOWN_ACTIVE}"
+        ' _ "${SANDBOX_REPO}" "${TEST_ROOT}"
+    assert_success
+    assert_output_contains "pending_loss=1 pending_status=141 teardown=1"
+}
+
+@test "an authenticated retirement marker prevents a false owner-loss status" {
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            RUNTIME_LOCK_ACQUIRED=1
+            RUNTIME_LOCK_OWNER_RETIREMENT_ACK=0
+            RUNTIME_LOCK_SUPPORT_TEARDOWN_ACTIVE=1
+            RUNTIME_RUN_ID="run-marker"
+            RUNTIME_LOCK_OWNER_PID=111
+            RUNTIME_LOCK_OWNER_IDENTITY="boot-id:222"
+            RUNTIME_LOCK_SENTINEL_PID=333
+            RUNTIME_LOCK_SENTINEL_IDENTITY="boot-id:444"
+            RUNTIME_LOCK_INSTALLER_PID=555
+            RUNTIME_LOCK_INSTALLER_IDENTITY="boot-id:666"
+            RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE="$2/owner-retiring"
+            printf "%s\\n" \
+                "schema=1" \
+                "run_id=run-marker" \
+                "state=owner-retiring" \
+                "request_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+                "owner_pid=111" \
+                "owner_identity=boot-id:222" \
+                "sentinel_pid=333" \
+                "sentinel_identity=boot-id:444" \
+                "installer_pid=555" \
+                "installer_identity=boot-id:666" \
+                > "${RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE}"
+            runtime_set_pending_signal_status 143 TERM
+            runtime_terminate_lock_helper() {
+                return 75
+            }
+            runtime_retire_lock_owner_directly || exit $?
+            printf "pending_loss=%s pending_status=%s ack=%s\\n" \
+                "${RUNTIME_PENDING_LOCK_LOSS}" \
+                "${RUNTIME_PENDING_SIGNAL_STATUS}" \
+                "${RUNTIME_LOCK_OWNER_RETIREMENT_ACK}"
+        ' _ "${SANDBOX_REPO}" "${TEST_ROOT}"
+    assert_success
+    assert_output_contains "pending_loss=0 pending_status=143 ack=1"
+}
+
+@test "an unauthenticated retirement marker preserves owner-loss status" {
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_ROOT}/home" \
+        bash -c '
+            source "$1/common/runtime.sh"
+            RUNTIME_LOCK_ACQUIRED=1
+            RUNTIME_LOCK_OWNER_RETIREMENT_ACK=0
+            RUNTIME_LOCK_SUPPORT_TEARDOWN_ACTIVE=1
+            RUNTIME_RUN_ID="run-marker"
+            RUNTIME_LOCK_OWNER_PID=111
+            RUNTIME_LOCK_OWNER_IDENTITY="boot-id:222"
+            RUNTIME_LOCK_SENTINEL_PID=333
+            RUNTIME_LOCK_SENTINEL_IDENTITY="boot-id:444"
+            RUNTIME_LOCK_INSTALLER_PID=555
+            RUNTIME_LOCK_INSTALLER_IDENTITY="boot-id:666"
+            RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE="$2/owner-retiring"
+            printf "%s\\n" \
+                "schema=1" \
+                "run_id=run-marker" \
+                "state=owner-retirement-requested" \
+                "request_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+                "owner_pid=111" \
+                "owner_identity=boot-id:222" \
+                "sentinel_pid=333" \
+                "sentinel_identity=boot-id:444" \
+                "installer_pid=555" \
+                "installer_identity=boot-id:666" \
+                > "${RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE}"
+            runtime_set_pending_signal_status 143 TERM
+            runtime_terminate_lock_helper() {
+                return 75
+            }
+            runtime_retire_lock_owner_directly || exit $?
+            printf "pending_loss=%s pending_status=%s ack=%s\\n" \
+                "${RUNTIME_PENDING_LOCK_LOSS}" \
+                "${RUNTIME_PENDING_SIGNAL_STATUS}" \
+                "${RUNTIME_LOCK_OWNER_RETIREMENT_ACK}"
+        ' _ "${SANDBOX_REPO}" "${TEST_ROOT}"
+    assert_success
+    assert_output_contains "pending_loss=1 pending_status=141 ack=0"
 }
 
 @test "the dedicated support processes retain lock ownership when every helper dies" {
