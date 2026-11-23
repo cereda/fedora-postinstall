@@ -95,9 +95,9 @@ fi
 plan_resolve_tools "${SELECTED_ARCHITECTURE}" || exit $?
 
 cli_apply_options
+runtime_initialize || exit $?
+runtime_register_cleanup "install-lock" runtime_release_install_lock || exit $?
 runtime_acquire_install_lock || exit $?
-runtime_initialize || exit 1
-runtime_register_cleanup "install-lock" runtime_release_install_lock || exit 1
 
 source "common/gum-functions.sh" || exit 1
 source "common/validation.sh" || exit 1
