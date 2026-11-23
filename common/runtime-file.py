@@ -1421,6 +1421,7 @@ def prune_lock_state(
 
     directory_descriptor = open_existing_directory(directory)
     scope_prefix = f".postinstall-lock-{scope}-"
+    legacy_scope_prefix = f".{scope_prefix}"
     decision_prefix = f"{keep_decision_name}." if keep_decision_name else ""
     try:
         for name in os.listdir(directory_descriptor):
@@ -1428,7 +1429,10 @@ def prune_lock_state(
                 name == keep_name
                 or name == keep_decision_name
                 or (keep_decision_name and name.startswith(decision_prefix))
-                or not name.startswith(scope_prefix)
+                or (
+                    not name.startswith(scope_prefix)
+                    and not name.startswith(legacy_scope_prefix)
+                )
             ):
                 continue
             try:

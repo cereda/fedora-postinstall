@@ -2107,7 +2107,9 @@ function runtime_signal_lock_helper {
 function runtime_terminate_lock_helper {
     local runtime_local_pid="${1:-}"
     local runtime_local_identity="${2:-}"
+    local runtime_local_mode="${3:-}"
     local runtime_local_holder="${SCRIPT_PATH}/common/lock-holder.py"
+    local runtime_local_command="terminate-process"
 
     if [ -z "${runtime_local_pid}" ] && [ -z "${runtime_local_identity}" ]; then
         return 0
@@ -2121,7 +2123,10 @@ function runtime_terminate_lock_helper {
         [ -L "${runtime_local_holder}" ]; then
         return 1
     fi
-    python3 "${runtime_local_holder}" terminate-process \
+    if [ "${runtime_local_mode}" = "required" ]; then
+        runtime_local_command="terminate-process-required"
+    fi
+    python3 "${runtime_local_holder}" "${runtime_local_command}" \
         "${runtime_local_pid}" "${runtime_local_identity}" >/dev/null 2>&1
 }
 
@@ -2232,6 +2237,36 @@ function runtime_force_release_install_lock {
     return "${runtime_local_status}"
 }
 
+function runtime_validate_lock_retirement_marker {
+    local runtime_local_marker_file="${1:-}"
+    local runtime_local_holder="${SCRIPT_PATH}/common/lock-holder.py"
+
+    if [ -z "${runtime_local_marker_file}" ] ||
+        [ ! -s "${runtime_local_marker_file}" ] ||
+        [ -z "${RUNTIME_RUN_ID:-}" ] ||
+        [ -z "${RUNTIME_LOCK_OWNER_PID:-}" ] ||
+        [ -z "${RUNTIME_LOCK_OWNER_IDENTITY:-}" ] ||
+        [ -z "${RUNTIME_LOCK_SENTINEL_PID:-}" ] ||
+        [ -z "${RUNTIME_LOCK_SENTINEL_IDENTITY:-}" ] ||
+        [ -z "${RUNTIME_LOCK_INSTALLER_PID:-}" ] ||
+        [ -z "${RUNTIME_LOCK_INSTALLER_IDENTITY:-}" ] ||
+        [ ! -f "${runtime_local_holder}" ] ||
+        [ -L "${runtime_local_holder}" ]; then
+        return 1
+    fi
+
+    python3 "${runtime_local_holder}" \
+        validate-owner-retirement-marker \
+        "${runtime_local_marker_file}" \
+        "${RUNTIME_RUN_ID}" \
+        "${RUNTIME_LOCK_OWNER_PID}" \
+        "${RUNTIME_LOCK_OWNER_IDENTITY}" \
+        "${RUNTIME_LOCK_SENTINEL_PID}" \
+        "${RUNTIME_LOCK_SENTINEL_IDENTITY}" \
+        "${RUNTIME_LOCK_INSTALLER_PID}" \
+        "${RUNTIME_LOCK_INSTALLER_IDENTITY}" >/dev/null 2>&1
+}
+
 function runtime_validate_lock_retirement_ack {
     local runtime_local_ack_file="${1:-}"
     local runtime_local_marker_file="${2:-}"
@@ -2267,26 +2302,42 @@ function runtime_validate_lock_retirement_ack {
 }
 
 function runtime_retire_lock_owner_directly {
+    local runtime_local_status
+
     if [ -z "${RUNTIME_LOCK_OWNER_PID:-}" ]; then
         return 0
     fi
 
-    if ! runtime_terminate_lock_helper \
+    runtime_terminate_lock_helper \
         "${RUNTIME_LOCK_OWNER_PID}" \
-        "${RUNTIME_LOCK_OWNER_IDENTITY:-}"; then
-        return 1
+        "${RUNTIME_LOCK_OWNER_IDENTITY:-}" \
+        required
+    runtime_local_status="${?}"
+    if [ "${runtime_local_status}" -eq 0 ]; then
+        wait "${RUNTIME_LOCK_OWNER_PID}" 2>/dev/null || true
+        return 0
     fi
-    wait "${RUNTIME_LOCK_OWNER_PID}" 2>/dev/null || true
-    return 0
+    if [ "${runtime_local_status}" -eq 75 ]; then
+        wait "${RUNTIME_LOCK_OWNER_PID}" 2>/dev/null || true
+        if runtime_validate_lock_retirement_marker \
+            "${RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE:-}"; then
+            RUNTIME_LOCK_OWNER_RETIREMENT_ACK=1
+        else
+            runtime_record_lock_retirement_loss "owner-loss"
+        fi
+        return 0
+    fi
+    return 1
 }
 
 function runtime_record_lock_retirement_loss {
     local runtime_local_loss_name="${1:-support-loss}"
 
-    # Once intentional support teardown has begun, an already-removed peer is
-    # expected. A genuine owner-loss notification that was raised before this
-    # point remains pending independently.
-    if [ "${RUNTIME_LOCK_SUPPORT_TEARDOWN_ACTIVE}" -eq 1 ]; then
+    # Once intentional support teardown has begun, an already-removed support
+    # peer is expected. A genuine owner loss remains security-specific even
+    # when it is discovered after the sentinel has been intentionally removed.
+    if [ "${RUNTIME_LOCK_SUPPORT_TEARDOWN_ACTIVE}" -eq 1 ] &&
+        [ "${runtime_local_loss_name}" != "owner-loss" ]; then
         return 0
     fi
 
@@ -2333,6 +2384,12 @@ function runtime_retire_lock_owner {
     if ! runtime_process_identity_matches \
         "${RUNTIME_LOCK_OWNER_PID}" \
         "${RUNTIME_LOCK_OWNER_IDENTITY}"; then
+        if runtime_validate_lock_retirement_marker \
+            "${RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE:-}"; then
+            RUNTIME_LOCK_OWNER_RETIREMENT_ACK=1
+            wait "${RUNTIME_LOCK_OWNER_PID}" 2>/dev/null || true
+            return 0
+        fi
         runtime_record_lock_retirement_loss "owner-loss"
         printf 'runtime: installation lock owner failed before retirement\n' >&2
         # The sentinel is now the final descriptor holder. Cleanup can retire
@@ -2425,6 +2482,12 @@ function runtime_retire_lock_owner {
     if ! runtime_process_identity_matches \
         "${RUNTIME_LOCK_OWNER_PID}" \
         "${RUNTIME_LOCK_OWNER_IDENTITY}"; then
+        if runtime_validate_lock_retirement_marker \
+            "${RUNTIME_LOCK_OWNER_RETIREMENT_MARKER_FILE:-}"; then
+            RUNTIME_LOCK_OWNER_RETIREMENT_ACK=1
+            wait "${RUNTIME_LOCK_OWNER_PID}" 2>/dev/null || true
+            return 0
+        fi
         runtime_record_lock_retirement_loss "owner-loss"
         printf 'runtime: installation lock owner failed before retirement\n' >&2
         return 0
