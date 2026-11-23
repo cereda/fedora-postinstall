@@ -214,10 +214,11 @@ function detection_resolve_flavor {
 
     if ! detection_detect_flavor; then
         if [ "${DETECTION_FLAVOR_CONFLICT}" -eq 1 ]; then
-            printf 'cli: Fedora flavor detection is ambiguous; use --flavor\n' >&2
+            printf 'cli: Fedora flavor detection is ambiguous; use --flavor to select workstation or silverblue\n' >&2
             return 69
         fi
-        return 1
+        printf 'cli: unable to detect Fedora flavor; use --flavor to select workstation or silverblue\n' >&2
+        return 69
     fi
 
     detection_local_selected="${DETECTION_FLAVOR}"

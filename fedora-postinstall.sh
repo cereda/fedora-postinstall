@@ -57,6 +57,21 @@ if [ "${CLI_DRY_RUN}" -eq 1 ]; then
     exit 0
 fi
 
+# Resolve the Fedora flavor before any dependency download, cache creation,
+# lock acquisition, or installation module is considered. An explicit
+# install uses the selected flavor, POSTINSTALL_FLAVOR, or reliable automatic
+# detection; it never falls back to an interactive chooser.
+SELECTED_FLAVOR=""
+if [ "${CLI_COMMAND}" = "install" ]; then
+    SELECTED_FLAVOR=$(detection_resolve_flavor)
+    FLAVOR_STATUS="${?}"
+    if [ "${FLAVOR_STATUS}" -ne 0 ]; then
+        exit "${FLAVOR_STATUS}"
+    fi
+    CLI_FLAVOR="${SELECTED_FLAVOR}"
+    export POSTINSTALL_FLAVOR="${SELECTED_FLAVOR}"
+fi
+
 # Resolve target architecture before any installation module is considered.
 if ! SELECTED_ARCHITECTURE=$(detection_resolve_architecture); then
     exit 69
@@ -64,32 +79,10 @@ fi
 CLI_ARCHITECTURE="${SELECTED_ARCHITECTURE}"
 export POSTINSTALL_ARCHITECTURE="${SELECTED_ARCHITECTURE}"
 
-# An explicit install command may use automatic flavor detection. An
-# implicit invocation retains the legacy interactive chooser unless the user
-# supplied --flavor on the command line; POSTINSTALL_FLAVOR is honored by
-# explicit install commands but cannot silently bypass that chooser.
-SELECTED_FLAVOR=""
-FLAVOR_STATUS=0
-if [ "${CLI_COMMAND}" = "install" ]; then
-    if [ "${CLI_COMMAND_EXPLICIT}" -eq 1 ] ||
-        [ "${CLI_FLAVOR_OPTION_EXPLICIT}" -eq 1 ]; then
-        if SELECTED_FLAVOR=$(detection_resolve_flavor); then
-            CLI_FLAVOR="${SELECTED_FLAVOR}"
-        else
-            FLAVOR_STATUS="${?}"
-            if [ "${FLAVOR_STATUS}" -eq 69 ]; then
-                exit 69
-            fi
-        fi
-    fi
-fi
-
 # Profiles are validated before any dependency download or system mutation.
 if [ "${CLI_COMMAND}" = "install" ]; then
     profile_load || exit $?
-    if [ -n "${SELECTED_FLAVOR}" ]; then
-        profile_apply_flavor "${SELECTED_FLAVOR}" || exit $?
-    fi
+    profile_apply_flavor "${SELECTED_FLAVOR}" || exit $?
 fi
 
 # Resolve and validate the extras selection before the runtime starts.
@@ -102,9 +95,9 @@ fi
 plan_resolve_tools "${SELECTED_ARCHITECTURE}" || exit $?
 
 cli_apply_options
+runtime_initialize || exit $?
+runtime_register_cleanup "install-lock" runtime_release_install_lock || exit $?
 runtime_acquire_install_lock || exit $?
-runtime_initialize || exit 1
-runtime_register_cleanup "install-lock" runtime_release_install_lock || exit 1
 
 source "common/gum-functions.sh" || exit 1
 source "common/validation.sh" || exit 1
@@ -135,35 +128,8 @@ if [ "${CLI_COMMAND}" = "install" ]; then
 
     echo
 
-    # Preserve the legacy upgrade confirmation for actual installations.
+    # Keep the upgrade confirmation for actual installations.
     question "Did you upgrade your system?" || exit 1
-
-    if [ -z "${SELECTED_FLAVOR}" ]; then
-        text "Welcome to my post installation script for Fedora! \
-Please select which flavour of Fedora you are currently running."
-
-        echo
-
-        if ! runtime_capture_output FEDORA_FLAVOUR "${GUM}" choose "Workstation" "Silverblue"; then
-            text "Unable to read the Fedora flavour selection. Aborting."
-            exit 1
-        fi
-        if [ -z "${FEDORA_FLAVOUR}" ]; then
-            text "No Fedora flavour was selected. Aborting to avoid applying the wrong configuration."
-            exit 1
-        fi
-        case "${FEDORA_FLAVOUR}" in
-        Workstation) SELECTED_FLAVOR="workstation" ;;
-        Silverblue) SELECTED_FLAVOR="silverblue" ;;
-        *)
-            text "Invalid Fedora flavour '${FEDORA_FLAVOUR}'. Aborting."
-            exit 1
-            ;;
-        esac
-        CLI_FLAVOR="${SELECTED_FLAVOR}"
-        export POSTINSTALL_FLAVOR="${SELECTED_FLAVOR}"
-        profile_apply_flavor "${SELECTED_FLAVOR}" || exit $?
-    fi
 
     case "${SELECTED_FLAVOR}" in
     workstation)
@@ -179,8 +145,7 @@ Please select which flavour of Fedora you are currently running."
     export POSTINSTALL_STATE_NAMESPACE
     runtime_run_module "${SELECTED_FLAVOR}/post-installation.sh" orchestrator
 else
-    text "Welcome to my post installation script for Fedora! It appears you \
-have chosen to skip the flavour selection. The script will now proceed \
+    text "Welcome to my post installation script for Fedora! The script will now proceed \
 directly to the installation of additional command line tools."
 fi
 

@@ -5,8 +5,14 @@
 ## Safety
 
 The installer is interactive and can modify the host system. Never run
-`bash fedora-postinstall.sh` as a smoke test. Tests must use mocked commands,
-temporary directories, and temporary home/state/log/cache/lock paths.
+`bash fedora-postinstall.sh install` or `bash fedora-postinstall.sh extras` as
+a smoke test. Every invocation must include an explicit command (`install`,
+`extras`, `detect`, `plan`, or `help`); an invocation without a command is a
+usage error and must not select an installation flow. Tests must use mocked
+commands, temporary directories, and temporary home/state/log/cache/lock paths.
+The unsupported `CLI_TOOLS_ONLY`
+environment variable is rejected; use the `extras` command for an
+extras-only run.
 
 ## Quality gates
 

@@ -12,7 +12,7 @@ The project targets Fedora Workstation and Fedora Silverblue. It requires `rpm` 
 sudo dnf install coreutils curl findutils git jq python3 realpath tar unzip util-linux wget
 ```
 
-An interactive installation also requires a terminal and a working `sudo` session. The `detect`, `plan`, and `--dry-run` commands do not prompt, download files, create the cache or lock, or change the system.
+An interactive installation also requires a terminal and a working `sudo` session. The `detect`, `plan`, and `--dry-run` commands do not prompt, download files, create the cache or lock, or change the system. A command is required for every invocation; running the entry point without one is a usage error with status `64`.
 
 ## Command-line workflow
 
@@ -34,7 +34,7 @@ The available commands are:
 | `plan` | Render the effective module and tool plan without running it. |
 | `help` | Show command and option help. |
 
-A plain `bash fedora-postinstall.sh` retains the legacy interactive flavor chooser. `POSTINSTALL_FLAVOR` does not bypass that chooser for an implicit invocation, although it is honored by an explicit `install` command. The explicit `install` command can use automatic flavor detection, while `--flavor workstation` or `--flavor silverblue` always selects the flavor explicitly. Detection never falls back between native architectures: x86-64 and AArch64 use their own manifest assets, with universal assets selected only through an explicit `assets.any` entry.
+The `install` command requires a Fedora flavor. Use `--flavor workstation` or `--flavor silverblue` to select one explicitly, set `POSTINSTALL_FLAVOR`, or rely on reliable automatic detection. Command-line flavor selection takes precedence over the environment. If the flavor is unknown or detection is ambiguous, the command stops with status `69` before changing the system and asks for `--flavor`; there is no interactive flavor chooser. Detection never falls back between native architectures: x86-64 and AArch64 use their own manifest assets, with universal assets selected only through an explicit `assets.any` entry.
 
 Useful non-mutating examples are:
 
@@ -59,10 +59,10 @@ bash fedora-postinstall.sh extras --all-extras
 bash fedora-postinstall.sh extras --dry-run --all-extras
 ```
 
-The legacy `CLI_TOOLS_ONLY` environment variable remains supported and is presence-based. Setting it to any value, including `0`, selects the extras-only flow:
+The legacy `CLI_TOOLS_ONLY` environment variable is not supported. Setting it is rejected with a usage error; use the explicit `extras` command instead:
 
 ```bash
-CLI_TOOLS_ONLY=1 bash fedora-postinstall.sh
+bash fedora-postinstall.sh extras --tools fd,ripgrep,yq
 ```
 
 The authoritative tool registry is `extras/tools-list.sh`. URLs, versions, checksums, archive types, file mappings, and architecture assets are defined in `extras/tools-manifest.json`; profiles and command-line options can select registered tool identifiers but cannot replace those manifest values.
@@ -98,7 +98,7 @@ The main runtime controls are available as command-line options and environment 
 
 Other environment equivalents include `POSTINSTALL_FLAVOR`, `POSTINSTALL_ARCHITECTURE`, `POSTINSTALL_PROFILE`, `POSTINSTALL_PROFILE_FILE`, `POSTINSTALL_TOOLS`, `POSTINSTALL_CACHE_DIR`, `POSTINSTALL_LOCK_FILE`, and `POSTINSTALL_DRY_RUN`. Command-line options take precedence over environment values. Without an explicit command-line profile option, `POSTINSTALL_PROFILE` and `POSTINSTALL_PROFILE_FILE` cannot both be set; `--profile` and `--profile-file` cannot be combined.
 
-The default state file is `${XDG_STATE_HOME:-${HOME}/.local/state}/fedora-postinstall/state.tsv`. The default cache directory is `${XDG_CACHE_HOME:-${HOME}/.cache}/fedora-postinstall`, and the default lock file is `postinstall.lock` inside the effective cache directory. Relative cache and lock paths resolve from the directory where the installer is invoked. Plans report both effective paths without creating them. A real `install` or `extras` run creates the cache and lock securely, holds an exclusive `flock` lock through installation and cleanup, and exits with status `75` when another run already holds that lock.
+The default state file is `${XDG_STATE_HOME:-${HOME}/.local/state}/fedora-postinstall/state.tsv`. The default cache directory is `${XDG_CACHE_HOME:-${HOME}/.cache}/fedora-postinstall`, and the default lock file is `postinstall.lock` inside the effective cache directory. Relative cache and lock paths resolve from the directory where the installer is invoked. Plans report both effective paths without creating them. A real `install` or `extras` run creates the cache and lock securely, holds exclusive `flock` locks on both the lock file and its parent-directory scope through installation and cleanup, and exits with status `75` when another run already holds that scope. A dedicated owner and an independent lock sentinel mutually monitor one another while retaining the exact locked descriptors, so unrelated installation descendants cannot extend either lock domain. Unexpected owner or sentinel/support loss aborts the installer with status `141` after acquisition; loss during acquisition is reported as an acquisition failure with status `73`. The parent-directory scope prevents replacing the public lock pathname from creating a second installer lock domain; lock files that share a parent directory therefore contend with one another.
 
 State records include the flavor, architecture, profile digest, explicit extras selection, module checksum, and shared values such as `MACHINE_NAME`, `ROOT_DIRECTORY_STRUCTURE`, `COMMAND_NAME`, and `TOOLBOX_NAME`. The runtime stops at the first unhandled module failure, runs cleanup callbacks, and rejects malformed or unsafe state files.
 

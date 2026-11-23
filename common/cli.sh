@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 declare -g CLI_COMMAND=""
-declare -g CLI_COMMAND_EXPLICIT=0
 declare -g CLI_FLAVOR=""
 declare -g CLI_FLAVOR_EXPLICIT=0
 declare -g CLI_FLAVOR_OPTION_EXPLICIT=0
@@ -276,7 +275,6 @@ function cli_finalize_paths {
 
 function cli_reset_options {
     CLI_COMMAND=""
-    CLI_COMMAND_EXPLICIT=0
     CLI_FLAVOR=""
     CLI_FLAVOR_EXPLICIT=0
     CLI_FLAVOR_OPTION_EXPLICIT=0
@@ -343,7 +341,6 @@ function cli_parse_arguments {
     local cli_local_argument
     local cli_local_value
     local cli_local_command_set=0
-    local cli_local_explicit_install=0
     local cli_local_profile_option_set=0
     local cli_local_profile_file_option_set=0
     local cli_local_tool_option_set=0
@@ -351,12 +348,16 @@ function cli_parse_arguments {
 
     cli_reset_options || return 64
 
+    if [ -n "${CLI_TOOLS_ONLY+x}" ]; then
+        printf 'cli: CLI_TOOLS_ONLY is not supported; use the extras command instead\n' >&2
+        return 64
+    fi
+
     while [ "$#" -gt 0 ]; do
         cli_local_argument="${1}"
         case "${cli_local_argument}" in
         --help | -h)
             CLI_COMMAND="help"
-            CLI_COMMAND_EXPLICIT=1
             cli_local_command_set=1
             shift
             ;;
@@ -616,7 +617,6 @@ function cli_parse_arguments {
             case "${cli_local_argument}" in
             install)
                 CLI_COMMAND="install"
-                cli_local_explicit_install=1
                 ;;
             extras)
                 CLI_COMMAND="extras"
@@ -635,12 +635,16 @@ function cli_parse_arguments {
                 return 64
                 ;;
             esac
-            CLI_COMMAND_EXPLICIT=1
             cli_local_command_set=1
             shift
             ;;
         esac
     done
+
+    if [ "${cli_local_command_set}" -eq 0 ]; then
+        printf 'cli: a command is required (install, extras, detect, plan, or help)\n' >&2
+        return 64
+    fi
 
     cli_finalize_paths || return 64
 
@@ -676,17 +680,6 @@ function cli_parse_arguments {
     elif [ "${cli_local_tool_option_set}" -eq 1 ]; then
         CLI_TOOL_SELECTION_MODE="explicit"
         CLI_TOOL_SELECTION_SOURCE="command-line"
-    fi
-
-    if [ "${cli_local_command_set}" -eq 0 ]; then
-        if [ -z "${CLI_TOOLS_ONLY+x}" ]; then
-            CLI_COMMAND="install"
-        else
-            CLI_COMMAND="extras"
-        fi
-    elif [ "${cli_local_explicit_install}" -eq 1 ] && [ -n "${CLI_TOOLS_ONLY+x}" ]; then
-        printf 'cli: CLI_TOOLS_ONLY is present; using the extras command\n' >&2
-        CLI_COMMAND="extras"
     fi
 
     case "${CLI_COMMAND}" in
@@ -755,10 +748,10 @@ function cli_apply_options {
 
 function cli_render_help {
     cat <<'HELP'
-Usage: bash fedora-postinstall.sh [COMMAND] [OPTIONS]
+Usage: bash fedora-postinstall.sh <command> [OPTIONS]
 
-Commands:
-  install              Run the Fedora post-installation flow (default)
+A command is required. Commands:
+  install              Run the Fedora post-installation flow
   extras               Install only the additional command-line tools
   detect               Show detected OS, flavor, and architecture
   plan                 Show the module plan without changing the system
@@ -789,7 +782,6 @@ POSTINSTALL_PROFILE, POSTINSTALL_PROFILE_FILE, POSTINSTALL_TOOLS,
 POSTINSTALL_CACHE_DIR, POSTINSTALL_LOCK_FILE, POSTINSTALL_DRY_RUN,
 POSTINSTALL_RESUME, POSTINSTALL_STATE_FILE, POSTINSTALL_LOG_FILE,
 POSTINSTALL_LOG_FORMAT, POSTINSTALL_LOG_LEVEL, and
-POSTINSTALL_LOG_STDOUT. CLI_TOOLS_ONLY retains its legacy presence-based
-behavior and selects the extras flow.
+POSTINSTALL_LOG_STDOUT.
 HELP
 }
