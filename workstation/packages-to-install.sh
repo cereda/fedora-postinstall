@@ -22,6 +22,7 @@ declare -g -t PACKAGES_TO_INSTALL=(
     "p7zip"
     "p7zip-plugins"
     "papirus-icon-theme"
+    "podman-compose"
     "rdfind"
     "unrar"
 )

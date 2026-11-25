@@ -21,5 +21,6 @@ declare -g -t PACKAGES_TO_INSTALL=(
     "p7zip"
     "p7zip-plugins"
     "perl"
+    "podman-compose"
     "tmux"
 )
