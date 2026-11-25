@@ -2,17 +2,15 @@
 
 # SPDX-License-Identifier: MIT
 
-section "forgit installation and configuration"
+ui_section "Forgit installation and configuration"
 
-description "Install and configure forgit."
-echo
+ui_description "Install Forgit and create its helper script."
 
-if question "Do you want to install forgit?"; then
+if ui_confirm "Install Forgit?" "Install" "Skip"; then
 
-    info "Cloning the repository."
+    ui_step "Installing Forgit and creating its helper script."
     git clone https://github.com/wfxr/forgit "${ROOT_DIRECTORY_STRUCTURE}/applications/forgit"
 
-    info "Writing helper script."
     # Resolve managed paths now; escaped values remain runtime shell expressions.
     cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/forgit.sh" <<SH
 #!/bin/bash
@@ -35,4 +33,7 @@ unset pathmunge
 source "${ROOT_DIRECTORY_STRUCTURE}/applications/forgit/forgit.plugin.sh"
 SH
 
+    ui_success "Forgit and its helper script are ready."
+else
+    ui_skip "Forgit was not installed."
 fi

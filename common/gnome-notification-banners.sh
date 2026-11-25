@@ -2,16 +2,20 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME notification banners"
+ui_section "GNOME notification banners"
 
-description "Disable GNOME notification banners."
-echo
+ui_description "Disable GNOME notification banners."
 
-if question "Do you want to disable notification banners?"; then
+if ui_confirm "Disable GNOME notification banners?" "Disable" "Keep"; then
 
-    info "Disabling notification banners."
+    ui_step "Disabling notification banners and lock-screen notifications."
     gsettings set org.gnome.desktop.notifications show-banners false
-
-    info "Disabling notifications in lock screen."
     gsettings set org.gnome.desktop.notifications show-in-lock-screen false
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "GNOME notification banners were left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

@@ -2,16 +2,29 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Paulo's custom configuration for the home directory"
+ui_section "Fedora Workstation home configuration"
 
-description "Create the managed home-directory structure and shell configuration."
-echo
+ui_description "Set up the managed home-directory structure and Bash configuration for Fedora Workstation."
+
+HOME_CONFIGURATION_FLATPAKS_RETENTION_AVAILABLE=1
+if [ "${FLATPAKS_KEEP_CACHE_IDS_JSON+x}" != "x" ]; then
+    HOME_CONFIGURATION_FLATPAKS_RETENTION_AVAILABLE=0
+    FLATPAKS_KEEP_CACHE_LIST=""
+    ui_warning "Flatpak cache-retention state is unavailable; generated cleanup will not remove Flatpak application data."
+elif [ -z "${FLATPAKS_KEEP_CACHE_IDS_JSON}" ]; then
+    ui_error "The Flatpak cache-retention state is missing."
+    return 1
+else
+    flatpaks_keep_cache_filter_from_state "${FLATPAKS_KEEP_CACHE_IDS_JSON}" || return $?
+fi
 
 # use a shell-safe command name independent from the host name
 COMMAND_NAME="host_${MACHINE_NAME//[^A-Za-z0-9_]/_}"
 
 HIDDEN_DIRECTORY_PROMPT_STATUS=0
-question "Do you want to use a hidden directory structure? [recommended]" ||
+ui_confirm \
+    "Use the recommended hidden directory (~/.${MACHINE_NAME}) or choose a custom location?" \
+    "Use hidden directory" "Choose location" ||
     HIDDEN_DIRECTORY_PROMPT_STATUS="${?}"
 
 case "${HIDDEN_DIRECTORY_PROMPT_STATUS}" in
@@ -22,9 +35,7 @@ case "${HIDDEN_DIRECTORY_PROMPT_STATUS}" in
     ;;
 1)
 
-    text "Please select a directory. You can navigate \
-between directories using the left and right arrow keys, \
-and select one with the Enter key."
+    ui_step "Selecting a custom configuration directory."
 
     HOME_CONFIGURATION_DIRECTORY_MAX_ATTEMPTS=3
     HOME_CONFIGURATION_DIRECTORY_ATTEMPT=0
@@ -40,7 +51,7 @@ and select one with the Enter key."
         SELECT_DIRECTORY=""
         HOME_CONFIGURATION_DIRECTORY_STATUS=0
 
-        if SELECT_DIRECTORY=$("${GUM}" file --all --permissions --directory); then
+        if SELECT_DIRECTORY=$(ui_select_directory "${HOME}"); then
             HOME_CONFIGURATION_DIRECTORY_STATUS=0
         else
             HOME_CONFIGURATION_DIRECTORY_STATUS="${?}"
@@ -49,7 +60,7 @@ and select one with the Enter key."
         case "${HOME_CONFIGURATION_DIRECTORY_STATUS}" in
         0)
             if [ -z "${SELECT_DIRECTORY}" ]; then
-                text "No directory was selected. Aborting."
+                ui_error "No directory was selected."
                 return 1
             fi
 
@@ -61,72 +72,54 @@ and select one with the Enter key."
             fi
             ;;
         1)
-            text "Directory selection was cancelled. Aborting."
+            ui_error "Directory selection was cancelled."
             return 1
             ;;
         *)
-            text "Unable to select a directory (status ${HOME_CONFIGURATION_DIRECTORY_STATUS}). Aborting."
+            ui_error "Unable to select a directory (status ${HOME_CONFIGURATION_DIRECTORY_STATUS})."
             return "${HOME_CONFIGURATION_DIRECTORY_STATUS}"
             ;;
         esac
     done
 
     if [ "${HOME_CONFIGURATION_DIRECTORY_SELECTED}" -ne 1 ]; then
-        text "Unable to select a safe configuration directory after ${HOME_CONFIGURATION_DIRECTORY_MAX_ATTEMPTS} attempts. Aborting."
+        ui_error "Unable to select a safe configuration directory after ${HOME_CONFIGURATION_DIRECTORY_MAX_ATTEMPTS} attempts."
         return 1
     fi
     ;;
 *)
-    text "Unable to read the directory-structure preference. Aborting."
+    ui_error "Unable to read the directory-structure preference."
     return "${HIDDEN_DIRECTORY_PROMPT_STATUS}"
     ;;
 esac
 
 if ! validate_root_directory "${ROOT_DIRECTORY_STRUCTURE}"; then
-    text "The selected configuration directory is not safe to use. Aborting."
+    ui_error "The selected configuration directory is not safe to use."
     return 1
 fi
 
-text "The root directory structure will be located at ${ROOT_DIRECTORY_STRUCTURE}."
+ui_text "The managed home directory will be located at ${ROOT_DIRECTORY_STRUCTURE}."
 
-echo
-
-info "Creating root directory."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}"
-
-info "Creating directory for applications."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/applications"
-
-info "Creating directory for config files."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config"
-
-info "Creating directory for data files."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/data"
-
-info "Creating directory for profile."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/profile"
-
-info "Creating directory for scripts."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/scripts"
-
-info "Creating directory for general stuff."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/stuff"
-
-info "Creating directory for environments."
-mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments"
-
-info "Updating bash entry point."
-# Resolve managed paths when the shell configuration is generated.
-cat >>"${HOME}/.bashrc" <<BASH
-
-# my personal configuration
-if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" ]; then
-    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh"
+ui_step "Creating the managed directory structure."
+HOME_CONFIGURATION_CREATE_STATUS=0
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/applications" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/data" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/profile" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/scripts" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/stuff" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments" || HOME_CONFIGURATION_CREATE_STATUS="${?}"
+if [ "${HOME_CONFIGURATION_CREATE_STATUS}" -eq 0 ]; then
+    ui_success "Managed directory structure created."
+else
+    ui_error "Unable to create the managed directory structure."
+    return "${HOME_CONFIGURATION_CREATE_STATUS}"
 fi
-BASH
 
-info "Creating main file for bash."
-cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" <<SH
+ui_step "Updating the Bash entry point and shell configuration."
+HOME_CONFIGURATION_SHELL_STATUS=0
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" <<SH || HOME_CONFIGURATION_SHELL_STATUS="${?}"
 # check if fortune exists and displays a message
 if [ -f /usr/bin/fortune ]; then
     /usr/bin/fortune
@@ -231,26 +224,76 @@ if [ -x "\$(command -v fzf)" ]; then
 fi
 SH
 
-info "Creating aliases file."
-cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<SH
-# wrapper around some tools and commands I typically use in this computer
+# Append the loader only after the managed shell file exists.
+if [ "${HOME_CONFIGURATION_SHELL_STATUS}" -eq 0 ]; then
+    cat >>"${HOME}/.bashrc" <<BASH || HOME_CONFIGURATION_SHELL_STATUS="${?}"
+
+# managed home configuration
+if [ -e "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh" ]; then
+    source "${ROOT_DIRECTORY_STRUCTURE}/scripts/bash.sh"
+fi
+BASH
+fi
+
+if [ "${HOME_CONFIGURATION_SHELL_STATUS}" -eq 0 ]; then
+    ui_success "Bash entry point and shell configuration updated."
+else
+    ui_error "Unable to update the Bash entry point and shell configuration."
+    return "${HOME_CONFIGURATION_SHELL_STATUS}"
+fi
+
+ui_step "Creating the helper assets."
+HOME_CONFIGURATION_HELPER_STATUS=0
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh" <<SH || HOME_CONFIGURATION_HELPER_STATUS="${?}"
+# wrapper around tools and commands commonly used on this machine
+_${COMMAND_NAME}_print_usage() {
+    printf '%s\n' \
+        "Fedora Workstation command helper." \
+        "Usage: ${COMMAND_NAME} <action> <target>" >&2
+    cat <<'USAGE' >&2
+╭──────────┬─────────────────────────────────────────────────────────────────────╮
+│ Actions  │ Targets                                                             │
+├──────────┼─────────────────────────────────────────────────────────────────────┤
+│ upgrade  │ system, starship, tex, sdk, vim, nvim, node, youtube,               │
+│          │ rust, deno, bun, flatpak, conda, distrobox, direnv, uv, mise, world │
+├──────────┼─────────────────────────────────────────────────────────────────────┤
+│ clean    │ flatpak, files, cache, system, permissions                          │
+├──────────┼─────────────────────────────────────────────────────────────────────┤
+│ config   │ menu                                                                │
+├──────────┼─────────────────────────────────────────────────────────────────────┤
+│ use      │ sdk, conda, node, server, mise                                      │
+╰──────────┴─────────────────────────────────────────────────────────────────────╯
+USAGE
+    printf '%s\n' \
+        "Destructive targets:" \
+        "  flatpak     reset non-retained Flatpak application data" \
+        "  files       delete system log files" \
+        "  cache       clean cached data and empty trash" \
+        "  system      empty trash and shut down" \
+        "  permissions reset Flatpak permissions" >&2
+}
+
 function ${COMMAND_NAME} {
+    local firefox_response=""
+    local firefox_process_status=0
+    local firefox_read_status=0
+    local firefox_killall_status=0
+    local cache_cleanup_status=0
+    local flatpak_cleanup_status=0
+    local flatpak_cleanup_list=""
+    local flatpak_cleanup_path=""
+    local flatpak_retention_state_available=${HOME_CONFIGURATION_FLATPAKS_RETENTION_AVAILABLE}
+    local flatpak_permissions_output=""
+    local flatpak_permissions_status=0
+    local flatpak_permission_remove_status=0
+    local flatpak_permission_line=""
+    local flatpak_permission_remainder=""
+    local flatpak_permission_entry1=""
+    local flatpak_permission_entry2=""
+
     if [ "\$#" -ne 2 ]; then
-        echo "Usage: ${COMMAND_NAME} <action> <target>" >&2
-        echo
-        echo "╭──────────┬────────────────────────────────────────────────╮"
-        echo "│ Actions  │ Targets                                        │"
-        echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
-        echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-        echo "│          │ nvim, uv, direnv, mise, world                  │"
-        echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ clean    │ flatpak, files, cache, system, permissions     │"
-        echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ config   │ menu                                           │"
-        echo "├──────────┼────────────────────────────────────────────────┤"
-        echo "│ use      │ sdk, conda, node, server, mise                 │"
-        echo "╰──────────┴────────────────────────────────────────────────╯"
+        printf 'Error: expected an action and a target.\n' >&2
+        _${COMMAND_NAME}_print_usage
         return 1
     fi
 
@@ -382,13 +425,9 @@ function ${COMMAND_NAME} {
                 ;;
 
                 *)
-                    echo "I don't know this target."
-                    echo
-                    echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
-                    echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-                    echo "│          │ nvim, uv, direnv, mise, world                  │"
-                    echo "╰──────────┴────────────────────────────────────────────────╯"
+                    printf 'Error: unknown target for action %s: %s.\n' "\$1" "\$2" >&2
+                    _${COMMAND_NAME}_print_usage
+                    return 1
                 ;;
             esac
         ;;
@@ -396,12 +435,60 @@ function ${COMMAND_NAME} {
         clean)
             case "\$2" in
                 flatpak)
-                    flatpak remove --unused -y
-                    find "${HOME}/.var/app" -maxdepth 1 -mindepth 1 ${FLATPAKS_KEEP_CACHE_LIST:1} -type d -exec rm -rf "{}" \; 2>/dev/null
-                    find "/run/user/\$(id --user)/app" -maxdepth 1 -mindepth 1 -type d -exec rm -rf "{}" \; 2>/dev/null
+                    if [ "\${flatpak_retention_state_available}" != "1" ]; then
+                        printf '%s\n' "Error: Flatpak cache-retention state is unavailable; application data was not changed." >&2
+                        return 1
+                    fi
+
+                    printf '%s\n' "Remove unused Flatpaks and reset non-retained Flatpak application data."
+                    flatpak_cleanup_status=0
+                    flatpak remove --unused -y || flatpak_cleanup_status="\${?}"
+                    if [ "\${flatpak_cleanup_status}" -ne 0 ]; then
+                        printf '%s\n' "Error: unable to remove unused Flatpak applications." >&2
+                        return "\${flatpak_cleanup_status}"
+                    fi
+
+                    flatpak_cleanup_list=\$(mktemp "\${TMPDIR:-/tmp}/fedora-postinstall-flatpak-cleanup.XXXXXX") ||
+                        flatpak_cleanup_status="\${?}"
+                    if [ "\${flatpak_cleanup_status}" -ne 0 ]; then
+                        printf '%s\n' "Error: unable to prepare the Flatpak cleanup list." >&2
+                        return "\${flatpak_cleanup_status}"
+                    fi
+
+                    if [ -d "\${HOME}/.var/app" ]; then
+                        find "\${HOME}/.var/app" -maxdepth 1 -mindepth 1 ${FLATPAKS_KEEP_CACHE_LIST:1} -type d -print0 >"\${flatpak_cleanup_list}" ||
+                            flatpak_cleanup_status="\${?}"
+                    fi
+                    if [ "\${flatpak_cleanup_status}" -eq 0 ] &&
+                        [ -d "/run/user/\$(id --user)/app" ]; then
+                        find "/run/user/\$(id --user)/app" -maxdepth 1 -mindepth 1 -type d -print0 >>"\${flatpak_cleanup_list}" ||
+                            flatpak_cleanup_status="\${?}"
+                    fi
+                    if [ "\${flatpak_cleanup_status}" -ne 0 ]; then
+                        rm -f -- "\${flatpak_cleanup_list}" || true
+                        printf '%s\n' "Error: unable to enumerate Flatpak application data." >&2
+                        return "\${flatpak_cleanup_status}"
+                    fi
+
+                    while IFS= read -r -d '' flatpak_cleanup_path; do
+                        rm -rf -- "\${flatpak_cleanup_path}" || {
+                            flatpak_cleanup_status="\${?}"
+                            break
+                        }
+                    done <"\${flatpak_cleanup_list}"
+                    if [ "\${flatpak_cleanup_status}" -eq 0 ]; then
+                        rm -f -- "\${flatpak_cleanup_list}" || flatpak_cleanup_status="\${?}"
+                    else
+                        rm -f -- "\${flatpak_cleanup_list}" || true
+                    fi
+                    if [ "\${flatpak_cleanup_status}" -ne 0 ]; then
+                        printf '%s\n' "Error: unable to reset Flatpak application data." >&2
+                        return "\${flatpak_cleanup_status}"
+                    fi
                 ;;
 
                 files)
+                    printf '%s\n' "Delete system log files."
                     sudo rm -f /var/log/boot.log-*
                     sudo rm -f /var/log/btmp-*
                     sudo rm -f /var/log/dnf.librepo.log.*
@@ -419,34 +506,94 @@ function ${COMMAND_NAME} {
                 ;;
 
                 cache)
+                    printf '%s\n' "Clean cached data and empty the trash."
                     if [ -x "\$(command -v bleachbit)" ]; then
-                        if [ -x "\$(command -v gum)" ]; then
-                            pidof -q firefox && gum confirm "Firefox is running. Should I stop it?" && killall firefox
+                        firefox_process_status=0
+                        pidof -q firefox || firefox_process_status="\${?}"
+                        if [ "\${firefox_process_status}" -eq 0 ]; then
+                            firefox_read_status=0
+                            read -r -p "Firefox is running. Stop it now? Unsaved work may be lost. [y/N] " firefox_response || firefox_read_status="\${?}"
+                            if [ "\${firefox_read_status}" -ne 0 ]; then
+                                printf '%s\n' "Unable to read the Firefox confirmation; cache cleanup was canceled." >&2
+                                return "\${firefox_read_status}"
+                            fi
+                            case "\${firefox_response}" in
+                            [yY] | [yY][eE][sS])
+                                killall firefox || firefox_killall_status="\${?}"
+                                if [ "\${firefox_killall_status}" -ne 0 ]; then
+                                    printf '%s\n' "Unable to stop Firefox; cache cleanup was canceled." >&2
+                                    return "\${firefox_killall_status}"
+                                fi
+                                ;;
+                            *)
+                                printf '%s\n' "Firefox was not stopped; cache cleanup was canceled." >&2
+                                return 1
+                            ;;
+                            esac
+                        elif [ "\${firefox_process_status}" -ne 1 ]; then
+                            printf '%s\n' "Unable to determine whether Firefox is running; cache cleanup was canceled." >&2
+                            return "\${firefox_process_status}"
                         fi
-                        bleachbit --preset --clean system.custom
+                        bleachbit --preset --clean system.custom || cache_cleanup_status="\${?}"
+                        if [ "\${cache_cleanup_status}" -ne 0 ]; then
+                            printf '%s\n' "Unable to clean cached data with BleachBit; cache cleanup was canceled." >&2
+                            return "\${cache_cleanup_status}"
+                        fi
                     fi
-                    gio trash --empty
+                    cache_cleanup_status=0
+                    gio trash --empty || cache_cleanup_status="\${?}"
+                    if [ "\${cache_cleanup_status}" -ne 0 ]; then
+                        printf '%s\n' "Unable to empty the trash; cache cleanup failed." >&2
+                        return "\${cache_cleanup_status}"
+                    fi
                 ;;
 
                 system)
-                    ${COMMAND_NAME} clean cache
+                    printf '%s\n' "Empty the trash and shut down."
+                    cache_cleanup_status=0
+                    ${COMMAND_NAME} clean cache || cache_cleanup_status="\${?}"
+                    if [ "\${cache_cleanup_status}" -ne 0 ]; then
+                        printf '%s\n' "Cache cleanup failed; shutdown was canceled." >&2
+                        return "\${cache_cleanup_status}"
+                    fi
                     shutdown -h now
                 ;;
 
                 permissions)
-                    flatpak permissions | awk -F'\t' '{print \$1, \$2}' | while read entry1 entry2; do
-                        if [ -n "\${entry1}" ] && [ -n "\${entry2}" ]; then
-                            flatpak permission-remove "\${entry1}" "\${entry2}" 2>/dev/null || true
+                    printf '%s\n' "Reset Flatpak permissions."
+                    flatpak_permissions_output=\$(flatpak permissions) || flatpak_permissions_status="\${?}"
+                    if [ "\${flatpak_permissions_status}" -ne 0 ]; then
+                        printf '%s\n' "Unable to read the Flatpak permissions." >&2
+                        return "\${flatpak_permissions_status}"
+                    fi
+                    while IFS= read -r flatpak_permission_line; do
+                        case "\${flatpak_permission_line}" in
+                            *\$'\\t'*)
+                                flatpak_permission_entry1="\${flatpak_permission_line%%\$'\\t'*}"
+                                flatpak_permission_remainder="\${flatpak_permission_line#*\$'\\t'}"
+                                flatpak_permission_entry2="\${flatpak_permission_remainder%%\$'\\t'*}"
+                                ;;
+                            *)
+                                flatpak_permission_entry1="\${flatpak_permission_line}"
+                                flatpak_permission_entry2=""
+                                ;;
+                        esac
+                        if [ -n "\${flatpak_permission_entry1}" ] &&
+                            [ -n "\${flatpak_permission_entry2}" ]; then
+                            flatpak permission-remove "\${flatpak_permission_entry1}" "\${flatpak_permission_entry2}" ||
+                                flatpak_permission_remove_status="\${?}"
+                            if [ "\${flatpak_permission_remove_status}" -ne 0 ]; then
+                                printf 'Error: unable to reset the Flatpak permission for %s.\n' "\${flatpak_permission_entry1}" >&2
+                                return "\${flatpak_permission_remove_status}"
+                            fi
                         fi
-                    done
+                    done <<<"\${flatpak_permissions_output}"
                 ;;
 
                 *)
-                    echo "I don't know this target."
-                    echo
-                    echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ clean    │ flatpak, files, cache, system, permissions     │"
-                    echo "╰──────────┴────────────────────────────────────────────────╯"
+                    printf 'Error: unknown target for action %s: %s.\n' "\$1" "\$2" >&2
+                    _${COMMAND_NAME}_print_usage
+                    return 1
                 ;;
             esac
         ;;
@@ -458,12 +605,9 @@ function ${COMMAND_NAME} {
                 ;;
 
                 *)
-                    echo "I don't know this target."
-                    echo
-                    echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ config   │ menu                                           │"
-                    echo "╰──────────┴────────────────────────────────────────────────╯"
-
+                    printf 'Error: unknown target for action %s: %s.\n' "\$1" "\$2" >&2
+                    _${COMMAND_NAME}_print_usage
+                    return 1
                 ;;
             esac
         ;;
@@ -492,10 +636,10 @@ function ${COMMAND_NAME} {
                     local IP_ADDRESS=\$(ip address | grep 192 | awk -F ' ' '{print \$2}' | cut -d'/' -f1)
                     echo "Current IP: \${IP_ADDRESS}"
                     if [ -x "\$(command -v caddy)" ]; then
-                        echo "Starting the Caddy server, please wait."
+                        echo "Starting the Caddy file server on port 8000."
                         caddy file-server --browse --listen :8000
                     else
-                        echo "Starting the Python HTTP server, please wait."
+                        echo "Starting the Python HTTP server."
                         python -m http.server
                     fi
                 ;;
@@ -507,31 +651,17 @@ function ${COMMAND_NAME} {
                 ;;
 
                 *)
-                    echo "I don't know this target."
-                    echo
-                    echo "╭──────────┬────────────────────────────────────────────────╮"
-                    echo "│ use      │ sdk, conda, node, server, mise                 │"
-                    echo "╰──────────┴────────────────────────────────────────────────╯"
+                    printf 'Error: unknown target for action %s: %s.\n' "\$1" "\$2" >&2
+                    _${COMMAND_NAME}_print_usage
+                    return 1
                 ;;
             esac
         ;;
 
         *)
-            echo "I don't know this action."
-            echo
-            echo "╭──────────┬────────────────────────────────────────────────╮"
-            echo "│ Actions  │ Targets                                        │"
-            echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ upgrade  │ system, starship, tex, sdk, vim, node, youtube │"
-            echo "│          │ rust, deno, bun, flatpak, conda, distrobox     │"
-            echo "│          │ nvim, uv, direnv, mise, world                  │"
-            echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ clean    │ flatpak, files, cache, system, permissions     │"
-            echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ config   │ menu                                           │"
-            echo "├──────────┼────────────────────────────────────────────────┤"
-            echo "│ use      │ sdk, conda, node, server, mise                 │"
-            echo "╰──────────┴────────────────────────────────────────────────╯"
+            printf 'Error: unknown action: %s.\n' "\$1" >&2
+            _${COMMAND_NAME}_print_usage
+            return 1
         ;;
     esac
 }
@@ -629,11 +759,13 @@ function audio-to-ogg {
 #     # build the list of directories under JDK_DIR
 #     local JDK_LIST=\$(ls -1 "\${JDK_DIR}")
 #
-#     # append the "Reset path" option
-#     local OPTIONS=\$(printf "%s\n" \${JDK_LIST} "Reset path")
-#
 #     # prompt user to choose a JDK version or reset path
-#     local CHOSEN=\$(echo "\${OPTIONS}" | gum choose --header "Choose a JDK version:" --cursor="☕ " --selected "Reset path")
+#     local CHOSEN=""
+#     local -a OPTIONS=()
+#     mapfile -t OPTIONS < <(printf '%s\n' "\${JDK_LIST}" "Reset path")
+#     select CHOSEN in "\${OPTIONS[@]}"; do
+#         break
+#     done
 #
 #     # check if user selected an option
 #     if [ -z "\${CHOSEN}" ]; then
@@ -664,8 +796,7 @@ function audio-to-ogg {
 # **********************************************************************
 SH
 
-info "Creating completion file."
-cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<SH
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/completion.sh" <<SH || HOME_CONFIGURATION_HELPER_STATUS="${?}"
 _${COMMAND_NAME}()
 {
     local cur prev
@@ -707,8 +838,8 @@ _${COMMAND_NAME}()
 complete -F _${COMMAND_NAME} ${COMMAND_NAME}
 SH
 
-info "Creating toolbox file."
-cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<'TOOLBOX'
+HOME_CONFIGURATION_FINAL_STATUS=0
+cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/toolbox.sh" <<'TOOLBOX' || HOME_CONFIGURATION_FINAL_STATUS="${?}"
 # check if inside a toolbox container
 if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
 
@@ -730,3 +861,13 @@ if [[ -f /run/.containerenv && -f /run/.toolboxenv ]]; then
     :
 fi
 TOOLBOX
+if [ "${HOME_CONFIGURATION_FINAL_STATUS}" -ne 0 ]; then
+    HOME_CONFIGURATION_HELPER_STATUS="${HOME_CONFIGURATION_FINAL_STATUS}"
+fi
+if [ "${HOME_CONFIGURATION_HELPER_STATUS}" -eq 0 ]; then
+    ui_success "Fedora Workstation helper assets are ready."
+else
+    ui_error "Unable to create the Fedora Workstation helper assets."
+    return "${HOME_CONFIGURATION_HELPER_STATUS}"
+fi
+return 0

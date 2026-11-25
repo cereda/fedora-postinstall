@@ -81,10 +81,10 @@ function runtime_normalize_architecture {
     local runtime_local_value="${1:-}"
 
     case "${runtime_local_value,,}" in
-    x86_64 | amd64 | x64)
+    x86_64)
         printf '%s\n' "x86_64"
         ;;
-    aarch64 | arm64)
+    aarch64)
         printf '%s\n' "aarch64"
         ;;
     *)
@@ -208,7 +208,7 @@ function runtime_initialize {
     fi
 
     case "${POSTINSTALL_LOG_FORMAT:-plain}" in
-    plain | text)
+    plain)
         POSTINSTALL_LOG_FORMAT="plain"
         ;;
     json)
@@ -221,7 +221,7 @@ function runtime_initialize {
         ;;
     esac
     case "${POSTINSTALL_LOG_LEVEL:-info}" in
-    debug | info | warn | warning | error) ;;
+    debug | info | warn | error) ;;
     *)
         printf 'runtime: invalid log level: %s\n' \
             "${POSTINSTALL_LOG_LEVEL}" >&2
@@ -2145,13 +2145,6 @@ function runtime_terminate_lock_group {
         return 1
     fi
 
-    if [ -z "${runtime_local_device}" ] && [ -z "${runtime_local_inode}" ]; then
-        # Compatibility with an older helper. The device/inode-aware form is
-        # used whenever the original lock identity is available.
-        python3 "${runtime_local_holder}" terminate-group \
-            "${runtime_local_pgid}" "${runtime_local_identity}" >/dev/null 2>&1
-        return "${?}"
-    fi
     if [ -z "${runtime_local_device}" ] ||
         [ -z "${runtime_local_inode}" ] ||
         ! [[ "${runtime_local_device}" =~ ^[0-9]+$ ]] ||
@@ -3370,7 +3363,7 @@ function runtime_log_level_value {
     case "${1^^}" in
     DEBUG) printf '%s\n' "0" ;;
     INFO) printf '%s\n' "1" ;;
-    WARN | WARNING) printf '%s\n' "2" ;;
+    WARN) printf '%s\n' "2" ;;
     ERROR) printf '%s\n' "3" ;;
     *) printf '%s\n' "1" ;;
     esac
@@ -3385,14 +3378,14 @@ function runtime_log_should_emit {
     case "${runtime_local_level^^}" in
     DEBUG) runtime_local_level_value=0 ;;
     INFO) runtime_local_level_value=1 ;;
-    WARN | WARNING) runtime_local_level_value=2 ;;
+    WARN) runtime_local_level_value=2 ;;
     ERROR) runtime_local_level_value=3 ;;
     *) runtime_local_level_value=1 ;;
     esac
     case "${runtime_local_threshold^^}" in
     DEBUG) runtime_local_threshold_value=0 ;;
     INFO) runtime_local_threshold_value=1 ;;
-    WARN | WARNING) runtime_local_threshold_value=2 ;;
+    WARN) runtime_local_threshold_value=2 ;;
     ERROR) runtime_local_threshold_value=3 ;;
     *) runtime_local_threshold_value=1 ;;
     esac
@@ -3639,36 +3632,6 @@ function runtime_module_checksum {
     local -a runtime_local_dependency_modules_list=()
 
     case "${runtime_local_module}" in
-    common/flatpaks-installation.sh)
-        runtime_local_dependencies=(
-            "${SCRIPT_PATH}/common/flatpaks-to-install.sh"
-        )
-        ;;
-    common/fonts-installation.sh)
-        runtime_local_dependencies=(
-            "${SCRIPT_PATH}/common/fonts-to-install.sh"
-        )
-        ;;
-    common/terminal-colors.sh)
-        runtime_local_dependencies=(
-            "${SCRIPT_PATH}/common/color-themes.sh"
-        )
-        ;;
-    workstation/package-cleanup.sh)
-        runtime_local_dependencies=(
-            "${SCRIPT_PATH}/workstation/packages-to-remove.sh"
-        )
-        ;;
-    workstation/useful-packages.sh)
-        runtime_local_dependencies=(
-            "${SCRIPT_PATH}/workstation/packages-to-install.sh"
-        )
-        ;;
-    silverblue/useful-packages.sh)
-        runtime_local_dependencies=(
-            "${SCRIPT_PATH}/silverblue/packages-to-install.sh"
-        )
-        ;;
     extras/additional-tools.sh)
         runtime_local_dependencies=(
             "${SCRIPT_PATH}/extras/tools-list.sh"
@@ -3686,8 +3649,7 @@ function runtime_module_checksum {
         ;;
     esac
 
-    if declare -F runtime_module_dependency_closure >/dev/null 2>&1 &&
-        [ -n "${POSTINSTALL_FLAVOR:-}" ]; then
+    if declare -F runtime_module_dependency_closure >/dev/null 2>&1; then
         runtime_local_dependency_modules=$(runtime_module_dependency_closure \
             "${POSTINSTALL_FLAVOR}" "${runtime_local_module}") || return 1
         if [ -n "${runtime_local_dependency_modules}" ]; then

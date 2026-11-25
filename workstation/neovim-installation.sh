@@ -2,36 +2,35 @@
 
 # SPDX-License-Identifier: MIT
 
-section "neovim installation and configuration"
+ui_section "Neovim installation and configuration"
 
-description "Install and configure Neovim."
-echo
+ui_description "Install Neovim and apply a managed configuration."
 
-if question "Do you want to install and configure neovim?"; then
+if ui_confirm "Install and configure Neovim?" "Install" "Skip"; then
 
-    info "Installing neovim as an RPM package."
+    ui_step "Installing Neovim."
     sudo dnf install neovim -y
 
-    text "Which configuration do you want to apply?"
+    if NEOVIM_FLAVOR="$(ui_choose_one "Select a Neovim configuration" "Classic" "Modern")"; then
+        NEOVIM_FLAVOR_STATUS=0
+    else
+        NEOVIM_FLAVOR_STATUS="${?}"
+    fi
+    if [ "${NEOVIM_FLAVOR_STATUS}" -ne 0 ]; then
+        return "${NEOVIM_FLAVOR_STATUS}"
+    fi
 
-    echo
-
-    NEOVIM_FLAVOUR=$("${GUM}" choose "Classic" "Modern")
-
-    if [ -z "${NEOVIM_FLAVOUR}" ]; then
-        NEOVIM_FLAVOUR="Classic"
+    if [ -z "${NEOVIM_FLAVOR}" ]; then
+        NEOVIM_FLAVOR="Classic"
     fi
 
     # The classic profile has no external runtime dependency.
-    if [ "${NEOVIM_FLAVOUR}" = "Classic" ]; then
+    if [ "${NEOVIM_FLAVOR}" = "Classic" ]; then
 
-        info "Installing the plug-in manager for neovim (classic)."
+        ui_step "Installing vim-plug and creating the Classic configuration."
         curl -fLo "${HOME}/.local/share/nvim/site/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-
-        info "Creating configuration directory for neovim."
         mkdir -p "${HOME}/.config/nvim"
 
-        info "Creating configuration file for neovim (classic)."
         cat >"${HOME}/.config/nvim/init.vim" <<'VIM'
 call plug#begin('~/.local/share/nvim/plugged')
 
@@ -103,13 +102,10 @@ VIM
 
         # LazyVim requires external command-line tools.
 
-        info "Cloning the starter template (modern)."
+        ui_step "Preparing the Modern configuration and applying custom options."
         git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
-
-        info "Cleaning the starter template (modern)."
         rm -rf "${HOME}/.config/nvim/.git"
 
-        info "Adding custom options to the starter template."
         cat >>"${HOME}/.config/nvim/lua/config/options.lua" <<'LUA'
 
 -- ****************************************
@@ -131,7 +127,6 @@ global.autoformat = false
 -- ****************************************
 LUA
 
-        info "Adding custom plugin configuration [1]."
         cat >"${HOME}/.config/nvim/lua/plugins/logo.lua" <<'LUA'
 -- ****************************************
 -- Paulo's personal configuration
@@ -157,7 +152,6 @@ return {
 -- ****************************************
 LUA
 
-        info "Adding custom plugin configuration [2]."
         cat >"${HOME}/.config/nvim/lua/plugins/blink.lua" <<'LUA'
 -- ****************************************
 -- Paulo's personal configuration
@@ -172,4 +166,8 @@ return {
 LUA
 
     fi
+
+    ui_success "Neovim and its configuration are ready."
+else
+    ui_skip "Neovim was not installed."
 fi

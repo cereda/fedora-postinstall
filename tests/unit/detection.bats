@@ -117,8 +117,8 @@ EOF
     assert_equal "${output}" ""
 }
 
-@test "architecture detection normalizes the host machine name" {
-    export MOCK_ARCHITECTURE="arm64"
+@test "architecture detection returns the canonical host machine name" {
+    export MOCK_ARCHITECTURE="aarch64"
     run env \
         SCRIPT_PATH="${SANDBOX_REPO}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \

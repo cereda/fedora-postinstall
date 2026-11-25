@@ -116,6 +116,57 @@ EOF
     assert_equal "${output}" $'common/hostname-configuration.sh\nworkstation/home-configuration.sh\ncommon/zoxide-installation.sh'
 }
 
+@test "Flatpak retention is an optional home-configuration dependency" {
+    run env \
+        SCRIPT_PATH="${REPO_ROOT}" \
+        bash -c '
+            source "$1/common/module-inventory.sh"
+            runtime_module_dependency_records workstation workstation/home-configuration.sh
+        ' _ "${REPO_ROOT}"
+    assert_success
+    assert_output_contains $'common/flatpaks-installation.sh\tFLATPAKS_KEEP_CACHE_IDS_JSON\toptional'
+
+    run env \
+        SCRIPT_PATH="${REPO_ROOT}" \
+        bash -c '
+            source "$1/common/module-inventory.sh"
+            runtime_module_dependencies workstation workstation/home-configuration.sh
+        ' _ "${REPO_ROOT}"
+    assert_success
+    refute_output_contains "common/flatpaks-installation.sh"
+
+    run env \
+        SCRIPT_PATH="${REPO_ROOT}" \
+        bash -c '
+            source "$1/common/module-inventory.sh"
+            runtime_module_optional_dependencies workstation workstation/home-configuration.sh
+        ' _ "${REPO_ROOT}"
+    assert_success
+    assert_equal "${output}" "common/flatpaks-installation.sh"
+}
+
+@test "an excluded optional Flatpak provider does not invalidate a profile" {
+    local profile
+    profile=$(write_profile <<'EOF'
+{
+  "schema_version": 1,
+  "name": "home-only",
+  "description": "Configure the home directory without Flatpak installation",
+  "modules": {
+    "include": ["workstation/home-configuration.sh"],
+    "exclude": ["common/flatpaks-installation.sh"]
+  }
+}
+EOF
+)
+
+    run_plan --profile-file "${profile}"
+    assert_success
+    run jq -r '.modules[] | select(.selected) | .path' <<<"${output}"
+    assert_success
+    assert_equal "${output}" $'common/hostname-configuration.sh\nworkstation/home-configuration.sh'
+}
+
 @test "excluding a required dependency is rejected" {
     local profile
     profile=$(write_profile <<'EOF'

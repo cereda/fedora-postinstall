@@ -2,23 +2,19 @@
 
 # SPDX-License-Identifier: MIT
 
-section "tmux installation and configuration"
+ui_section "tmux installation and configuration"
 
-description "Install and configure tmux."
-echo
+ui_description "Install tmux, TPM, and a managed configuration."
 
-if question "Do you want to install and configure tmux?"; then
+if ui_confirm "Install and configure tmux?" "Install" "Skip"; then
 
-    info "Installing tmux as an RPM package."
+    ui_step "Installing tmux."
     toolbox --container "${TOOLBOX_NAME}" run sudo dnf install tmux
 
-    info "Creating the configuration directories for tmux."
+    ui_step "Installing TPM and writing the tmux configuration."
     mkdir -p "${HOME}/.config/tmux/plugins"
-
-    info "Downloading the tmux plugin manager (TPM)."
     git clone https://github.com/tmux-plugins/tpm "${HOME}/.config/tmux/plugins/tpm"
 
-    info "Creating the configuration file."
     cat >"${HOME}/.config/tmux/tmux.conf" <<'TMUX'
 # default plugins to make tpm work
 set -g @plugin 'tmux-plugins/tpm'
@@ -33,4 +29,7 @@ set -g @tmux_power_theme 'moon'
 run '~/.config/tmux/plugins/tpm/tpm'
 TMUX
 
+    ui_success "tmux and its configuration are ready."
+else
+    ui_skip "tmux was not installed."
 fi

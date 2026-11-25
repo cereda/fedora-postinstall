@@ -192,6 +192,9 @@ function runtime_module_provider_for_state {
     TOOLBOX_NAME)
         printf '%s\n' "silverblue/toolbox-configuration.sh"
         ;;
+    FLATPAKS_KEEP_CACHE_IDS_JSON)
+        printf '%s\n' "common/flatpaks-installation.sh"
+        ;;
     *)
         return 1
         ;;
@@ -230,6 +233,7 @@ function runtime_module_dependency_records {
     local runtime_local_path="${SCRIPT_PATH}/${runtime_local_module}"
     local runtime_local_state
     local runtime_local_provider
+    local runtime_local_requirement
 
     local -a runtime_local_states=(
         SUGGESTED_FLATPAKS
@@ -241,6 +245,7 @@ function runtime_module_dependency_records {
         ROOT_DIRECTORY_STRUCTURE
         COMMAND_NAME
         TOOLBOX_NAME
+        FLATPAKS_KEEP_CACHE_IDS_JSON
     )
 
     for runtime_local_state in "${runtime_local_states[@]}"; do
@@ -253,15 +258,55 @@ function runtime_module_dependency_records {
         if [ "${runtime_local_provider}" = "${runtime_local_module}" ]; then
             continue
         fi
-        printf '%s\t%s\n' "${runtime_local_provider}" "${runtime_local_state}"
+        case "${runtime_local_state}" in
+        FLATPAKS_KEEP_CACHE_IDS_JSON)
+            runtime_local_requirement="optional"
+            ;;
+        *)
+            runtime_local_requirement="required"
+            ;;
+        esac
+        printf '%s\t%s\t%s\n' \
+            "${runtime_local_provider}" "${runtime_local_state}" \
+            "${runtime_local_requirement}"
     done
 }
 
 function runtime_module_dependencies {
     local runtime_local_provider
     local runtime_local_state
+    local runtime_local_requirement
 
-    while IFS=$'\t' read -r runtime_local_provider runtime_local_state; do
+    while IFS=$'\t' read -r runtime_local_provider runtime_local_state \
+        runtime_local_requirement; do
+        [ "${runtime_local_requirement}" = "required" ] || continue
+        [ -n "${runtime_local_provider}" ] && printf '%s\n' "${runtime_local_provider}"
+    done < <(
+        runtime_module_dependency_records "${1:-}" "${2:-}"
+    )
+}
+
+function runtime_module_optional_dependencies {
+    local runtime_local_provider
+    local runtime_local_state
+    local runtime_local_requirement
+
+    while IFS=$'\t' read -r runtime_local_provider runtime_local_state \
+        runtime_local_requirement; do
+        [ "${runtime_local_requirement}" = "optional" ] || continue
+        [ -n "${runtime_local_provider}" ] && printf '%s\n' "${runtime_local_provider}"
+    done < <(
+        runtime_module_dependency_records "${1:-}" "${2:-}"
+    )
+}
+
+function runtime_module_all_dependencies {
+    local runtime_local_provider
+    local runtime_local_state
+    local runtime_local_requirement
+
+    while IFS=$'\t' read -r runtime_local_provider runtime_local_state \
+        runtime_local_requirement; do
         [ -n "${runtime_local_provider}" ] && printf '%s\n' "${runtime_local_provider}"
     done < <(
         runtime_module_dependency_records "${1:-}" "${2:-}"
@@ -292,7 +337,8 @@ function runtime_module_dependency_closure {
             runtime_local_closure+=("${runtime_local_dependency}")
             runtime_local_worklist+=("${runtime_local_dependency}")
         done < <(
-            runtime_module_dependencies "${runtime_local_flavor}" "${runtime_local_current}"
+            runtime_module_all_dependencies \
+                "${runtime_local_flavor}" "${runtime_local_current}"
         )
     done
 

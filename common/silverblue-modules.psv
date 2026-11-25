@@ -5,7 +5,7 @@ common/flathub-configuration.sh|mutating|
 common/flatpark-configuration.sh|mutating|
 silverblue/flatpak-unpin.sh|mutating|
 silverblue/flatpak-cleanup.sh|mutating|
-common/flatpaks-installation.sh|mutating|
+common/flatpaks-installation.sh|mutating|FLATPAKS_KEEP_CACHE_IDS_JSON
 common/gnome-font-rendering.sh|mutating|
 common/gnome-clock.sh|mutating|
 common/gnome-autorun.sh|mutating|

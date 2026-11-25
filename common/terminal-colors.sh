@@ -2,25 +2,22 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Color configuration for the terminal"
+ui_section "Color configuration for the terminal"
 
-description "Configure terminal colors."
-echo
+ui_description "Configure terminal colors."
 
-if question "Would you like to apply a color theme to the terminal?"; then
-
-    text "Select the color theme to use for the terminal:"
-
-    echo
+if ui_confirm "Apply a color theme to the terminal?" "Apply" "Keep"; then
 
     # Generate the available themes with: vivid themes
-    runtime_capture_output COLOR_THEME "${GUM}" choose --height 15 --selected='dracula' "${COLOR_THEMES[@]}" || return 1
+    runtime_capture_output COLOR_THEME \
+        ui_choose_one "Select a terminal color theme" \
+        --height 15 --selected='dracula' "${COLOR_THEMES[@]}" || return $?
 
     if [ -z "${COLOR_THEME}" ]; then
         COLOR_THEME="dracula"
     fi
 
-    info "Generating custom colors file."
+    ui_step "Generating the terminal color configuration."
     # Resolve the selected theme when the script is generated.
     cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/colors.sh" <<SH
 if [ -x "\$(command -v vivid)" ]; then
@@ -28,4 +25,11 @@ if [ -x "\$(command -v vivid)" ]; then
 fi
 SH
 
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "The terminal color theme was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

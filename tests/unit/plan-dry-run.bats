@@ -114,6 +114,20 @@ run_cli() {
     assert_file_absent "${STATE_FILE}"
 }
 
+@test "extras dry-run rejects tools with conflicting command targets" {
+    local manifest="${SANDBOX_REPO}/extras/tools-manifest.json"
+    jq '.tools.fd.assets.x86_64.files |= with_entries(.value = "rg")' \
+        "${manifest}" > "${manifest}.new"
+    mv "${manifest}.new" "${manifest}"
+
+    run_cli extras --dry-run --tools fd,ripgrep
+    assert_equal "${status}" 69
+    assert_output_contains 'extras: tools "fd" and "ripgrep" deploy the same command "rg"'
+    refute_output_contains "error:"
+    assert_file_absent "${FORBIDDEN_MARKER}"
+    assert_file_absent "${STATE_FILE}"
+}
+
 @test "dry-run JSON remains machine-readable" {
     run_cli install --dry-run --json
     assert_success

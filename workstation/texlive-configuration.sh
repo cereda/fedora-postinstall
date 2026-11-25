@@ -2,14 +2,13 @@
 
 # SPDX-License-Identifier: MIT
 
-section "TeX Live configuration"
+ui_section "TeX Live configuration"
 
-description "Configure the system TeX Live path."
-echo
+ui_description "Add the system TeX Live path."
 
-if question "Do you want to configure TeX Live?"; then
+if ui_confirm "Configure the system TeX Live path?" "Configure" "Skip"; then
 
-    info "Creating script for TeX Live."
+    ui_step "Writing the TeX Live system profile."
     sudo tee "/etc/profile.d/texlive.sh" <<'SH'
 #!/bin/bash
 pathmunge () {
@@ -25,4 +24,7 @@ pathmunge /opt/texbin
 unset pathmunge
 SH
 
+    ui_success "System TeX Live path configured."
+else
+    ui_skip "TeX Live was not configured."
 fi

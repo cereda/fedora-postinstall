@@ -2,18 +2,17 @@
 
 # SPDX-License-Identifier: MIT
 
-section "SDKman installation and configuration"
+ui_section "SDKMAN installation and configuration"
 
-description "Install and configure SDKMAN."
-echo
+ui_description "Install and configure SDKMAN."
 
-if question "Do you want to install and configure SDKman?"; then
+if ui_confirm "Install and configure SDKMAN?" "Install" "Skip"; then
 
-    # Prevent SDKman from modifying shell startup files.
-    info "Installing the SDKman binary."
+    # Prevent SDKMAN from modifying shell startup files.
+    ui_step "Installing SDKMAN."
     export SDKMAN_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman" && curl -s "https://get.sdkman.io?rcupdate=false" | bash
 
-    info "Creating wrapper script."
+    ui_step "Creating the SDKMAN helper script."
     # Resolve managed paths now; escaped values remain runtime shell expressions.
     cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/sdk.sh" <<SH
 # moving these lines to a single file to source it on demand
@@ -21,4 +20,11 @@ export SDKMAN_DIR="${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman"
 [[ -s "${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman/bin/sdkman-init.sh" ]] && source "${ROOT_DIRECTORY_STRUCTURE}/applications/sdkman/bin/sdkman-init.sh"
 SH
 
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "SDKMAN was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

@@ -2,19 +2,27 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Git configuration"
+ui_section "Git configuration"
 
-description "Configure Git identity, editor, pager, and hooks."
-echo
+ui_description "Configure your Git identity, email, editor, pager, and hooks."
+ui_warning "This configuration uses 'git-delta' as the pager and 'vim' as the editor. Ensure both are installed, or adjust the generated configuration to your preferences."
 
-warning "This configuration uses 'git-delta' as pager and 'vim' as editor. \
-Make sure you have these packages installed on your system, or edit the \
-configuration to use your preferred settings."
-
-echo
-
-GIT_USERNAME=$(prompt_valid_git_name)
-GIT_EMAIL=$(prompt_valid_git_email)
+if GIT_USERNAME=$(prompt_valid_git_name); then
+    GIT_USERNAME_STATUS=0
+else
+    GIT_USERNAME_STATUS="${?}"
+fi
+if [ "${GIT_USERNAME_STATUS}" -ne 0 ]; then
+    return "${GIT_USERNAME_STATUS}"
+fi
+if GIT_EMAIL=$(prompt_valid_git_email); then
+    GIT_EMAIL_STATUS=0
+else
+    GIT_EMAIL_STATUS="${?}"
+fi
+if [ "${GIT_EMAIL_STATUS}" -ne 0 ]; then
+    return "${GIT_EMAIL_STATUS}"
+fi
 
 # Store user configuration in XDG while keeping hooks in the managed tree.
 GIT_CONFIG_ROOT="${XDG_CONFIG_HOME:-${HOME}/.config}"
@@ -28,7 +36,7 @@ mkdir -p "${GIT_CONFIG_LOCATION}"
 
 mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/git/hooks"
 
-info "Generating configuration file for Git."
+ui_step "Generating the Git configuration."
 git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" user.name "${GIT_USERNAME}"
 git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" user.email "${GIT_EMAIL}"
 git config --file "${GIT_CONFIG_LOCATION}/${GIT_CONFIG_FILE}" core.editor "vim"

@@ -2,12 +2,20 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Toolbox configuration"
+ui_section "Toolbox configuration"
 
-description "Create and configure the Fedora toolbox container."
-echo
+ui_description "Create the Fedora toolbox container."
 
-TOOLBOX_NAME=$(prompt_valid_container_name "Your toolbox container name: " "f${FEDORA_VERSION}-dev")
+if TOOLBOX_NAME=$(prompt_valid_container_name "Your toolbox container name: " "f${FEDORA_VERSION}-dev"); then
+    TOOLBOX_NAME_STATUS=0
+else
+    TOOLBOX_NAME_STATUS="${?}"
+fi
+if [ "${TOOLBOX_NAME_STATUS}" -ne 0 ]; then
+    return "${TOOLBOX_NAME_STATUS}"
+fi
 
-info "Creating and configuring toolbox."
+ui_step "Creating the ${TOOLBOX_NAME} toolbox."
 toolbox create "${TOOLBOX_NAME}"
+
+ui_success "The ${TOOLBOX_NAME} toolbox is ready."

@@ -2,22 +2,21 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Zed installation and configuration"
+ui_section "Zed installation and configuration"
 
-description "Install and configure the Zed editor."
-echo
+ui_description "Install and configure the Zed editor."
 
-if question "Do you want to install and configure Zed?"; then
+if ui_confirm "Install and configure Zed?" "Install" "Skip"; then
 
-    info "Getting the latest version of Zed from GitHub."
+    ui_step "Resolving the latest Zed release."
     test -f zed-editor.json || wget -q -O zed-editor.json https://api.github.com/repos/zed-industries/zed/releases/latest
 
-    info "Downloading Zed from GitHub."
+    ui_step "Downloading Zed."
     case "$(runtime_selected_architecture)" in
     x86_64) ZED_ASSET_SUFFIX="zed-linux-x86_64.tar.gz" ;;
     aarch64) ZED_ASSET_SUFFIX="zed-linux-aarch64.tar.gz" ;;
     *)
-        text "Unsupported architecture for Zed: $(runtime_selected_architecture)."
+        ui_error "Unsupported architecture for Zed: $(runtime_selected_architecture)."
         return 1
         ;;
     esac
@@ -25,13 +24,13 @@ if question "Do you want to install and configure Zed?"; then
         zed-editor.json "${ZED_ASSET_SUFFIX}") || return 1
     wget -q "${ZED_ASSET_URL}" -O zed.tar.gz
 
-    info "Extracting Zed into the current directory."
+    ui_step "Extracting Zed."
     tar xzf zed.tar.gz
 
-    info "Moving Zed to the local applications directory."
+    ui_step "Installing Zed."
     mv zed.app "${ROOT_DIRECTORY_STRUCTURE}/applications/"
 
-    info "Creating configuration file for Zed."
+    ui_step "Configuring Zed."
     mkdir -p "${HOME}/.config/zed"
     cat >"${HOME}/.config/zed/settings.json" <<'JSON'
 {
@@ -61,7 +60,7 @@ if question "Do you want to install and configure Zed?"; then
 }
 JSON
 
-    info "Creating a desktop shortcut for Zed."
+    ui_step "Creating a desktop shortcut for Zed."
     mkdir -p "${HOME}/.local/share/applications"
     # Resolve the installed application path in the desktop entry.
     cat >"${HOME}/.local/share/applications/zed.desktop" <<DESKTOP
@@ -85,7 +84,13 @@ Exec=${ROOT_DIRECTORY_STRUCTURE}/applications/zed.app/bin/zed --new %U
 Name=Open a new workspace
 DESKTOP
 
-    info "Removing archive file."
     rm -f zed.tar.gz zed-linux-x86_64.tar.gz zed-linux-aarch64.tar.gz
 
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Zed was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

@@ -30,18 +30,18 @@ function extras_stage_executable {
     local staged_path
 
     if [ ! -f "${source_path}" ] || [ -L "${source_path}" ]; then
-        printf 'extras: invalid executable for tool "%s"\n' "${tool}" >&2
+        ui_error "Invalid command for command-line tool ${tool}."
         return 1
     fi
 
     if [ -n "${EXTRAS_STAGED_BINARIES[${target_name}]:-}" ]; then
-        printf 'extras: duplicate executable target: %s\n' "${target_name}" >&2
+        ui_error "Duplicate command target: ${target_name}."
         return 1
     fi
 
     staged_path="${EXTRAS_WORKSPACE}/staged/${target_name}"
     if ! install -m 0755 "${source_path}" "${staged_path}"; then
-        printf 'extras: unable to stage executable "%s"\n' "${target_name}" >&2
+        ui_error "Could not stage the command ${target_name}. No command-line tools were deployed."
         return 1
     fi
 
@@ -49,7 +49,7 @@ function extras_stage_executable {
     EXTRAS_STAGED_TOOLS["${target_name}"]="${tool}"
     if ! printf '%s\t%s\t%s\n' "${target_name}" "${staged_path}" "${tool}" \
         >>"${EXTRAS_STAGE_LEDGER}"; then
-        printf 'extras: unable to update the staging ledger for tool "%s"\n' "${tool}" >&2
+        ui_error "Could not update the staging ledger for ${tool}. Deployment will stop before any command is replaced."
         return 1
     fi
 }
@@ -65,7 +65,7 @@ function unpack_extras_tools {
         downloaded_filename="${EXTRAS_DOWNLOADED_FILENAMES[${tool}]:-}"
 
         if [ -z "${archive}" ] || [ ! -f "${archive}" ] || [ -z "${archive_type}" ]; then
-            printf 'extras: downloaded artifact was not tracked for tool "%s"\n' "${tool}" >&2
+            ui_error "The downloaded artifact was not tracked for command-line tool ${tool}."
             return 1
         fi
 
@@ -74,7 +74,7 @@ function unpack_extras_tools {
 
         if [ "${archive_type}" = "none" ]; then
             if [ "$(basename -- "${archive}")" != "${downloaded_filename}" ]; then
-                printf 'extras: invalid standalone artifact for tool "%s"\n' "${tool}" >&2
+                ui_error "Invalid standalone artifact for command-line tool ${tool}."
                 return 1
             fi
         else
@@ -84,7 +84,7 @@ function unpack_extras_tools {
             done < <(jq -r '.files | to_entries[] | [.key, .value] | @tsv' <<<"${entry}")
 
             if [ "${#members[@]}" -eq 0 ]; then
-                printf 'extras: no executables declared for tool "%s"\n' "${tool}" >&2
+                ui_error "No commands are declared for command-line tool ${tool}."
                 return 1
             fi
 
@@ -93,7 +93,7 @@ function unpack_extras_tools {
                 --type "${archive_type}" \
                 --destination "${extraction_directory}" \
                 --members "${members[@]}"; then
-                printf 'extras: unable to unpack tool "%s"\n' "${tool}" >&2
+                ui_error "Could not extract command-line tool ${tool}. No command-line tools were deployed."
                 return 1
             fi
         fi
@@ -101,7 +101,7 @@ function unpack_extras_tools {
         while IFS=$'\t' read -r source_name target_name; do
             if [ "${archive_type}" = "none" ]; then
                 if [ "$(basename -- "${archive}")" != "${source_name}" ]; then
-                    printf 'extras: invalid standalone executable for tool "%s"\n' "${tool}" >&2
+                    ui_error "Invalid standalone command for command-line tool ${tool}."
                     return 1
                 fi
                 staged_path="${archive}"

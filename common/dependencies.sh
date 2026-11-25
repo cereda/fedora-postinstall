@@ -7,10 +7,14 @@ function require_command {
     local purpose="${2:-required by this script}"
 
     if ! command -v "${command_name}" >/dev/null 2>&1; then
-        printf "Required command '%s' was not found (%s).\n" \
-            "${command_name}" "${purpose}" >&2
-        printf 'Install it first, for example with: sudo dnf install %s\n' \
-            "${command_name}" >&2
+        if declare -F ui_error >/dev/null 2>&1; then
+            ui_error "Required command '${command_name}' was not found (${purpose}). Install it first, for example with: sudo dnf install ${command_name}"
+        else
+            printf "Required command '%s' was not found (%s).\n" \
+                "${command_name}" "${purpose}" >&2
+            printf 'Install it first, for example with: sudo dnf install %s\n' \
+                "${command_name}" >&2
+        fi
         return 1
     fi
 }

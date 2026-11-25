@@ -2,12 +2,60 @@
 
 # SPDX-License-Identifier: MIT
 
+if ! declare -F ui_input >/dev/null; then
+    VALIDATION_UI_DIRECTORY="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" &&
+        pwd -P)" || return 1
+    source "${VALIDATION_UI_DIRECTORY}/ui.sh" || return 1
+    source "${VALIDATION_UI_DIRECTORY}/ui-prompts.sh" || return 1
+fi
+
 function is_valid_hostname {
     [[ "${1}" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$ ]]
 }
 
 function is_valid_container_name {
     [[ "${1}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$ ]]
+}
+
+function is_valid_flatpak_application_id {
+    [[ "${1}" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)*$ ]]
+}
+
+function flatpaks_keep_cache_state_from_ids {
+    local flatpaks_local_id
+    local flatpaks_local_state=""
+
+    for flatpaks_local_id in "$@"; do
+        if ! is_valid_flatpak_application_id "${flatpaks_local_id}"; then
+            ui_error "Invalid Flatpak application identifier: ${flatpaks_local_id}."
+            return 1
+        fi
+    done
+
+    flatpaks_local_state=$(jq -nc --args '$ARGS.positional' -- "$@") || return 1
+    printf '%s\n' "${flatpaks_local_state}"
+}
+
+function flatpaks_keep_cache_filter_from_state {
+    local flatpaks_local_state="${1:-[]}"
+    local flatpaks_local_id
+
+    if ! jq -e '
+        type == "array" and
+        all(.[];
+            type == "string" and
+            test("^[A-Za-z0-9][A-Za-z0-9_-]*(\\.[A-Za-z0-9][A-Za-z0-9_-]*)*$")
+        )
+    ' >/dev/null <<<"${flatpaks_local_state}"; then
+        ui_error "The saved Flatpak cache-retention state is invalid."
+        return 1
+    fi
+
+    FLATPAKS_KEEP_CACHE_LIST=""
+    while IFS= read -r flatpaks_local_id; do
+        [ -n "${flatpaks_local_id}" ] || continue
+        FLATPAKS_KEEP_CACHE_LIST+=" -not -name ${flatpaks_local_id}"
+    done < <(jq -r '.[]' <<<"${flatpaks_local_state}")
 }
 
 function is_valid_git_name {
@@ -47,22 +95,30 @@ function validate_root_directory {
     local candidate="${1}"
 
     if ! is_valid_root_directory "${candidate}"; then
-        warning "The configuration directory must be an existing writable directory under ${HOME} and contain only letters, digits, dots, underscores, slashes, and hyphens."
+        ui_warning "The configuration directory must be an existing writable directory under ${HOME} and contain only letters, digits, dots, underscores, slashes, and hyphens."
         return 1
     fi
 }
 
 function prompt_valid_hostname {
     local value
+    local status=0
 
     while true; do
-        value=$("${GUM}" input --prompt "Your machine name: ")
+        if value=$(ui_input "Your machine name: "); then
+            status=0
+        else
+            status="${?}"
+        fi
+        if [ "${status}" -ne 0 ]; then
+            return "${status}"
+        fi
         if is_valid_hostname "${value}"; then
             printf '%s\n' "${value}"
             return 0
         fi
 
-        warning "Invalid hostname. Use 1-63 letters, digits, or hyphens; it must not start or end with a hyphen."
+        ui_warning "Invalid hostname. Use 1-63 letters, digits, or hyphens; it must not start or end with a hyphen."
     done
 }
 
@@ -70,12 +126,16 @@ function prompt_valid_container_name {
     local prompt="${1}"
     local default="${2:-}"
     local value
+    local status=0
 
     while true; do
-        if [ -n "${default}" ]; then
-            value=$("${GUM}" input --prompt "${prompt}" --value "${default}")
+        if value=$(ui_input "${prompt}" "${default}"); then
+            status=0
         else
-            value=$("${GUM}" input --prompt "${prompt}")
+            status="${?}"
+        fi
+        if [ "${status}" -ne 0 ]; then
+            return "${status}"
         fi
 
         if is_valid_container_name "${value}"; then
@@ -83,34 +143,50 @@ function prompt_valid_container_name {
             return 0
         fi
 
-        warning "Invalid container name. Use 1-63 letters, digits, dots, underscores, or hyphens."
+        ui_warning "Invalid container name. Use 1-63 letters, digits, dots, underscores, or hyphens."
     done
 }
 
 function prompt_valid_git_name {
     local value
+    local status=0
 
     while true; do
-        value=$("${GUM}" input --prompt "Your full name: ")
+        if value=$(ui_input "Your full name: "); then
+            status=0
+        else
+            status="${?}"
+        fi
+        if [ "${status}" -ne 0 ]; then
+            return "${status}"
+        fi
         if is_valid_git_name "${value}"; then
             printf '%s\n' "${value}"
             return 0
         fi
 
-        warning "The Git user name cannot be empty or contain line breaks."
+        ui_warning "The Git user name cannot be empty or contain line breaks."
     done
 }
 
 function prompt_valid_git_email {
     local value
+    local status=0
 
     while true; do
-        value=$("${GUM}" input --prompt "Your e-mail address: ")
+        if value=$(ui_input "Your email address: "); then
+            status=0
+        else
+            status="${?}"
+        fi
+        if [ "${status}" -ne 0 ]; then
+            return "${status}"
+        fi
         if is_valid_git_email "${value}"; then
             printf '%s\n' "${value}"
             return 0
         fi
 
-        warning "Invalid e-mail address. Use a non-empty address in the form user@example.com."
+        ui_warning "Invalid email address. Use a non-empty address in the form user@example.com."
     done
 }

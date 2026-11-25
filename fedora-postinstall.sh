@@ -57,6 +57,10 @@ if [ "${CLI_DRY_RUN}" -eq 1 ]; then
     exit 0
 fi
 
+# Mutation flows use the semantic native renderer. Query and dry-run paths
+# intentionally remain Gum-independent and retain their stable plain output.
+source "common/ui.sh" || exit 1
+
 # Resolve the Fedora flavor before any dependency download, cache creation,
 # lock acquisition, or installation module is considered. An explicit
 # install uses the selected flavor, POSTINSTALL_FLAVOR, or reliable automatic
@@ -99,7 +103,7 @@ runtime_initialize || exit $?
 runtime_register_cleanup "install-lock" runtime_release_install_lock || exit $?
 runtime_acquire_install_lock || exit $?
 
-source "common/gum-functions.sh" || exit 1
+source "common/ui-prompts.sh" || exit 1
 source "common/validation.sh" || exit 1
 source "common/dependencies.sh" || exit 1
 
@@ -112,41 +116,50 @@ source "common/gum-setup.sh" || exit 1
 
 # Determine the Fedora version from the RPM macro.
 if ! FEDORA_VERSION=$(rpm -E %fedora); then
-    printf 'Unable to determine the Fedora version from RPM.\n' >&2
+    ui_error "Unable to determine the Fedora version from RPM."
     exit 1
 fi
 if ! [[ "${FEDORA_VERSION}" =~ ^[0-9]{1,3}$ ]]; then
-    printf 'Unable to determine a valid Fedora version from RPM (%s).\n' \
-        "${FEDORA_VERSION}" >&2
+    ui_error "Unable to determine a valid Fedora version from RPM (${FEDORA_VERSION})."
     exit 1
 fi
 
 if [ "${CLI_COMMAND}" = "install" ]; then
-    chapter "Paulo's Fedora ${FEDORA_VERSION} post installation script"
-
-    description "Install and configure the selected Fedora flavor."
-
-    echo
-
-    # Keep the upgrade confirmation for actual installations.
-    question "Did you upgrade your system?" || exit 1
-
     case "${SELECTED_FLAVOR}" in
     workstation)
-        FEDORA_FLAVOUR="Workstation"
+        FEDORA_FLAVOR="Workstation"
         ;;
     silverblue)
-        FEDORA_FLAVOUR="Silverblue"
+        FEDORA_FLAVOR="Silverblue"
+        ;;
+    *)
+        ui_error "Unable to determine the Fedora flavor for the installation."
+        exit 69
         ;;
     esac
-    text "You are running Fedora ${FEDORA_FLAVOUR} ${FEDORA_VERSION}. Let's go!"
+
+    ui_title "Fedora post-installer" || exit $?
+    ui_description "Install and configure Fedora ${FEDORA_FLAVOR}." || exit $?
+
+    # The installer does not perform an upgrade itself. Make that prerequisite
+    # explicit so the answer has a clear meaning before any module runs.
+    UPGRADE_CONFIRM_STATUS=0
+    ui_confirm \
+        "This installer assumes the system is already upgraded. Continue?" \
+        "Continue" "Stop" || UPGRADE_CONFIRM_STATUS="${?}"
+    if [ "${UPGRADE_CONFIRM_STATUS}" -ne 0 ]; then
+        ui_skip "Installation stopped before any installation modules ran."
+        exit "${UPGRADE_CONFIRM_STATUS}"
+    fi
+
+    ui_text "Running Fedora ${FEDORA_VERSION} ${FEDORA_FLAVOR}." || exit $?
 
     POSTINSTALL_STATE_NAMESPACE="${SELECTED_FLAVOR}"
     export POSTINSTALL_STATE_NAMESPACE
     runtime_run_module "${SELECTED_FLAVOR}/post-installation.sh" orchestrator
 else
-    text "Welcome to my post installation script for Fedora! The script will now proceed \
-directly to the installation of additional command line tools."
+    ui_title "Fedora post-installer" || exit $?
+    ui_description "Install selected command-line tools." || exit $?
 fi
 
 # The additional tools remain the final step of both the install and extras
@@ -157,6 +170,8 @@ if [ "${PROFILE_EXTRAS_SELECTED}" -eq 1 ]; then
     runtime_run_module "extras/additional-tools.sh" mutating CLI_TOOLS_SELECTION
 fi
 
-echo
-
-text "That's all, folks! Have fun with Fedora!"
+if [ "${CLI_COMMAND}" = "install" ]; then
+    ui_summary "Installation complete." || exit $?
+else
+    ui_summary "Additional tools installation complete." || exit $?
+fi

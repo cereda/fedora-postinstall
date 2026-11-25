@@ -2,17 +2,16 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Taskwarrior installation and configuration"
+ui_section "Taskwarrior installation and configuration"
 
-description "Install and configure Taskwarrior."
-echo
+ui_description "Install Taskwarrior and create its managed configuration."
 
-if question "Do you want to install and configure Taskwarrior?"; then
+if ui_confirm "Install and configure Taskwarrior?" "Install" "Skip"; then
 
-    info "Installing Taskwarrior as an RPM package."
+    ui_step "Installing Taskwarrior."
     sudo dnf install task -y
 
-    info "Creating main configuration file."
+    ui_step "Creating Taskwarrior configuration and data directories."
     # Resolve managed paths now; escaped values remain runtime shell expressions.
     cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/taskwarrior.sh" <<SH
 #!/bin/bash
@@ -20,13 +19,14 @@ export TASKRC="${ROOT_DIRECTORY_STRUCTURE}/config/taskwarrior/taskrc"
 export TASKDATA="${ROOT_DIRECTORY_STRUCTURE}/data/taskwarrior"
 SH
 
-    info "Creating settings file."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/taskwarrior"
     cat >"${ROOT_DIRECTORY_STRUCTURE}/config/taskwarrior/taskrc" <<'TASKRC'
 verbose=affected,blank,context,edit,footnote,label,project,special,sync,override,recur
 TASKRC
 
-    info "Creating data directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/data/taskwarrior"
 
+    ui_success "Taskwarrior and its configuration are ready."
+else
+    ui_skip "Taskwarrior was not installed."
 fi

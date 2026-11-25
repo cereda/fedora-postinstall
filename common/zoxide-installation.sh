@@ -2,22 +2,21 @@
 
 # SPDX-License-Identifier: MIT
 
-section "zoxide installation"
+ui_section "Zoxide installation"
 
-description "Install and configure zoxide."
-echo
+ui_description "Install and configure Zoxide."
 
-if question "Do you want to install zoxide?"; then
+if ui_confirm "Install Zoxide?" "Install" "Skip"; then
 
-    info "Getting latest version of zoxide from GitHub."
+    ui_step "Resolving the latest Zoxide release."
     test -f zoxide.json || wget -q -O zoxide.json https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest
 
-    info "Downloading zoxide from GitHub."
+    ui_step "Downloading Zoxide."
     case "$(runtime_selected_architecture)" in
     x86_64) ZOXIDE_ASSET_SUFFIX="x86_64-unknown-linux-musl.tar.gz" ;;
     aarch64) ZOXIDE_ASSET_SUFFIX="aarch64-unknown-linux-musl.tar.gz" ;;
     *)
-        text "Unsupported architecture for zoxide: $(runtime_selected_architecture)."
+        ui_error "Unsupported architecture for Zoxide: $(runtime_selected_architecture)."
         return 1
         ;;
     esac
@@ -25,19 +24,21 @@ if question "Do you want to install zoxide?"; then
         zoxide.json "${ZOXIDE_ASSET_SUFFIX}") || return 1
     wget -q "${ZOXIDE_ASSET_URL}" -O zoxide.tar.gz
 
-    info "Extracting zoxide."
+    ui_step "Extracting Zoxide."
     mkdir -p zoxide-temp
     tar xzf zoxide.tar.gz -C zoxide-temp
 
-    info "Preparing the installation directory."
+    ui_step "Installing Zoxide and preparing its data directory."
     mkdir -p "${HOME}/.local/bin"
-
-    info "Moving binary to the installation directory."
     mv zoxide-temp/zoxide "${HOME}/.local/bin/"
-
-    info "Creating data directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/data/zoxide"
 
-    info "Removing archive file."
     rm -f zoxide.tar.gz
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Zoxide was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

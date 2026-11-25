@@ -12,9 +12,16 @@ COMMENT_SUFFIXES = {".md", ".psv", ".yaml", ".yml"}
 SPECIAL_FILES = {".gitignore", "Makefile"}
 
 
-def tracked_files() -> list[str]:
-    output = subprocess.check_output(["git", "ls-files", "-z"])
+def repository_files() -> list[str]:
+    output = subprocess.check_output(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"]
+    )
     return [name for name in output.decode().split("\0") if name]
+
+
+def deleted_files() -> set[str]:
+    output = subprocess.check_output(["git", "ls-files", "-z", "--deleted"])
+    return {name for name in output.decode().split("\0") if name}
 
 
 def expected_marker(name: str) -> str | None:
@@ -30,8 +37,12 @@ def expected_marker(name: str) -> str | None:
 
 def main() -> int:
     failures: list[str] = []
+    deleted = deleted_files()
 
-    for name in tracked_files():
+    for name in repository_files():
+        if name in deleted:
+            continue
+
         marker = expected_marker(name)
         if marker is None:
             continue
@@ -52,9 +63,9 @@ def main() -> int:
             )
 
         text = path.read_text(encoding="utf-8")
-        legacy_marker = "Permission is hereby " + "granted, free of charge"
-        if legacy_marker in text:
-            failures.append(f"{name}: legacy MIT license block is still present")
+        full_license_marker = "Permission is hereby " + "granted, free of charge"
+        if full_license_marker in text:
+            failures.append(f"{name}: full MIT license block is still present")
 
     if failures:
         for failure in failures:

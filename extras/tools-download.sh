@@ -5,6 +5,43 @@
 declare -gA EXTRAS_DOWNLOADED_ASSETS=()
 declare -gA EXTRAS_DOWNLOADED_TYPES=()
 declare -gA EXTRAS_DOWNLOADED_FILENAMES=()
+declare -g EXTRAS_INVALID_SELECTION_STATUS=69
+
+# The manifest helpers are also used by the non-interactive plan command,
+# which intentionally does not load the installer UI layer. Keep a plain
+# diagnostic fallback for that path while using semantic UI messages during
+# an interactive installation.
+function extras_report_error {
+    local extras_report_local_message="${1:-}"
+    local extras_report_local_plain_message="${2:-${extras_report_local_message}}"
+
+    if declare -F ui_error >/dev/null; then
+        ui_error "${extras_report_local_message}"
+        return $?
+    fi
+    printf 'extras: %s\n' "${extras_report_local_plain_message}" >&2
+}
+
+function extras_report_warning {
+    local extras_report_local_message="${1:-}"
+    local extras_report_local_plain_message="${2:-${extras_report_local_message}}"
+
+    if declare -F ui_warning >/dev/null; then
+        ui_warning "${extras_report_local_message}"
+        return $?
+    fi
+    printf 'extras: %s\n' "${extras_report_local_plain_message}" >&2
+}
+
+function extras_report_step {
+    local extras_report_local_message="${1:-}"
+
+    if declare -F ui_step >/dev/null; then
+        ui_step "${extras_report_local_message}"
+        return $?
+    fi
+    printf '%s\n' "${extras_report_local_message}"
+}
 
 function extras_detect_architecture {
     if declare -F runtime_selected_architecture >/dev/null; then
@@ -15,8 +52,8 @@ function extras_detect_architecture {
     local machine
     machine=$(uname -m) || return 1
     case "${machine}" in
-    x86_64 | amd64 | x64) printf '%s\n' "x86_64" ;;
-    aarch64 | arm64) printf '%s\n' "aarch64" ;;
+    x86_64) printf '%s\n' "x86_64" ;;
+    aarch64) printf '%s\n' "aarch64" ;;
     *)
         return 1
         ;;
@@ -30,8 +67,9 @@ function extras_manifest_entry {
     case "${architecture}" in
     x86_64 | aarch64) ;;
     *)
-        printf 'extras: unsupported canonical architecture key: %s\n' \
-            "${architecture}" >&2
+        extras_report_error \
+            "Unsupported canonical architecture key: ${architecture}." \
+            "unsupported canonical architecture key: ${architecture}"
         return 1
         ;;
     esac
@@ -54,9 +92,7 @@ function extras_describe_tool {
     local tool_description
 
     tool_description=$(extras_tool_description "${tool}") || return 1
-    tool-section "${label}" || return 1
-    description "${tool_description}" || return 1
-    echo || return 1
+    extras_report_step "${label}: ${tool_description}" || return $?
     return 0
 }
 
@@ -66,21 +102,23 @@ function extras_prune_stale_partials {
 
     if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" prune-partials \
         "${directory}"; then
-        printf 'extras: unable to prune stale partial artifacts for tool "%s"\n' \
-            "${tool}" >&2
+        extras_report_warning \
+            "Could not prune stale partial artifacts for ${tool}; the download will continue." \
+            "unable to prune stale partial artifacts for tool \"${tool}\""
     fi
     return 0
 }
 
-function extras_evict_obsolete_versions {
+function extras_evict_superseded_versions {
     local tool="${1}"
     local directory="${2}"
     local keep_name="${3}"
 
     if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" prune-versions \
         "${directory}" "${keep_name}"; then
-        printf 'extras: unable to evict obsolete cached versions for tool "%s"\n' \
-            "${tool}" >&2
+        extras_report_warning \
+            "Could not evict superseded cached versions for ${tool}; the current version remains available." \
+            "unable to evict superseded cached versions for tool \"${tool}\""
     fi
     return 0
 }
@@ -98,8 +136,9 @@ function extras_record_downloaded_tool {
     if ! printf '%s\t%s\t%s\t%s\n' \
         "${tool}" "${archive_type}" "${destination}" "${checksum}" \
         >>"${EXTRAS_ARTIFACT_LEDGER}"; then
-        printf 'extras: unable to update the artifact ledger for tool "%s"\n' \
-            "${tool}" >&2
+        extras_report_error \
+            "Could not update the artifact ledger for ${tool}. Deployment will stop before any command is replaced." \
+            "unable to update the artifact ledger for tool \"${tool}\""
         return 1
     fi
     return 0
@@ -112,8 +151,9 @@ function extras_available_tools_for_architecture {
     case "${extras_local_architecture}" in
     x86_64 | aarch64) ;;
     *)
-        printf 'extras: unsupported canonical architecture key: %s\n' \
-            "${extras_local_architecture}" >&2
+        extras_report_error \
+            "Unsupported canonical architecture key: ${extras_local_architecture}." \
+            "unsupported canonical architecture key: ${extras_local_architecture}"
         return 1
         ;;
     esac
@@ -134,7 +174,9 @@ function extras_manifest_version {
 
 function extras_validate_manifest_file {
     if [ ! -f "${EXTRAS_MANIFEST_FILE}" ] || [ -L "${EXTRAS_MANIFEST_FILE}" ]; then
-        printf 'extras: manifest is not a regular file: %s\n' "${EXTRAS_MANIFEST_FILE}" >&2
+        extras_report_error \
+            "The command-line tool manifest is not a regular file: ${EXTRAS_MANIFEST_FILE}." \
+            "manifest is not a regular file: ${EXTRAS_MANIFEST_FILE}"
         return 1
     fi
 
@@ -154,7 +196,9 @@ function extras_validate_manifest_file {
             (((.value.assets | keys) - ["x86_64", "aarch64", "any"]) | length == 0)
         )
     ' "${EXTRAS_MANIFEST_FILE}" >/dev/null; then
-        printf 'extras: invalid command line tool manifest: %s\n' "${EXTRAS_MANIFEST_FILE}" >&2
+        extras_report_error \
+            "Invalid command-line tool manifest: ${EXTRAS_MANIFEST_FILE}." \
+            "invalid command line tool manifest: ${EXTRAS_MANIFEST_FILE}"
         return 1
     fi
 }
@@ -167,13 +211,16 @@ function extras_validate_manifest_entry {
     local component normalized_source
 
     if ! [[ "${tool}" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
-        printf 'extras: invalid tool identifier: %s\n' "${tool}" >&2
+        extras_report_error \
+            "Invalid command-line tool identifier: ${tool}." \
+            "invalid tool identifier: ${tool}"
         return 1
     fi
 
     if ! entry=$(extras_manifest_entry "${tool}" "${architecture}"); then
-        printf 'extras: tool "%s" is not available for architecture %s\n' \
-            "${tool}" "${architecture}" >&2
+        extras_report_error \
+            "Command-line tool ${tool} is not available for architecture ${architecture}." \
+            "tool \"${tool}\" is not available for architecture ${architecture}"
         return 1
     fi
 
@@ -183,63 +230,85 @@ function extras_validate_manifest_entry {
     version=$(extras_manifest_version "${tool}")
 
     if ! [[ "${url}" =~ ${url_regex} ]]; then
-        printf 'extras: invalid download URL for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Invalid download URL for command-line tool ${tool}." \
+            "invalid download URL for tool \"${tool}\""
         return 1
     fi
 
     case "/${url}/" in
     */latest/* | */master/* | */main/* | */HEAD/*)
-        printf 'extras: download URL for tool "%s" is not pinned\n' "${tool}" >&2
+        extras_report_error \
+            "The download URL for command-line tool ${tool} is not pinned." \
+            "download URL for tool \"${tool}\" is not pinned"
         return 1
         ;;
     esac
 
     if ! [[ "${checksum}" =~ ^[0-9a-f]{64}$ ]]; then
-        printf 'extras: invalid SHA-256 checksum for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Invalid SHA-256 checksum for command-line tool ${tool}." \
+            "invalid SHA-256 checksum for tool \"${tool}\""
         return 1
     fi
 
     if ! [[ "${archive_type}" =~ ^(tar\.gz|zip|none)$ ]]; then
-        printf 'extras: invalid archive type for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Invalid archive type for command-line tool ${tool}." \
+            "invalid archive type for tool \"${tool}\""
         return 1
     fi
 
     if [ -z "${version}" ] || [ "${version}" = "latest" ]; then
-        printf 'extras: invalid version for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Invalid version for command-line tool ${tool}." \
+            "invalid version for tool \"${tool}\""
         return 1
     fi
 
     if [[ "${url}" != *"${version}"* ]]; then
-        printf 'extras: download URL for tool "%s" does not match its pinned version\n' "${tool}" >&2
+        extras_report_error \
+            "The download URL for command-line tool ${tool} does not match its pinned version." \
+            "download URL for tool \"${tool}\" does not match its pinned version"
         return 1
     fi
 
     if ! jq -e '.files | type == "object" and length > 0' <<<"${entry}" >/dev/null; then
-        printf 'extras: no executable declared for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "No command is declared for command-line tool ${tool}." \
+            "no executable declared for tool \"${tool}\""
         return 1
     fi
 
     while IFS=$'\t' read -r source target; do
         if ! [[ "${target}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
-            printf 'extras: invalid executable target for tool "%s"\n' "${tool}" >&2
+            extras_report_error \
+                "Invalid command target for command-line tool ${tool}." \
+                "invalid executable target for tool \"${tool}\""
             return 1
         fi
 
         if [ "${archive_type}" = "none" ]; then
             if ! [[ "${source}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
-                printf 'extras: invalid standalone executable for tool "%s"\n' "${tool}" >&2
+                extras_report_error \
+                    "Invalid standalone command for command-line tool ${tool}." \
+                    "invalid standalone executable for tool \"${tool}\""
                 return 1
             fi
         else
             if ! extras_archive_path_is_safe "${source}"; then
-                printf 'extras: unsafe executable member for tool "%s"\n' "${tool}" >&2
+                extras_report_error \
+                    "Unsafe command member for command-line tool ${tool}." \
+                    "unsafe executable member for tool \"${tool}\""
                 return 1
             fi
             normalized_source="${source#./}"
             IFS='/' read -r -a path_components <<<"${normalized_source}"
             for component in "${path_components[@]}"; do
                 if [ -z "${component}" ] || [ "${component}" = "." ] || [ "${component}" = ".." ]; then
-                    printf 'extras: unsafe executable member for tool "%s"\n' "${tool}" >&2
+                    extras_report_error \
+                        "Unsafe command member for command-line tool ${tool}." \
+                        "unsafe executable member for tool \"${tool}\""
                     return 1
                 fi
             done
@@ -248,23 +317,31 @@ function extras_validate_manifest_entry {
 
     if [ "$(jq '.files | to_entries | map(.value) | unique | length' <<<"${entry}")" -ne \
         "$(jq '.files | length' <<<"${entry}")" ]; then
-        printf 'extras: duplicate executable target for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Duplicate command target for command-line tool ${tool}." \
+            "duplicate executable target for tool \"${tool}\""
         return 1
     fi
 
     filename=$(basename -- "${url}")
     if [ -z "${filename}" ] || [ "${filename}" = "." ] || [ "${filename}" = ".." ]; then
-        printf 'extras: invalid artifact filename for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Invalid artifact filename for command-line tool ${tool}." \
+            "invalid artifact filename for tool \"${tool}\""
         return 1
     fi
 
     if [ "${archive_type}" = "none" ]; then
         if [ "$(jq '.files | length' <<<"${entry}")" -ne 1 ]; then
-            printf 'extras: standalone tool "%s" must declare exactly one executable\n' "${tool}" >&2
+            extras_report_error \
+                "Standalone command-line tool ${tool} must declare exactly one command." \
+                "standalone tool \"${tool}\" must declare exactly one executable"
             return 1
         fi
         if [ "${filename}" != "$(jq -r '.files | keys[0]' <<<"${entry}")" ]; then
-            printf 'extras: standalone artifact does not match tool "%s"\n' "${tool}" >&2
+            extras_report_error \
+                "The standalone artifact does not match command-line tool ${tool}." \
+                "standalone artifact does not match tool \"${tool}\""
             return 1
         fi
     fi
@@ -273,7 +350,7 @@ function extras_validate_manifest_entry {
 }
 
 function extras_validate_selected_tools {
-    local tool target existing_target entry registered candidate
+    local tool target existing_target entry registered candidate targets
     local -A selected_targets=()
 
     for tool in "$@"; do
@@ -285,23 +362,30 @@ function extras_validate_selected_tools {
             fi
         done
         if [ "${registered}" -ne 1 ]; then
-            printf 'extras: unknown tool identifier "%s"\n' "${tool}" >&2
-            return 1
+            extras_report_error \
+                "Unknown command-line tool identifier: ${tool}." \
+                "unknown tool identifier \"${tool}\""
+            return "${EXTRAS_INVALID_SELECTION_STATUS}"
         fi
         if ! extras_validate_manifest_entry "${tool}" "${EXTRAS_ARCHITECTURE}"; then
             return 1
         fi
 
-        entry=$(extras_manifest_entry "${tool}" "${EXTRAS_ARCHITECTURE}")
+        entry=$(extras_manifest_entry "${tool}" "${EXTRAS_ARCHITECTURE}") ||
+            return 1
+        targets=$(jq -r '.files | to_entries[].value' <<<"${entry}") ||
+            return 1
         while IFS= read -r target; do
+            [ -n "${target}" ] || continue
             existing_target="${selected_targets[${target}]:-}"
             if [ -n "${existing_target}" ]; then
-                printf 'extras: tools "%s" and "%s" deploy the same command "%s"\n' \
-                    "${existing_target}" "${tool}" "${target}" >&2
-                return 1
+                extras_report_error \
+                    "Command-line tools ${existing_target} and ${tool} deploy the same command ${target}." \
+                    "tools \"${existing_target}\" and \"${tool}\" deploy the same command \"${target}\""
+                return "${EXTRAS_INVALID_SELECTION_STATUS}"
             fi
             selected_targets["${target}"]="${tool}"
-        done < <(jq -r '.files | to_entries[].value' <<<"${entry}")
+        done <<<"${targets}"
     done
 }
 
@@ -313,12 +397,16 @@ function download_extras_tool {
     local recovered_partial recovered_status recovered
 
     if [ -z "${EXTRAS_WORKSPACE:-}" ] || [ ! -d "${EXTRAS_WORKSPACE}" ]; then
-        printf 'extras: download workspace is not initialized\n' >&2
+        extras_report_error \
+            "The command-line tool download workspace is not initialized." \
+            "download workspace is not initialized"
         return 1
     fi
 
     if ! entry=$(extras_manifest_entry "${tool}" "${EXTRAS_ARCHITECTURE}"); then
-        printf 'extras: no manifest entry for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "No command-line tool manifest entry was found for ${tool}." \
+            "no manifest entry for tool \"${tool}\""
         return 1
     fi
 
@@ -333,12 +421,16 @@ function download_extras_tool {
     filename=$(basename -- "${url}") || return 1
 
     if [ -n "${EXTRAS_DOWNLOADED_ASSETS[${tool}]:-}" ]; then
-        printf 'extras: tool "%s" was downloaded more than once\n' "${tool}" >&2
+        extras_report_error \
+            "Command-line tool ${tool} was downloaded more than once." \
+            "tool \"${tool}\" was downloaded more than once"
         return 1
     fi
 
     if [ -z "${EXTRAS_CACHE_DIRECTORY:-}" ]; then
-        printf 'extras: cache directory is not initialized\n' >&2
+        extras_report_error \
+            "The command-line tool cache directory is not initialized." \
+            "cache directory is not initialized"
         return 1
     fi
 
@@ -349,20 +441,26 @@ function download_extras_tool {
 
     if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" ensure-directory \
         "${download_directory}"; then
-        printf 'extras: unable to create download directory for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Could not create the download directory for ${tool}. No command-line tools were deployed." \
+            "unable to create download directory for tool \"${tool}\""
         return 1
     fi
 
     if [ -L "${destination}" ] ||
         { [ -e "${destination}" ] && [ ! -f "${destination}" ]; }; then
-        printf 'extras: unsafe cached artifact for tool "%s"\n' "${tool}" >&2
+        extras_report_error \
+            "Unsafe cached artifact for command-line tool \"${tool}\"; it was not used." \
+            "unsafe cached artifact for tool \"${tool}\""
         return 1
     fi
 
     if [ -f "${destination}" ]; then
         if ! python3 "${SCRIPT_PATH}/common/runtime-file.py" validate-file \
             "${destination}"; then
-            printf 'extras: unsafe cached artifact for tool "%s"\n' "${tool}" >&2
+            extras_report_error \
+                "Unsafe cached artifact for command-line tool \"${tool}\"; it was not used." \
+                "unsafe cached artifact for tool \"${tool}\""
             return 1
         fi
         copy_status=0
@@ -370,8 +468,9 @@ function download_extras_tool {
             "${destination}" "${snapshot}") || copy_status="${?}"
         if [ "${copy_status}" -ne 0 ]; then
             rm -f -- "${snapshot}" || true
-            printf 'extras: unable to verify cached artifact for tool "%s"; downloading it again\n' \
-                "${tool}" >&2
+            extras_report_warning \
+                "Could not verify the cached artifact for ${tool}; downloading it again." \
+                "unable to verify cached artifact for tool \"${tool}\"; downloading it again"
         else
             actual_checksum="${copy_result}"
             if [ "${actual_checksum}" = "${checksum}" ]; then
@@ -379,14 +478,15 @@ function download_extras_tool {
                     "${snapshot}" "${checksum}" "${filename}"; then
                     return 1
                 fi
-                extras_evict_obsolete_versions "${tool}" \
+                extras_evict_superseded_versions "${tool}" \
                     "${download_directory}" "${filename}"
-                info "Using cached artifact for ${tool}." || return 1
+                extras_report_step "Using cached artifact for ${tool}; the SHA-256 checksum is verified." || return $?
                 return 0
             fi
             if ! rm -f -- "${snapshot}"; then
-                printf 'extras: unable to discard an invalid artifact snapshot for tool "%s"\n' \
-                    "${tool}" >&2
+                extras_report_error \
+                    "Could not discard the invalid artifact snapshot for ${tool}. Deployment will stop before any command is replaced." \
+                    "unable to discard an invalid artifact snapshot for tool \"${tool}\""
                 return 1
             fi
             # Keep the existing entry until the replacement has been fully
@@ -405,12 +505,12 @@ function download_extras_tool {
     if [ "${recovered_status}" -eq 0 ] && [ -n "${recovered_partial}" ]; then
         partial="${recovered_partial}"
         recovered=1
-        info "Recovering a verified interrupted download for ${tool}." || return 1
+        extras_report_step "Recovering a verified interrupted download for ${tool}." || return $?
     else
         # Only prune stale partials after looking for a checksum-verified
         # recovery candidate. A complete older download remains recoverable.
         extras_prune_stale_partials "${tool}" "${download_directory}"
-        info "Downloading ${tool} ${version} (${EXTRAS_ARCHITECTURE})." || return 1
+        extras_report_step "Downloading ${tool} ${version} (${EXTRAS_ARCHITECTURE})." || return $?
         download_result=$(
             curl \
                 --fail \
@@ -441,39 +541,47 @@ function download_extras_tool {
 
         if [ "${download_status}" -ne 0 ]; then
             if [ -n "${partial}" ] && [ "${actual_checksum}" = "${checksum}" ]; then
-                printf 'extras: download failed for tool "%s"; the verified download was retained for retry\n' \
-                    "${tool}" >&2
+                extras_report_error \
+                    "Download failed for command-line tool \"${tool}\"; the verified download was retained for retry." \
+                    "download failed for tool \"${tool}\"; the verified download was retained for retry"
             else
                 if [ -n "${partial}" ] && ! rm -f -- "${partial}"; then
-                    printf 'extras: unable to remove an incomplete download for tool "%s"\n' \
-                        "${tool}" >&2
+                    extras_report_warning \
+                        "Could not remove the incomplete download for ${tool}; it remains in the cache for inspection." \
+                        "unable to remove an incomplete download for tool \"${tool}\""
                 fi
-                printf 'extras: download failed for tool "%s"\n' "${tool}" >&2
+                extras_report_error \
+                    "Download failed for command-line tool \"${tool}\". Run the command again to retry." \
+                    "download failed for tool \"${tool}\""
             fi
             return 1
         fi
         if [ "${actual_checksum}" != "${checksum}" ]; then
             if [ -n "${partial}" ] && ! rm -f -- "${partial}"; then
-                printf 'extras: unable to remove an invalid download for tool "%s"\n' \
-                    "${tool}" >&2
+                extras_report_warning \
+                    "Could not remove the invalid download for ${tool}; it remains in the cache for inspection." \
+                    "unable to remove an invalid download for tool \"${tool}\""
             fi
-            printf 'extras: checksum verification failed for tool "%s"\n' "${tool}" >&2
-            printf 'extras: expected %s, got %s\n' "${checksum}" "${actual_checksum}" >&2
+            extras_report_error \
+                "Checksum verification failed for command-line tool \"${tool}\". Expected ${checksum}, received ${actual_checksum}. The invalid artifact was not used; run the command again to retry." \
+                "checksum verification failed for tool \"${tool}\"\nextras: expected ${checksum}, got ${actual_checksum}"
             return 1
         fi
     fi
 
     if ! copy_result=$(python3 "${SCRIPT_PATH}/common/runtime-file.py" copy \
         "${partial}" "${snapshot}"); then
-        printf 'extras: unable to create a verified artifact snapshot for tool "%s"\n' \
-            "${tool}" >&2
+        extras_report_error \
+            "Could not create a verified artifact snapshot for ${tool}. Deployment will stop before any command is replaced." \
+            "unable to create a verified artifact snapshot for tool \"${tool}\""
         return 1
     fi
     actual_checksum="${copy_result}"
     if [ "${actual_checksum}" != "${checksum}" ]; then
         rm -f -- "${snapshot}" "${partial}" || true
-        printf 'extras: checksum verification failed for tool "%s"\n' "${tool}" >&2
-        printf 'extras: expected %s, got %s\n' "${checksum}" "${actual_checksum}" >&2
+        extras_report_error \
+            "Checksum verification failed for command-line tool \"${tool}\". Expected ${checksum}, received ${actual_checksum}. The invalid artifact was not used; run the command again to retry." \
+            "checksum verification failed for tool \"${tool}\"\nextras: expected ${checksum}, got ${actual_checksum}"
         return 1
     fi
 
@@ -481,25 +589,27 @@ function download_extras_tool {
         "${partial}" "${destination}" "${checksum}"); then
         # Keep the verified partial file in the cache. A later run can recover
         # it by checksum and retry publication without downloading it again.
-        printf 'extras: unable to store downloaded artifact for tool "%s"; the verified download was retained for retry\n' \
-            "${tool}" >&2
+        extras_report_error \
+            "Could not confirm publication of the downloaded artifact for ${tool}; the verified download was retained for retry." \
+            "unable to store downloaded artifact for tool \"${tool}\"; the verified download was retained for retry"
         return 1
     fi
     actual_checksum="${publish_result}"
     if [ "${actual_checksum}" != "${checksum}" ]; then
         rm -f -- "${partial}" "${snapshot}" || true
-        printf 'extras: checksum verification failed for tool "%s"\n' "${tool}" >&2
-        printf 'extras: expected %s, got %s\n' "${checksum}" "${actual_checksum}" >&2
+        extras_report_error \
+            "Checksum verification failed for command-line tool \"${tool}\". Expected ${checksum}, received ${actual_checksum}. The invalid artifact was not used; run the command again to retry." \
+            "checksum verification failed for tool \"${tool}\"\nextras: expected ${checksum}, got ${actual_checksum}"
         return 1
     fi
 
-    extras_evict_obsolete_versions "${tool}" "${download_directory}" "${filename}"
+    extras_evict_superseded_versions "${tool}" "${download_directory}" "${filename}"
 
     if ! extras_record_downloaded_tool "${tool}" "${archive_type}" \
         "${snapshot}" "${checksum}" "${filename}"; then
         return 1
     fi
 
-    info "Verified SHA-256 checksum for ${tool}." || return 1
+    extras_report_step "Verified SHA-256 checksum for ${tool}." || return $?
     return 0
 }

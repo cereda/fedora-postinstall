@@ -2,14 +2,20 @@
 
 # SPDX-License-Identifier: MIT
 
-section "direnv installation and configuration"
+ui_section "direnv installation and configuration"
 
-description "Load project-specific environment variables by directory."
-echo
+ui_description "Load project-specific environment variables by directory."
 
-if question "Do you want to install and configure direnv?"; then
+if ui_confirm "Install and configure direnv?" "Install" "Skip"; then
 
     # Keep the installer from modifying the shell profile.
-    info "Installing and configuring direnv."
+    ui_step "Installing and configuring direnv."
     export bin_path="${HOME}/.local/bin" && curl -sfL https://direnv.net/install.sh | bash
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "direnv was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

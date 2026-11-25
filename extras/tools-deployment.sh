@@ -16,6 +16,13 @@ declare -g EXTRAS_DEPLOYMENT_COMPLETE=0
 declare -g EXTRAS_DEPLOYMENT_DESTINATION_DIRECTORY=""
 declare -g EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY=""
 
+function extras_deployment_entry_exists {
+    local deployment_entry_path="${1:-}"
+
+    [ -n "${deployment_entry_path}" ] || return 1
+    [ -e "${deployment_entry_path}" ] || [ -L "${deployment_entry_path}" ]
+}
+
 function extras_cleanup_deployment_temporaries {
     local runtime_local_temporary
 
@@ -39,15 +46,21 @@ function extras_restore_deployment {
     local rollback_status=0
 
     if [ "${EXTRAS_DEPLOYMENT_REPLACED[${target}]:-0}" != "1" ]; then
-        return 0
+        # A signal can arrive after the backup helper moved the original but
+        # before the wrapper recorded success. In that narrow case the backup
+        # file itself is the durable indication that restoration is required.
+        if [ "${had_original}" != "1" ] ||
+            ! extras_deployment_entry_exists "${backup}"; then
+            return 0
+        fi
     fi
     if [ -z "${staged_identity}" ]; then
-        printf 'extras: rollback staged identity is missing for %s\n' "${target}" >&2
+        ui_error "The staged rollback identity is missing for ${target}."
         return 1
     fi
     if [ "${had_original}" = "1" ] &&
         { [ "${original_identity}" = "-" ] || [ "${backup_identity}" = "-" ]; }; then
-        printf 'extras: rollback identity is missing for %s\n' "${target}" >&2
+        ui_error "The rollback identity is missing for ${target}."
         return 1
     fi
 
@@ -60,12 +73,17 @@ function extras_restore_deployment {
     fi
 
     if [ "${rollback_status}" -eq 3 ]; then
-        printf 'extras: rollback skipped for %s because the destination changed; the recovery backup was retained\n' \
-            "${target}" >&2
+        if extras_deployment_entry_exists "${backup}"; then
+            ui_warning "Rollback skipped for ${target} because the destination or recovery backup changed; the recovery backup remains in ${backup_directory}."
+        else
+            ui_warning "Rollback skipped for ${target} because the destination or recovery backup changed; no recovery backup was available."
+        fi
+    elif extras_deployment_entry_exists "${backup}"; then
+        ui_error "Could not restore ${target} during rollback; the recovery backup remains in ${backup_directory}."
     else
-        printf 'extras: unable to restore %s during rollback\n' "${target}" >&2
+        ui_error "Could not restore ${target} during rollback; no recovery backup was available."
     fi
-    return 1
+    return "${rollback_status}"
 }
 
 function extras_rollback_deployment {
@@ -88,7 +106,7 @@ function extras_rollback_deployment {
         backup="${EXTRAS_DEPLOYMENT_BACKUPS[${target}]:-}"
 
         if [ "${had_original}" = "1" ] && [ -z "${backup}" ]; then
-            printf 'extras: rollback backup path is missing for %s\n' "${target}" >&2
+            ui_error "The rollback backup path is missing for ${target}."
             status=1
             continue
         fi
@@ -103,17 +121,21 @@ function extras_rollback_deployment {
     done
 
     if [ "${status}" -ne 0 ]; then
-        printf 'extras: rollback was incomplete; backups remain in %s\n' \
-            "${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}" >&2
+        if find "${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}" \
+            -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
+            ui_error "The rollback was incomplete; recovery backups remain in ${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}."
+        else
+            ui_error "The rollback was incomplete; no restorable recovery backup remains in ${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}."
+        fi
         return 1
     fi
 
     if ! rm -rf -- "${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}"; then
-        printf 'extras: unable to remove rollback backups in %s\n' \
-            "${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}" >&2
+        ui_error "Could not remove the empty rollback backup directory ${EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY}; the restored files are unaffected."
         return 1
     fi
 
+    EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY=""
     EXTRAS_DEPLOYMENT_COMPLETE=1
     return 0
 }
@@ -127,17 +149,17 @@ function deploy_extras_tools {
     local -A expected_original_identities=()
 
     if [ ! -d "${EXTRAS_WORKSPACE}" ]; then
-        printf 'extras: deployment workspace is not initialized\n' >&2
+        ui_error "The command-line tool deployment workspace is not initialized."
         return 1
     fi
 
     if [ ! -s "${EXTRAS_STAGE_LEDGER}" ]; then
-        printf 'extras: no staged executables to deploy\n' >&2
+        ui_error "No staged commands are ready to deploy."
         return 1
     fi
 
     if ! mkdir -p "${destination_directory}"; then
-        printf 'extras: unable to create the deployment directory\n' >&2
+        ui_error "Could not create the deployment directory ${destination_directory}."
         return 1
     fi
 
@@ -146,40 +168,37 @@ function deploy_extras_tools {
     # original into the recovery directory.
     while IFS=$'\t' read -r target source tool; do
         if ! [[ "${target}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
-            printf 'extras: invalid deployment target: %s\n' "${target}" >&2
+            ui_error "Invalid deployment target: ${target}."
             return 1
         fi
         if [ ! -f "${source}" ] || [ -L "${source}" ]; then
-            printf 'extras: invalid staged executable for tool "%s"\n' "${tool}" >&2
+            ui_error "Invalid staged command for command-line tool ${tool}."
             return 1
         fi
         destination="${destination_directory}/${target}"
         if [ -d "${destination}" ] && [ ! -L "${destination}" ]; then
-            printf 'extras: deployment target is a directory: %s\n' "${destination}" >&2
+            ui_error "The deployment target is a directory: ${destination}."
             return 1
         fi
         if [ -f "${destination}" ] && [ ! -L "${destination}" ]; then
             if ! hard_link_count=$(stat -c '%h' -- "${destination}"); then
-                printf 'extras: unable to inspect deployment target: %s\n' \
-                    "${destination}" >&2
+                ui_error "Could not inspect the deployment target: ${destination}."
                 return 1
             fi
             if [ "${hard_link_count}" -ne 1 ]; then
-                printf 'extras: deployment target has multiple hard links: %s\n' \
-                    "${destination}" >&2
+                ui_error "The deployment target has multiple hard links: ${destination}."
                 return 1
             fi
         fi
         if { [ -e "${destination}" ] || [ -L "${destination}" ]; } &&
             [ ! -L "${destination}" ] && [ ! -f "${destination}" ]; then
-            printf 'extras: deployment target is not a regular file: %s\n' "${destination}" >&2
+            ui_error "The deployment target is not a regular file: ${destination}."
             return 1
         fi
 
         if [ -e "${destination}" ] || [ -L "${destination}" ]; then
             if ! original_identity=$(stat -c '%d:%i' -- "${destination}"); then
-                printf 'extras: unable to identify deployment target: %s\n' \
-                    "${destination}" >&2
+                ui_error "Could not identify the deployment target: ${destination}."
                 return 1
             fi
         else
@@ -194,7 +213,7 @@ function deploy_extras_tools {
 
     if ! backup_directory=$(mktemp -d \
         "${destination_directory}/.fedora-postinstall-backups.XXXXXXXX"); then
-        printf 'extras: unable to create the rollback backup directory\n' >&2
+        ui_error "Could not create the rollback backup directory. No commands were replaced."
         if declare -F runtime_leave_critical_section >/dev/null; then
             runtime_leave_critical_section "extras deployment" extras_rollback_deployment
         fi
@@ -221,7 +240,7 @@ function deploy_extras_tools {
     while IFS=$'\t' read -r target source tool; do
         destination="${destination_directory}/${target}"
         temporary=$(mktemp "${destination_directory}/.${target}.tmp.XXXXXX") || {
-            printf 'extras: unable to create temporary file for %s\n' "${target}" >&2
+            ui_error "Could not create a temporary file for ${target}. No commands were replaced."
             extras_cleanup_deployment_temporaries
             rm -rf -- "${backup_directory}"
             EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY=""
@@ -234,7 +253,7 @@ function deploy_extras_tools {
 
         if ! install -m 0755 "${source}" "${temporary}"; then
             rm -f -- "${temporary}"
-            printf 'extras: unable to stage deployment file: %s\n' "${target}" >&2
+            ui_error "Could not stage the deployment file ${target}. No commands were replaced."
             extras_cleanup_deployment_temporaries
             rm -rf -- "${backup_directory}"
             EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY=""
@@ -245,7 +264,7 @@ function deploy_extras_tools {
         fi
         if ! staged_identity=$(stat -c '%d:%i' -- "${temporary}"); then
             rm -f -- "${temporary}"
-            printf 'extras: unable to identify staged deployment file: %s\n' "${target}" >&2
+            ui_error "Could not identify the staged deployment file ${target}. No commands were replaced."
             extras_cleanup_deployment_temporaries
             rm -rf -- "${backup_directory}"
             EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY=""
@@ -282,10 +301,6 @@ function deploy_extras_tools {
             had_original=1
         fi
         EXTRAS_DEPLOYMENT_ORIGINALS["${target}"]="${had_original}"
-        # Mark the transaction before the first namespace change. If a signal
-        # arrives immediately after the helper moves an entry, rollback still
-        # knows which original and staged identities belong to the target.
-        EXTRAS_DEPLOYMENT_REPLACED["${target}"]="1"
 
         backup_result=""
         backup_status=0
@@ -306,13 +321,15 @@ function deploy_extras_tools {
                 [ "${backup_identity}" != "${original_identity}" ]; } ||
                 { [ "${had_original}" = "0" ] &&
                     [ "${backup_identity}" != "-" ]; }; then
-                printf 'extras: backup identity changed unexpectedly for %s\n' \
-                    "${target}" >&2
+                ui_error "The backup identity changed unexpectedly for ${target}."
                 backup_status=1
             fi
         fi
+        if [ "${backup_status}" -eq 0 ] && [ "${had_original}" = "1" ]; then
+            EXTRAS_DEPLOYMENT_REPLACED["${target}"]="1"
+        fi
         if [ "${backup_status}" -ne 0 ]; then
-            printf 'extras: unable to back up existing file: %s\n' "${destination}" >&2
+            ui_error "Could not back up the existing file: ${destination}."
             extras_rollback_deployment || true
             extras_cleanup_deployment_temporaries
             if declare -F runtime_leave_critical_section >/dev/null; then
@@ -329,7 +346,7 @@ function deploy_extras_tools {
         staged_identity="${EXTRAS_DEPLOYMENT_STAGED_IDENTITIES[${target}]:-}"
         temporary="${EXTRAS_DEPLOYMENT_STAGED_PATHS[${target}]:-}"
         if [ -z "${temporary}" ] || [ -z "${staged_identity}" ]; then
-            printf 'extras: staged deployment identity is missing for %s\n' "${target}" >&2
+            ui_error "The staged deployment identity is missing for ${target}."
             extras_rollback_deployment || true
             extras_cleanup_deployment_temporaries
             if declare -F runtime_leave_critical_section >/dev/null; then
@@ -338,10 +355,15 @@ function deploy_extras_tools {
             return 1
         fi
         replace_status=0
+        # Mark the transaction immediately before the destination namespace
+        # can change. For a target without an original, rollback removes the
+        # newly installed entry; for a backed-up target, it restores the
+        # original by exact identity.
+        EXTRAS_DEPLOYMENT_REPLACED["${target}"]="1"
         python3 "${SCRIPT_PATH}/common/runtime-file.py" replace-destination \
             "${temporary}" "${destination}" "${staged_identity}" || replace_status="${?}"
         if [ "${replace_status}" -ne 0 ]; then
-            printf 'extras: unable to deploy executable: %s\n' "${target}" >&2
+            ui_error "Could not deploy the command ${target}."
             extras_rollback_deployment || true
             extras_cleanup_deployment_temporaries
             if declare -F runtime_leave_critical_section >/dev/null; then
@@ -362,8 +384,7 @@ function deploy_extras_tools {
     # deployment; the cleanup callback will retry removing them.
     EXTRAS_DEPLOYMENT_COMPLETE=1
     if ! rm -rf -- "${backup_directory}"; then
-        printf 'extras: unable to remove rollback backups in %s\n' \
-            "${backup_directory}" >&2
+        ui_warning "Could not remove the rollback backups in ${backup_directory}. They remain available for recovery."
     else
         EXTRAS_DEPLOYMENT_BACKUP_DIRECTORY=""
     fi

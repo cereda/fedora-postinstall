@@ -62,10 +62,10 @@ function cli_normalize_architecture {
     auto)
         printf '\n'
         ;;
-    x86_64 | amd64 | x64)
+    x86_64)
         printf '%s\n' "x86_64"
         ;;
-    aarch64 | arm64)
+    aarch64)
         printf '%s\n' "aarch64"
         ;;
     *)
@@ -114,7 +114,7 @@ function cli_set_log_format {
     local cli_local_value="${1:-}"
 
     case "${cli_local_value,,}" in
-    plain | text)
+    plain)
         CLI_LOG_FORMAT="plain"
         ;;
     json)
@@ -131,11 +131,8 @@ function cli_set_log_level {
     local cli_local_value="${1:-}"
 
     case "${cli_local_value,,}" in
-    debug | info | warn | warning | error)
-        case "${cli_local_value,,}" in
-        warning) CLI_LOG_LEVEL="warn" ;;
-        *) CLI_LOG_LEVEL="${cli_local_value,,}" ;;
-        esac
+    debug | info | warn | error)
+        CLI_LOG_LEVEL="${cli_local_value,,}"
         ;;
     *)
         printf 'cli: invalid log level: %s\n' "${cli_local_value}" >&2
@@ -348,11 +345,6 @@ function cli_parse_arguments {
 
     cli_reset_options || return 64
 
-    if [ -n "${CLI_TOOLS_ONLY+x}" ]; then
-        printf 'cli: CLI_TOOLS_ONLY is not supported; use the extras command instead\n' >&2
-        return 64
-    fi
-
     while [ "$#" -gt 0 ]; do
         cli_local_argument="${1}"
         case "${cli_local_argument}" in
@@ -361,13 +353,13 @@ function cli_parse_arguments {
             cli_local_command_set=1
             shift
             ;;
-        --flavor=* | --flavour=*)
+        --flavor=*)
             cli_local_value="${cli_local_argument#*=}"
             cli_set_flavor "${cli_local_value}" || return 64
             CLI_FLAVOR_OPTION_EXPLICIT=1
             shift
             ;;
-        --flavor | --flavour)
+        --flavor)
             shift
             if [ "$#" -eq 0 ]; then
                 printf 'cli: --flavor requires a value\n' >&2
@@ -377,12 +369,12 @@ function cli_parse_arguments {
             CLI_FLAVOR_OPTION_EXPLICIT=1
             shift
             ;;
-        --architecture=* | --arch=*)
+        --architecture=*)
             cli_local_value="${cli_local_argument#*=}"
             cli_set_architecture "${cli_local_value}" || return 64
             shift
             ;;
-        --architecture | --arch)
+        --architecture)
             shift
             if [ "$#" -eq 0 ]; then
                 printf 'cli: --architecture requires a value\n' >&2

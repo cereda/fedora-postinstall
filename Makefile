@@ -32,16 +32,20 @@ test:
 	@$(BATS) --print-output-on-failure tests/unit
 
 syntax:
-	@git ls-files -z '*.sh' | xargs -0 -n1 bash -n
+	@git ls-files -z --cached --others --exclude-standard -- '*.sh' | \
+		xargs -0 -r -n1 sh -c 'test ! -f "$$0" || bash -n "$$0"'
 
 shellcheck:
-	@git ls-files -z '*.sh' | xargs -0 $(SHELLCHECK) --severity=error
+	@git ls-files -z --cached --others --exclude-standard -- '*.sh' | \
+		xargs -0 -r -n1 sh -c 'test ! -f "$$0" || $(SHELLCHECK) --severity=error "$$0"'
 
 format-check:
-	@git ls-files -z '*.sh' | xargs -0 -r $(SHFMT) -d $(SHFMT_FLAGS)
+	@git ls-files -z --cached --others --exclude-standard -- '*.sh' | \
+		xargs -0 -r -n1 sh -c 'test ! -f "$$0" || $(SHFMT) -d $(SHFMT_FLAGS) "$$0"'
 
 format:
-	@git ls-files -z '*.sh' | xargs -0 -r $(SHFMT) -w $(SHFMT_FLAGS)
+	@git ls-files -z --cached --others --exclude-standard -- '*.sh' | \
+		xargs -0 -r -n1 sh -c 'test ! -f "$$0" || $(SHFMT) -w $(SHFMT_FLAGS) "$$0"'
 
 python:
 	@files="$$(git ls-files '*.py')"; \

@@ -2,22 +2,21 @@
 
 # SPDX-License-Identifier: MIT
 
-section "carapace-bin installation"
+ui_section "carapace installation"
 
-description "Generate shell completions for command-line tools."
-echo
+ui_description "Generate shell completions for command-line tools."
 
-if question "Do you want to install carapace-bin?"; then
+if ui_confirm "Install carapace?" "Install" "Skip"; then
 
-    info "Getting latest version of carapace-bin from GitHub."
+    ui_step "Resolving the latest carapace release."
     test -f carapace.json || wget -q -O carapace.json https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest
 
-    info "Downloading carapace-bin from GitHub."
+    ui_step "Downloading carapace."
     case "$(runtime_selected_architecture)" in
     x86_64) CARAPACE_ASSET_SUFFIX="linux_amd64.tar.gz" ;;
     aarch64) CARAPACE_ASSET_SUFFIX="linux_arm64.tar.gz" ;;
     *)
-        text "Unsupported architecture for carapace-bin: $(runtime_selected_architecture)."
+        ui_error "Unsupported architecture for carapace: $(runtime_selected_architecture)."
         return 1
         ;;
     esac
@@ -25,15 +24,19 @@ if question "Do you want to install carapace-bin?"; then
         carapace.json "${CARAPACE_ASSET_SUFFIX}") || return 1
     wget -q "${CARAPACE_ASSET_URL}" -O carapace-bin.tar.gz
 
-    info "Extracting carapace-bin."
+    ui_step "Extracting carapace."
     tar xzf carapace-bin.tar.gz
 
-    info "Preparing the installation directory."
+    ui_step "Installing carapace."
     mkdir -p "${HOME}/.local/bin"
-
-    info "Moving binary to the installation directory."
     mv carapace "${HOME}/.local/bin/"
 
-    info "Removing archive file."
     rm -f carapace-bin.tar.gz
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "carapace was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

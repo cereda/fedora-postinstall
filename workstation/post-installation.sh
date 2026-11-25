@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 if [ ${0##*/} == ${BASH_SOURCE[0]##*/} ]; then
-    echo "╭──────────────────────────────────────────╮"
-    echo "│ This script cannot be executed directly. │"
-    echo "╰──────────────────────────────────────────╯"
+    printf '%s\n' \
+        "╭──────────────────────────────────────────╮" \
+        "│ This script cannot be executed directly. │" \
+        "╰──────────────────────────────────────────╯" >&2
     exit 1
 fi
 

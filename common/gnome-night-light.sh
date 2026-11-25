@@ -2,13 +2,19 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME night light"
+ui_section "GNOME night light"
 
-description "Enable the GNOME night light."
-echo
+ui_description "Enable the GNOME night light."
 
-if question "Do you want to enable night light?"; then
+if ui_confirm "Enable the GNOME night light?" "Enable" "Keep"; then
 
-    info "Enabling night light."
+    ui_step "Enabling the GNOME night light."
     gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "The GNOME night light was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

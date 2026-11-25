@@ -2,7 +2,7 @@
 
 # Fedora post installation guide
 
-Welcome to my personal Fedora post installation guide. This repository describes most of the tasks I perform after a clean install of this awesome Linux distribution. Ideas and suggestions were collected from various sources, as well as from personal experience and preference. Use this guide at your own risk, and have fun with Fedora!
+This repository is my personal guide to the tasks I perform after a clean Fedora installation. It combines ideas from the Fedora community with my own experience and preferences. Review the script before running it and use it at your own risk.
 
 ## Requirements
 
@@ -13,6 +13,16 @@ sudo dnf install coreutils curl findutils git jq python3 realpath tar unzip util
 ```
 
 An interactive installation also requires a terminal and a working `sudo` session. The `detect`, `plan`, and `--dry-run` commands do not prompt, download files, create the cache or lock, or change the system. A command is required for every invocation; running the entry point without one is a usage error with status `64`.
+
+## Interaction and output
+
+Static installer messages are rendered with native Bash so routine progress remains fast and readable. [Gum](https://github.com/charmbracelet/gum) is used only for interactive confirmations, selections, text input, and directory selection. It remains the primary interaction backend because it supplies consistent, feature-complete terminal controls without mixing several UI implementations. Routine sections are compact headings rather than full-width boxes.
+
+Interactive installer progress and successful results are written to standard output, while interactive warnings and errors are written to standard error. The stable plain `detect`, `plan`, and dry-run reports retain their existing output format. Color is enabled only for an interactive terminal; `NO_COLOR` and `TERM=dumb` always disable it. `UI_COLOR_OVERRIDE=always` or `UI_COLOR_OVERRIDE=never` can force the color policy for a specific run.
+
+For interactive commands, the installer reuses an installed Gum v2 release directly. If Gum v2 is not installed, the installer downloads the checksum-pinned Gum `v2.0.2` asset declared in `extras/tools-manifest.json`, verifies its SHA-256 checksum, enforces a download-size limit, extracts only the declared executable, verifies the staged version and required controls, and removes the temporary workspace when the run ends. This temporary prompt backend is not installed into `${HOME}/.local/bin`; the optional `gum` extra is a separate, persistent installation.
+
+Set `GUM` to an explicit Gum executable path when an advanced installation needs to override normal executable lookup. If that override is missing or unsupported, the interactive command stops instead of silently using another Gum binary. The `help`, `detect`, `plan`, and `--dry-run` paths remain independent of Gum and never bootstrap or invoke it.
 
 ## Command-line workflow
 
@@ -34,7 +44,7 @@ The available commands are:
 | `plan` | Render the effective module and tool plan without running it. |
 | `help` | Show command and option help. |
 
-The `install` command requires a Fedora flavor. Use `--flavor workstation` or `--flavor silverblue` to select one explicitly, set `POSTINSTALL_FLAVOR`, or rely on reliable automatic detection. Command-line flavor selection takes precedence over the environment. If the flavor is unknown or detection is ambiguous, the command stops with status `69` before changing the system and asks for `--flavor`; there is no interactive flavor chooser. Detection never falls back between native architectures: x86-64 and AArch64 use their own manifest assets, with universal assets selected only through an explicit `assets.any` entry.
+The `install` command requires a Fedora flavor. Use `--flavor workstation` or `--flavor silverblue` to select one explicitly, set `POSTINSTALL_FLAVOR`, or rely on reliable automatic detection. Command-line flavor selection takes precedence over the environment. If the flavor is unknown or detection is ambiguous, the command stops with status `69` before changing the system and asks for `--flavor`; there is no interactive flavor chooser. Architecture selection accepts `auto`, `x86_64`, or `aarch64`. Detection never falls back between native architectures: x86-64 and AArch64 use their own manifest assets, with universal assets selected only through an explicit `assets.any` entry.
 
 Useful non-mutating examples are:
 
@@ -57,12 +67,6 @@ bash fedora-postinstall.sh extras --tool fd --tool ripgrep
 bash fedora-postinstall.sh extras --tools fd,ripgrep,yq
 bash fedora-postinstall.sh extras --all-extras
 bash fedora-postinstall.sh extras --dry-run --all-extras
-```
-
-The legacy `CLI_TOOLS_ONLY` environment variable is not supported. Setting it is rejected with a usage error; use the explicit `extras` command instead:
-
-```bash
-bash fedora-postinstall.sh extras --tools fd,ripgrep,yq
 ```
 
 The authoritative tool registry is `extras/tools-list.sh`. URLs, versions, checksums, archive types, file mappings, and architecture assets are defined in `extras/tools-manifest.json`; profiles and command-line options can select registered tool identifiers but cannot replace those manifest values.
@@ -112,30 +116,30 @@ A lot of things, actually. The following table summarizes the tasks:
 | Flatpaks (unpin) | Unpins all Flatpak runtimes to allow automatic updates. | No | Yes |
 | Flatpaks (cleanup) | Removes several applications that come with Fedora, installed as Flatpaks (user selection). | No | Yes |
 | Packages (cleanup) | Removes several packages that come with Fedora (user selection). | Yes | No |
-| RPMFusion (config) | Configures RPMFusion, a project that provides a repository of additional software packages for Fedora. | Yes | No |
-| `ffmpeg` (config) | Replaces Fedora's `ffmpeg` with the version available in the RPMFusion repositories. | Yes | No |
+| RPM Fusion (config) | Configures RPM Fusion, a project that provides a repository of additional software packages for Fedora. | Yes | No |
+| `ffmpeg` (config) | Replaces Fedora's `ffmpeg` with the version available in the RPM Fusion repositories. | Yes | No |
 | Terra (install) | Installs Terra, a rolling RPM repository for Fedora. | Yes | No |
 | Flatpaks (install) | Installs several applications as Flatpaks (user selection). | Yes | Yes |
 | GNOME (config) | Configures and tweaks GNOME (see the table below). | Yes | Yes |
 | Hostname (config) | Configures the machine hostname. | Yes | Yes |
 | Home directory (config) | Configures a predefined home directory structure for improved organization. | Yes | Yes |
-| `starship` (install) | Installs `starship`, a highly customizable shell prompt that aims to provide a modern, feature-rich, and efficient user experience for the command line. | Yes | Yes |
-| `carapace-bin` (install) | Installs `carapace-bin`, a command line tool that generates shell completion scripts for various command line tools and applications. | Yes | Yes |
-| zoxide (install) | Installs zoxide, a tool designed to enhance navigation in the terminal by allowing users to quickly jump to frequently accessed directories. | Yes | Yes |
+| `starship` (install) | Installs Starship, a highly customizable shell prompt that aims to provide a modern, feature-rich, and efficient user experience for the command-line. | Yes | Yes |
+| `carapace-bin` (install) | Installs `carapace-bin`, a command-line tool that generates shell completion scripts for various command-line tools and applications. | Yes | Yes |
+| zoxide (install) | Installs Zoxide, a tool designed to enhance navigation in the terminal by allowing users to quickly jump to frequently accessed directories. | Yes | Yes |
 | `uv` (install) | Installs `uv`, an extremely fast Python package and project manager, written in Rust. | Yes | Yes |
-| SDKman (install) | Installs SDKman, a tool for managing multiple Software Development Kits (SDKs) on Unix-based systems. | Yes | Yes |
+| SDKMAN (install) | Installs SDKMAN, a tool for managing multiple Software Development Kits (SDKs) on Unix-based systems. | Yes | Yes |
 | Rust (install) | Installs Rust, a systems programming language that focuses on performance, safety, and concurrency. | Yes | Yes |
 | Go (install) | Installs Go, a programming language developed by Google. | Yes | Yes |
 | Node Version Manager (install) | Installs Node Version Manager, a tool that allows developers to easily install, manage, and switch between different versions of the Node.js runtime on their local machines. | Yes | Yes |
-| `mise` (install) | Installs `mise`, a command line tool designed for setting up and managing development environments. | Yes | Yes |
-| vim (install) | Installs vim, a highly configurable, open source text editor known for its powerful and efficient command-line interface. | Yes | No |
-| neovim (install) | Installs neovim, an open source, community-driven, and highly customizable fork of the vim text editor. | Yes | Yes (inside a toolbox) |
+| `mise` (install) | Installs `mise`, a command-line tool designed for setting up and managing development environments. | Yes | Yes |
+| vim (install) | Installs Vim, a highly configurable, open source text editor known for its powerful and efficient command-line interface. | Yes | No |
+| neovim (install) | Installs Neovim, an open source, community-driven, and highly customizable fork of the Vim text editor. | Yes | Yes (inside a toolbox) |
 | Taskwarrior (install) | Installs Taskwarrior, a flexible and powerful open source task management software. | Yes | No |
-| `forgit` (install) | Installs `forgit`, a command line tool that combines Git and `fzf`. | Yes | No |
+| `forgit` (install) | Installs `forgit`, a command-line tool that combines Git and `fzf`. | Yes | No |
 | Ghostty (install) | Installs Ghostty, a terminal emulator that uses platform-native UI and GPU acceleration. | Yes | No |
 | `yazi` (install) | Installs `yazi`, a blazing fast terminal file manager. | Yes | No |
 | Terminal colors | Configures the colorized output of `ls`, `tree`, `fd`, `bfs`, `dust`, and many other tools. | Yes | Yes |
-| Useful packages (install) | Installs a collection of useful packages that can provide additional functionality for your command line workflow. | Yes | Yes (inside a toolbox) |
+| Useful packages (install) | Installs a collection of useful packages that can provide additional functionality for your command-line workflow. | Yes | Yes (inside a toolbox) |
 | Git (config) | Configures Git, adding the user name and email, as well as defining the editor and diff viewer. | Yes | Yes |
 | VSCodium (install) | Installs VSCodium, a binary distribution of Microsoft's Visual Studio Code editor, without the telemetry and proprietary features. | Yes (RPM package) | Yes (Flatpak) |
 | TeX Live (configuration) | Configures a script for TeX Live, a comprehensive distribution of the TeX typesetting system. | Yes | No |
@@ -153,7 +157,7 @@ A lot of things, actually. The following table summarizes the tasks:
 | `tmux` (install) | Installs `tmux`, a terminal multiplexer that allows you to create and manage multiple terminal sessions within a single window. | Yes | Yes |
 | Miniconda (install) | Installs Miniconda, a lightweight distribution of the Anaconda Python and R data science platform. | Yes | Yes |
 | Profile photo (config) | Configures a profile photo as a visual identifier that makes it easier to recognize the user at a glance. | Yes | Yes |
-| Additional command line tools (install) | Installs a collection of command line tools, covering a wide range of functionalities (user selection, see the table below). | Yes | Yes |
+| Additional command-line tools (install) | Installs a collection of command-line tools, covering a wide range of functionalities (user selection, see the table below). | Yes | Yes |
 
 GNOME configurations and tweaks:
 
@@ -171,7 +175,7 @@ GNOME configurations and tweaks:
 | Touchpad configuration | Modifies the GNOME touchpad configuration to enable tap-to-click functionality and two-finger scrolling, providing a more intuitive and responsive touchpad experience. | Yes | Yes |
 | Text Editor | Applies a set of tweaks to the GNOME text editor, including highlighting the current line, disabling session restoration, showing the grid, line numbers, and right margin, as well as disabling spellcheck. | Yes | No |
 
-Additional command line tools (deployed in `${HOME}/.local/bin`):
+Additional command-line tools (deployed in `${HOME}/.local/bin`):
 
 Downloads use the pinned URLs and SHA-256 checksums in `extras/tools-manifest.json`. Each selected tool is downloaded into the cache when no matching artifact exists, or reused from the cache after its pinned checksum is verified; verified interrupted downloads are recovered for retry without another transfer. The artifact is then unpacked in an isolated temporary workspace. Only the exact verified artifact is unpacked, and deployment replaces each executable atomically. Verified artifacts are retained under `${POSTINSTALL_CACHE_DIR}/extras/`. Temporary extraction and deployment files are removed when the script exits. The manifest provides native x86-64 and AArch64 releases where upstream publishes them (`jless` currently supports x86-64 only).
 

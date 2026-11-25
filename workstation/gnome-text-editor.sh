@@ -2,28 +2,21 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME text editor"
+ui_section "GNOME Text Editor configuration"
 
-description "Configure the GNOME Text Editor."
-echo
+ui_description "Apply a focused set of GNOME Text Editor preferences."
 
-if question "Do you want to configure the GNOME text editor?"; then
+if ui_confirm "Configure GNOME Text Editor?" "Configure" "Skip"; then
 
-    info "Highlighting current line."
+    ui_step "Applying GNOME Text Editor preferences."
     gsettings set org.gnome.TextEditor highlight-current-line true
-
-    info "Disabling restore session."
     gsettings set org.gnome.TextEditor restore-session false
-
-    info "Showing grid."
     gsettings set org.gnome.TextEditor show-grid true
-
-    info "Showing line numbers."
     gsettings set org.gnome.TextEditor show-line-numbers true
-
-    info "Showing right margin."
     gsettings set org.gnome.TextEditor show-right-margin true
-
-    info "Disabling spellcheck."
     gsettings set org.gnome.TextEditor spellcheck false
+
+    ui_success "GNOME Text Editor preferences updated."
+else
+    ui_skip "GNOME Text Editor was not configured."
 fi

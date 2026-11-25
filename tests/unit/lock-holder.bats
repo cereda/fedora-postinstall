@@ -13,6 +13,13 @@ setup() {
     cp "${REPO_ROOT}/common/lock-holder.py" "${LOCK_HOLDER}"
 }
 
+@test "the removed hold-owner action is rejected" {
+    run python3 "${LOCK_HOLDER}" hold-owner ignored 123
+    assert_equal "${status}" 1
+    assert_output_contains "usage:"
+    refute_output_contains "lock-holder.py hold-owner "
+}
+
 @test "exact lock inode inspection remains unknown when descriptor access is denied" {
     local test_script="${TEST_ROOT}/unknown-lock-inode.py"
 
@@ -596,186 +603,6 @@ PY
     assert_success
     assert_output_contains \
         "installer and helper waits enforced separate resume semantics"
-}
-
-@test "hold-owner retains inherited locks without signaling the installer" {
-    local test_script="${TEST_ROOT}/hold-owner.py"
-
-    cat > "${test_script}" <<'PY'
-import fcntl
-import importlib.util
-import os
-import signal
-import subprocess
-import sys
-import tempfile
-import time
-
-sys.dont_write_bytecode = True
-lock_holder = sys.argv[1]
-spec = importlib.util.spec_from_file_location("lock_holder", lock_holder)
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
-
-installer_source = r"""
-import signal
-import sys
-import time
-
-ready_path, signal_path = sys.argv[1], sys.argv[2]
-
-
-def record_signal(signal_number, _frame):
-    with open(signal_path, "a", encoding="utf-8") as signal_file:
-        signal_file.write(signal.Signals(signal_number).name + "\n")
-        signal_file.flush()
-    if signal_number == signal.SIGTERM:
-        raise SystemExit(0)
-
-
-for signal_name in (
-    "SIGHUP",
-    "SIGINT",
-    "SIGTERM",
-    "SIGUSR1",
-    "SIGUSR2",
-    "SIGCONT",
-):
-    signal.signal(getattr(signal, signal_name), record_signal)
-
-with open(ready_path, "w", encoding="utf-8") as ready_file:
-    ready_file.write("ready\n")
-
-while True:
-    time.sleep(0.05)
-"""
-
-with tempfile.TemporaryDirectory(prefix="hold-owner-") as temporary_directory:
-    ready_path = os.path.join(temporary_directory, "installer.ready")
-    signal_path = os.path.join(temporary_directory, "installer.signals")
-    public_path = os.path.join(temporary_directory, "public.lock")
-    scope_path = os.path.join(temporary_directory, "scope.lock")
-
-    installer = subprocess.Popen(
-        [sys.executable, "-c", installer_source, ready_path, signal_path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    owner = None
-    public_descriptor = -1
-    scope_descriptor = -1
-    try:
-        deadline = time.monotonic() + 5.0
-        while not os.path.exists(ready_path):
-            if installer.poll() is not None:
-                stdout, stderr = installer.communicate()
-                raise SystemExit(
-                    f"the monitored installer exited early: {stdout!r} {stderr!r}"
-                )
-            if time.monotonic() >= deadline:
-                raise SystemExit("the monitored installer did not become ready")
-            time.sleep(0.01)
-
-        identity = module.capture_process_identity(installer.pid)
-        if identity is None:
-            raise SystemExit("unable to capture the installer identity")
-
-        public_descriptor = os.open(public_path, os.O_RDWR | os.O_CREAT, 0o600)
-        scope_descriptor = os.open(scope_path, os.O_RDWR | os.O_CREAT, 0o600)
-        fcntl.flock(public_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        fcntl.flock(scope_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-        owner = subprocess.Popen(
-            [
-                sys.executable,
-                lock_holder,
-                "hold-owner",
-                module.encode_process_identity(identity),
-                str(installer.pid),
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            pass_fds=(public_descriptor, scope_descriptor),
-        )
-
-        os.close(public_descriptor)
-        public_descriptor = -1
-        os.close(scope_descriptor)
-        scope_descriptor = -1
-
-        time.sleep(0.2)
-        if owner.poll() is not None:
-            stdout, stderr = owner.communicate()
-            raise SystemExit(
-                f"hold-owner exited before the installer: {stdout!r} {stderr!r}"
-            )
-        if os.path.exists(signal_path):
-            with open(signal_path, "r", encoding="utf-8") as signal_file:
-                early_signals = signal_file.read()
-            if early_signals:
-                raise SystemExit(
-                    f"hold-owner signaled the installer: {early_signals!r}"
-                )
-
-        for lock_path in (public_path, scope_path):
-            descriptor = os.open(lock_path, os.O_RDWR)
-            try:
-                try:
-                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
-                    continue
-                raise SystemExit(f"hold-owner did not retain {lock_path}")
-            finally:
-                os.close(descriptor)
-
-        installer.send_signal(signal.SIGTERM)
-        installer.wait(timeout=5.0)
-        owner.wait(timeout=5.0)
-        stdout, stderr = owner.communicate()
-
-        if owner.returncode != 0:
-            raise SystemExit(
-                f"hold-owner returned {owner.returncode}: {stdout!r} {stderr!r}"
-            )
-        if stdout or stderr:
-            raise SystemExit(
-                f"hold-owner was not silent: stdout={stdout!r} stderr={stderr!r}"
-            )
-        with open(signal_path, "r", encoding="utf-8") as signal_file:
-            received_signals = signal_file.read().splitlines()
-        if received_signals != ["SIGTERM"]:
-            raise SystemExit(
-                f"hold-owner sent an unexpected installer signal: {received_signals!r}"
-            )
-
-        for lock_path in (public_path, scope_path):
-            descriptor = os.open(lock_path, os.O_RDWR)
-            try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            finally:
-                os.close(descriptor)
-    finally:
-        if owner is not None and owner.poll() is None:
-            owner.kill()
-            owner.wait()
-        if installer.poll() is None:
-            installer.kill()
-            installer.wait()
-        if public_descriptor >= 0:
-            os.close(public_descriptor)
-        if scope_descriptor >= 0:
-            os.close(scope_descriptor)
-
-print("hold-owner retained locks and exited without signaling the installer")
-PY
-
-    run env PYTHONDONTWRITEBYTECODE=1 python3 \
-        "${test_script}" "${LOCK_HOLDER}"
-    assert_success
-    assert_output_contains \
-        "hold-owner retained locks and exited without signaling the installer"
 }
 
 @test "a stopped identified child is resumed before graceful cancellation" {

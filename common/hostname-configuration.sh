@@ -2,19 +2,23 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Hostname configuration"
+ui_section "Hostname configuration"
 
-description "Set the system hostname."
-echo
+ui_description "Set the system hostname."
 
-MACHINE_NAME=$(prompt_valid_hostname)
+if MACHINE_NAME=$(prompt_valid_hostname); then
+    MACHINE_NAME_STATUS=0
+else
+    MACHINE_NAME_STATUS="${?}"
+fi
+if [ "${MACHINE_NAME_STATUS}" -ne 0 ]; then
+    return "${MACHINE_NAME_STATUS}"
+fi
 
-info "Configuring hostname."
+ui_step "Configuring the system hostname."
 if ! sudo hostnamectl hostname "${MACHINE_NAME}"; then
-    text "Unable to configure the hostname. Aborting before modifying the home directory."
+    ui_error "Unable to configure the hostname. The home directory was not modified."
     return 1
 fi
 
-echo
-
-text "Your Fedora ${FEDORA_VERSION} system is now named ${MACHINE_NAME}."
+ui_success "Your Fedora ${FEDORA_VERSION} system is now named ${MACHINE_NAME}."

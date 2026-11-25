@@ -2,13 +2,16 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Terra installation"
+ui_section "Terra configuration"
 
-description "Configure the Terra RPM repository."
-echo
+ui_description "Add the Terra rolling RPM repository for Fedora."
 
-if question "Do you want to install the Terra repository?"; then
+if ui_confirm "Add the Terra RPM repository?" "Add" "Skip"; then
 
-    info "Configuring the repository."
+    ui_step "Adding the Terra RPM repository."
     sudo dnf install --nogpgcheck --repofrompath "terra,https://repos.fyralabs.com/terra${FEDORA_VERSION}" terra-release
+
+    ui_success "Terra repository added."
+else
+    ui_skip "Terra repository was not added."
 fi

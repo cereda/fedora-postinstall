@@ -3,8 +3,6 @@
 /AGENTS.md
 
 # Installer artifacts
-/archives/
-/deploys/
 /*.json
 /*.tar.gz
 /*.tgz

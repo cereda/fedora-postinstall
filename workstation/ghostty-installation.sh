@@ -2,17 +2,17 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Ghostty installation"
+ui_section "Ghostty installation"
 
-description "Install the Ghostty terminal emulator."
-echo
+ui_description "Install the Ghostty terminal emulator from its COPR repository."
 
-if question "Do you want to install Ghostty?"; then
+if ui_confirm "Install Ghostty?" "Install" "Skip"; then
 
-    info "Enabling the Ghostty COPR."
+    ui_step "Enabling the Ghostty COPR and installing Ghostty."
     sudo dnf copr enable scottames/ghostty
-
-    info "Installing Ghostty as an RPM package."
     sudo dnf install ghostty
 
+    ui_success "Ghostty installed."
+else
+    ui_skip "Ghostty was not installed."
 fi

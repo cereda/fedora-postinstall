@@ -2,13 +2,19 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Autorun settings for removable media"
+ui_section "Autorun settings for removable media"
 
-description "Disable removable-media autorun in GNOME."
-echo
+ui_description "Disable removable-media autorun in GNOME."
 
-if question "Do you want to disable autorun for removable media?"; then
+if ui_confirm "Disable autorun for removable media?" "Disable" "Keep"; then
 
-    info "Disabling autorun for removable media."
+    ui_step "Disabling autorun for removable media."
     gsettings set org.gnome.desktop.media-handling autorun-never true
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Removable-media autorun was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

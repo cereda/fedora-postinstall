@@ -2,38 +2,37 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Go installation and configuration"
+ui_section "Go installation and configuration"
 
-description "Install the Go toolchain."
-echo
+ui_description "Install the Go toolchain."
 
-if question "Do you want to install Go?"; then
+if ui_confirm "Install Go?" "Install" "Skip"; then
 
-    info "Getting the latest version of Go."
+    ui_step "Resolving the latest Go release."
     case "$(runtime_selected_architecture)" in
     x86_64) GO_ARCHITECTURE="linux-amd64" ;;
     aarch64) GO_ARCHITECTURE="linux-arm64" ;;
     *)
-        text "Unsupported architecture for Go: $(runtime_selected_architecture)."
+        ui_error "Unsupported architecture for Go: $(runtime_selected_architecture)."
         return 1
         ;;
     esac
     if ! GO_LATEST_VERSION=$(wget -q -O - https://go.dev/dl/ |
         runtime_select_latest_go_release "${GO_ARCHITECTURE}"); then
-        text "Unable to select a Go release for ${GO_ARCHITECTURE}."
+        ui_error "Unable to select a Go release for ${GO_ARCHITECTURE}."
         return 1
     fi
 
-    info "Downloading Go."
+    ui_step "Downloading Go."
     wget -q "https://go.dev/${GO_LATEST_VERSION}" -O go.tar.gz
 
-    info "Extracting Go."
+    ui_step "Extracting Go."
     tar xzf go.tar.gz
 
-    info "Moving Go to the local applications directory."
+    ui_step "Installing Go."
     mv go "${ROOT_DIRECTORY_STRUCTURE}/applications/"
 
-    info "Creating environment."
+    ui_step "Configuring the Go environment."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments/go"
 
     # Resolve managed paths now; escaped values remain runtime shell expressions.
@@ -63,7 +62,13 @@ pathmunge \${GO_HOME}/bin after
 unset pathmunge
 SH
 
-    info "Removing archive file."
     rm -f go*.tar.gz
 
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Go was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

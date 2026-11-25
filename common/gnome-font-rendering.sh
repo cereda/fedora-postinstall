@@ -2,16 +2,20 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME font rendering"
+ui_section "GNOME font rendering"
 
-description "Configure GNOME font rendering."
-echo
+ui_description "Configure GNOME font rendering."
 
-if question "Do you want to improve font rendering?"; then
+if ui_confirm "Enable improved font rendering?" "Enable" "Keep"; then
 
-    info "Applying font antialiasing."
+    ui_step "Applying font antialiasing and hinting."
     gsettings set org.gnome.desktop.interface font-antialiasing rgba
-
-    info "Applying font hinting."
     gsettings set org.gnome.desktop.interface font-hinting slight
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "GNOME font rendering was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

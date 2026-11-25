@@ -2,23 +2,18 @@
 
 # SPDX-License-Identifier: MIT
 
-section "yazi installation"
+ui_section "Yazi installation"
 
-description "Install and configure the Yazi file manager."
-echo
+ui_description "Install Yazi and its optional dependencies from its COPR repository."
+ui_warning "Yazi is also available as a standalone command-line tool. Choose Skip to keep the installation lightweight."
 
-warning "yazi is also available as a standalone binary in the additional \
-command line tools section. If you want a minimal footprint (no optional \
-dependencies), reply "No" to this prompt and install yazi later."
+if ui_confirm "Install Yazi from its COPR repository?" "Install" "Skip"; then
 
-echo
-
-if question "Do you want to install yazi?"; then
-
-    info "Enabling the yazi COPR."
+    ui_step "Enabling the Yazi COPR and installing Yazi."
     sudo dnf copr enable lihaohong/yazi
-
-    info "Installing yazi as an RPM package."
     sudo dnf install yazi
 
+    ui_success "Yazi installed."
+else
+    ui_skip "Yazi was not installed."
 fi
