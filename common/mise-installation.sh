@@ -2,22 +2,21 @@
 
 # SPDX-License-Identifier: MIT
 
-section "mise installation"
+ui_section "mise installation"
 
-description "Install and configure mise."
-echo
+ui_description "Install and configure mise."
 
-if question "Do you want to install mise?"; then
+if ui_confirm "Install mise?" "Install" "Skip"; then
 
-    info "Getting latest version of mise from GitHub."
+    ui_step "Resolving the latest mise release."
     test -f mise.json || wget -q -O mise.json https://api.github.com/repos/jdx/mise/releases/latest
 
-    info "Downloading mise from GitHub."
+    ui_step "Downloading mise."
     case "$(runtime_selected_architecture)" in
     x86_64) MISE_ASSET_SUFFIX="linux-x64.tar.gz" ;;
     aarch64) MISE_ASSET_SUFFIX="linux-arm64.tar.gz" ;;
     *)
-        text "Unsupported architecture for mise: $(runtime_selected_architecture)."
+        ui_error "Unsupported architecture for mise: $(runtime_selected_architecture)."
         return 1
         ;;
     esac
@@ -25,21 +24,21 @@ if question "Do you want to install mise?"; then
         mise.json "${MISE_ASSET_SUFFIX}") || return 1
     wget -q "${MISE_ASSET_URL}" -O mise.tar.gz
 
-    info "Extracting mise."
+    ui_step "Extracting mise."
     tar xzf mise.tar.gz
 
-    info "Preparing the installation directory."
+    ui_step "Installing mise and preparing its data and configuration directories."
     mkdir -p "${HOME}/.local/bin"
-
-    info "Moving binary to the installation directory."
     mv mise/bin/mise "${HOME}/.local/bin/"
-
-    info "Creating data directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/data/mise"
-
-    info "Creating configuration directory."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/mise"
 
-    info "Removing archive file."
     rm -f mise.tar.gz
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "mise was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

@@ -10,9 +10,6 @@ a smoke test. Every invocation must include an explicit command (`install`,
 `extras`, `detect`, `plan`, or `help`); an invocation without a command is a
 usage error and must not select an installation flow. Tests must use mocked
 commands, temporary directories, and temporary home/state/log/cache/lock paths.
-The unsupported `CLI_TOOLS_ONLY`
-environment variable is rejected; use the `extras` command for an
-extras-only run.
 
 ## Quality gates
 

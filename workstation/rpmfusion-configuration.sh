@@ -2,36 +2,37 @@
 
 # SPDX-License-Identifier: MIT
 
-section "RPMFusion installation and configuration"
+ui_section "RPM Fusion configuration"
 
-description "Configure RPM Fusion and optionally replace ffmpeg."
-echo
+ui_description "Enable RPM Fusion repositories and optionally replace Fedora's ffmpeg."
 
-if question "Do you want to install and configure the RPMFusion repositories?"; then
+if ui_confirm "Enable the RPM Fusion free and non-free repositories?" "Enable" "Skip"; then
 
-    info "Configuring the free repository."
+    ui_step "Enabling the RPM Fusion free and non-free repositories."
     sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm -y
-
-    info "Configuring the non-free repository."
     sudo dnf install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm -y
+
+    ui_success "RPM Fusion repositories enabled."
 
     if [ "$(rpm -qa | grep -i ffmpeg)" ]; then
 
-        section "ffmpeg configuration"
+        ui_subsection "ffmpeg configuration"
 
-        description "The RPMFusion repository provides an alternative version \
-of the ffmpeg multimedia framework that may offer additional features, codecs, \
-or functionality not available in Fedora's default ffmpeg package. Replacing \
-Fedora's ffmpeg with the RPMFusion version can be useful for users who require \
-access to a more comprehensive set of multimedia capabilities or who need to \
-work with a wider range of media formats."
+        ui_description "RPM Fusion's ffmpeg may provide additional codecs and media formats."
+        ui_warning "Replacing Fedora's ffmpeg removes the ffmpeg-free package and changes the installed codec set."
 
-        echo
+        if ui_confirm "Replace Fedora's ffmpeg with the RPM Fusion version?" "Replace" "Keep"; then
 
-        if question "Do you want to replace Fedora's ffmpeg by RPMFusion's?"; then
-
-            info "Replacing Fedora's ffmpeg."
+            ui_step "Replacing Fedora's ffmpeg with the RPM Fusion version."
             sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y
+
+            ui_success "Fedora's ffmpeg replaced with the RPM Fusion version."
+        else
+            ui_skip "Keeping Fedora's ffmpeg."
         fi
+    else
+        ui_skip "Fedora's ffmpeg is not installed, so no replacement was needed."
     fi
+else
+    ui_skip "RPM Fusion repositories were not enabled."
 fi

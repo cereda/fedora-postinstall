@@ -32,10 +32,7 @@ run_git_configuration() {
         XDG_CONFIG_HOME="${1:-}" \
         ROOT_DIRECTORY_STRUCTURE="${TEST_ROOT}/managed" \
         bash -c '
-            section() { :; }
-            description() { :; }
-            warning() { :; }
-            info() { :; }
+            source "$1/common/ui.sh"
             prompt_valid_git_name() { printf "%s\n" "Test User"; }
             prompt_valid_git_email() { printf "%s\n" "test@example.com"; }
             source "$1/common/git-configuration.sh"

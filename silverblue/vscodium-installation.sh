@@ -2,32 +2,33 @@
 
 # SPDX-License-Identifier: MIT
 
-section "VSCodium installation and configuration"
+ui_section "VSCodium installation and configuration"
 
-description "Install and configure VSCodium as a Flatpak."
-echo
+ui_description "Install VSCodium from Flathub and apply a managed configuration."
 
-if question "Do you want to install and configure VSCodium?"; then
+if ui_confirm "Install and configure VSCodium?" "Install" "Skip"; then
 
-    info "Installing the VSCodium application as Flatpak."
+    ui_step "Installing VSCodium from Flathub."
     flatpak install flathub com.vscodium.codium
 
-    info "Preparing the configuration directory."
+    ui_step "Preparing the VSCodium configuration."
     mkdir -p "${HOME}/.var/app/com.vscodium.codium/config/VSCodium/User"
 
-    text "Which configuration do you want to apply?"
-
-    echo
-
-    VSCODIUM_FLAVOUR=$("${GUM}" choose "Simple" "Fancy")
-
-    if [ -z "${VSCODIUM_FLAVOUR}" ]; then
-        VSCODIUM_FLAVOUR="Simple"
+    if VSCODIUM_FLAVOR=$(ui_choose_one "Select a VSCodium configuration" "Simple" "Fancy"); then
+        VSCODIUM_FLAVOR_STATUS=0
+    else
+        VSCODIUM_FLAVOR_STATUS="${?}"
+    fi
+    if [ "${VSCODIUM_FLAVOR_STATUS}" -ne 0 ]; then
+        return "${VSCODIUM_FLAVOR_STATUS}"
     fi
 
-    if [ "${VSCODIUM_FLAVOUR}" = "Simple" ]; then
+    if [ -z "${VSCODIUM_FLAVOR}" ]; then
+        VSCODIUM_FLAVOR="Simple"
+    fi
 
-        info "Writing the configuration file (simple)."
+    if [ "${VSCODIUM_FLAVOR}" = "Simple" ]; then
+
         cat >"${HOME}/.var/app/com.vscodium.codium/config/VSCodium/User/settings.json" <<'JSON'
 {
     "workbench.startupEditor": "none",
@@ -43,7 +44,6 @@ JSON
 
     else
 
-        info "Writing the configuration file (fancy)."
         cat >"${HOME}/.var/app/com.vscodium.codium/config/VSCodium/User/settings.json" <<'JSON'
 {
     "workbench.startupEditor": "none",
@@ -108,4 +108,8 @@ JSON
 JSON
 
     fi
+
+    ui_success "VSCodium and its configuration are ready."
+else
+    ui_skip "VSCodium was not installed."
 fi

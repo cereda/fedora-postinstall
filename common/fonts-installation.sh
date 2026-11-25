@@ -2,20 +2,17 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Installation and configuration of custom fonts"
+ui_section "Nerd Fonts installation"
 
-description "Install Nerd Fonts for terminals and editors."
-echo
+ui_description "Install Nerd Fonts for terminals and editors."
 
-if question "Do you want to install custom fonts?"; then
+if ui_confirm "Install Nerd Fonts?" "Install" "Skip"; then
 
-    info "Getting the latest version of Nerd Fonts from GitHub."
+    ui_step "Resolving the latest Nerd Fonts release."
     test -f nerd-fonts.json || wget -q -O nerd-fonts.json https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest
-
-    info "Extracting version of Nerd Fonts from the GitHub API response."
     NERD_FONTS_VERSION="$(jq -r '.tag_name' nerd-fonts.json)"
 
-    info "Creating local fonts directory."
+    ui_step "Installing Nerd Fonts."
     mkdir -p "${HOME}/.local/share/fonts"
 
     # for each font, download it from GitHub and extract it to a dedicated
@@ -25,19 +22,25 @@ if question "Do you want to install custom fonts?"; then
         FONT_ARCHIVE="${NERD_FONTS[${NERD_FONT}]}.zip"
         FONT_TARGET="${HOME}/.local/share/fonts/${NERD_FONT}"
 
-        info "Downloading ${NERD_FONT} from GitHub."
+        ui_step "Downloading ${NERD_FONT}."
         wget -q -O "${FONT_ARCHIVE}" "https://github.com/ryanoasis/nerd-fonts/releases/download/${NERD_FONTS_VERSION}/${FONT_ARCHIVE}"
 
-        info "Extracting file into the local fonts directory."
+        ui_step "Extracting ${NERD_FONT}."
         mkdir -p "${FONT_TARGET}"
         unzip -qo "${FONT_ARCHIVE}" -d "${FONT_TARGET}"
 
-        info "Removing unused files from ${NERD_FONT}."
         find "${FONT_TARGET}" -type f -not -name "*.ttf" -not -name "*.otf" -delete
 
         rm -f "${FONT_ARCHIVE}"
     done
 
-    info "Generating font cache."
+    ui_step "Generating the Nerd Fonts font cache."
     fc-cache -fv "${HOME}/.local/share/fonts"
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Nerd Fonts were not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

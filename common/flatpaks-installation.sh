@@ -2,48 +2,52 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Flatpak applications"
+ui_section "Flatpak applications"
 
-description "Install and manage Flatpak applications."
-echo
+ui_description "Install and manage Flatpak applications."
 
-text "Do you want to install any of these Flatpak applications?"
-
-echo
-
-runtime_capture_output FLATPAKS_SELECTION "${GUM}" choose --no-limit --height 15 "${SUGGESTED_FLATPAKS[@]}" || return 1
+runtime_capture_output FLATPAKS_SELECTION \
+    ui_choose_many "Select Flatpak applications to install" "" "${SUGGESTED_FLATPAKS[@]}" || return $?
 readarray -t FLATPAKS_TO_INSTALL <<<"${FLATPAKS_SELECTION}"
 
+FLATPAKS_KEEP_CACHE_IDS_JSON="[]"
 if [ -z "${FLATPAKS_TO_INSTALL}" ]; then
 
-    text "You haven't selected any items from the list. Moving on."
-    FLATPAKS_KEEP_CACHE_LIST=""
+    ui_skip "No Flatpak applications were selected for installation."
 else
 
-    text "You've selected ${#FLATPAKS_TO_INSTALL[@]} flatpak(s) to install. Please wait."
+    ui_text "Selected ${#FLATPAKS_TO_INSTALL[@]} Flatpak applications for installation."
 
     # Install the selected applications from Flathub.
     for FLATPAK_TO_INSTALL in "${FLATPAKS_TO_INSTALL[@]}"; do
 
-        info "Installing ${FLATPAK_TO_INSTALL}."
-        flatpak install flathub ${FLATPAK_TO_INSTALL} -y
+        ui_step "Installing ${FLATPAK_TO_INSTALL}."
+        FLATPAKS_INSTALL_STATUS=0
+        flatpak install flathub "${FLATPAK_TO_INSTALL}" -y ||
+            FLATPAKS_INSTALL_STATUS="${?}"
+        if [ "${FLATPAKS_INSTALL_STATUS}" -ne 0 ]; then
+            ui_error "Unable to install Flatpak application ${FLATPAK_TO_INSTALL}."
+            return "${FLATPAKS_INSTALL_STATUS}"
+        fi
     done
 
-    echo
-
-    text "Which Flatpak applications do you want to keep from cache cleaning?"
-
-    echo
-
-    runtime_capture_output FLATPAKS_CACHE_SELECTION "${GUM}" choose --no-limit --selected="com.github.tchx84.Flatseal" --height 15 "${FLATPAKS_TO_INSTALL[@]}" || return 1
+    runtime_capture_output FLATPAKS_CACHE_SELECTION \
+        ui_choose_many "Retain application data and cache for the selected Flatpak applications" \
+        "com.github.tchx84.Flatseal" "${FLATPAKS_TO_INSTALL[@]}" || return $?
     readarray -t FLATPAKS_TO_KEEP_CACHE <<<"${FLATPAKS_CACHE_SELECTION}"
 
     if [ -z "${FLATPAKS_TO_KEEP_CACHE}" ]; then
 
-        FLATPAKS_KEEP_CACHE_LIST=""
+        ui_skip "No Flatpak application data or cache was selected for retention."
     else
 
-        # The cleanup module consumes this list as Flatpak exclusion filters.
-        FLATPAKS_KEEP_CACHE_LIST=$(printf " -not -name %s" "${FLATPAKS_TO_KEEP_CACHE[@]}")
+        # Store the selected IDs as JSON so both populated and empty selections
+        # can be restored safely by the resume machinery.
+        FLATPAKS_KEEP_CACHE_IDS_JSON=$(
+            flatpaks_keep_cache_state_from_ids "${FLATPAKS_TO_KEEP_CACHE[@]}"
+        ) || return $?
     fi
 fi
+
+# The cleanup helpers consume this list as Flatpak exclusion filters.
+flatpaks_keep_cache_filter_from_state "${FLATPAKS_KEEP_CACHE_IDS_JSON}" || return $?

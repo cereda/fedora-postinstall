@@ -2,31 +2,33 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Cascadia Code font installation"
+ui_section "Cascadia Code font installation"
 
-description "Install the Cascadia Code programming font."
-echo
+ui_description "Install the Cascadia Code programming font."
 
-if question "Do you want to install Cascadia Code?"; then
+if ui_confirm "Install Cascadia Code?" "Install" "Skip"; then
 
-    info "Getting the latest version of Cascadia Code from GitHub."
+    ui_step "Resolving the latest Cascadia Code release."
     test -f cascadia-code.json || wget -q -O cascadia-code.json https://api.github.com/repos/microsoft/cascadia-code/releases/latest
 
-    info "Downloading Cascadia Code from GitHub."
-    wget -q -O cascadia-code.zip $(jq -r '.assets[] | select(.name | endswith("zip")).browser_download_url' cascadia-code.json)
+    ui_step "Downloading Cascadia Code."
+    wget -q -O cascadia-code.zip "$(jq -r '.assets[] | select(.name | endswith("zip")).browser_download_url' cascadia-code.json)"
 
-    info "Extracting file."
+    ui_step "Extracting Cascadia Code."
     unzip -j cascadia-code.zip *.ttf -d "Cascadia Code"
 
-    info "Creating local font directory."
+    ui_step "Installing Cascadia Code."
     mkdir -p "${HOME}/.local/share/fonts"
-
-    info "Moving font to the proper directory."
     mv "Cascadia Code" "${HOME}/.local/share/fonts/"
 
-    info "Generating font cache."
+    ui_step "Generating the Cascadia Code font cache."
     fc-cache -fv "${HOME}/.local/share/fonts"
-
-    info "Regenerating font cache."
     fc-cache -fv "${HOME}/.local/share/fonts"
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Cascadia Code was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

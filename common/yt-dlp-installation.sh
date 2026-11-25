@@ -2,19 +2,23 @@
 
 # SPDX-License-Identifier: MIT
 
-section "yt-dlp installation and configuration"
+ui_section "yt-dlp installation and configuration"
 
-description "Install and configure yt-dlp."
-echo
+ui_description "Install yt-dlp for command-line media downloads."
 
-if question "Do you want to install and configure yt-dlp?"; then
+if ui_confirm "Install yt-dlp?" "Install" "Skip"; then
 
-    info "Downloading the latest version of yt-dlp from GitHub."
+    ui_step "Downloading the latest yt-dlp release from GitHub."
     wget -q https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
 
-    info "Moving script to the local directory."
+    ui_step "Installing yt-dlp in the local command directory."
     mv yt-dlp "${HOME}/.local/bin"
-
-    info "Changing permissions to make it executable."
     chmod +x "${HOME}/.local/bin/yt-dlp"
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "yt-dlp was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

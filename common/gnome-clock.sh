@@ -2,13 +2,19 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME clock"
+ui_section "GNOME clock"
 
-description "Show the weekday in the GNOME clock."
-echo
+ui_description "Show the weekday in the GNOME clock."
 
-if question "Do you want to configure the GNOME clock?"; then
+if ui_confirm "Show the weekday in the GNOME clock?" "Enable" "Keep"; then
 
-    info "Showing weekday."
+    ui_step "Showing the weekday in the GNOME clock."
     gsettings set org.gnome.desktop.interface clock-show-weekday true
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "The GNOME clock was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

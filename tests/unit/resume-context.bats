@@ -23,6 +23,8 @@ setup() {
     cp "${REPO_ROOT}/common/runtime.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/runtime-file.py" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/module-inventory.sh" "${SANDBOX_REPO}/common/"
+    cp "${REPO_ROOT}/common/flatpaks-installation.sh" "${SANDBOX_REPO}/common/"
+    cp "${REPO_ROOT}/common/flatpaks-to-install.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/hostname-configuration.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/workstation/home-configuration.sh" \
         "${SANDBOX_REPO}/workstation/"
@@ -147,6 +149,94 @@ checksum_for() {
         bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_initialize; MACHINE_NAME=''; ROOT_DIRECTORY_STRUCTURE=''; COMMAND_NAME=''; TOOLBOX_NAME=''; runtime_run_module 'modules/shared-context.sh' mutating MACHINE_NAME ROOT_DIRECTORY_STRUCTURE COMMAND_NAME TOOLBOX_NAME; printf '%s\\n%s\\n%s\\n%s\\n' \"\${MACHINE_NAME}\" \"\${ROOT_DIRECTORY_STRUCTURE}\" \"\${COMMAND_NAME}\" \"\${TOOLBOX_NAME}\""
     assert_success
     assert_equal "${output}" $'test-host\n/tmp/test-root\nhost_test_host\nf45-test'
+}
+
+@test "resume restores retained Flatpak application IDs from a skipped provider" {
+    cat > "${SANDBOX_REPO}/common/flatpaks-installation.sh" <<'EOF'
+FLATPAKS_KEEP_CACHE_IDS_JSON='["com.example.Retained"]'
+EOF
+
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_HOME}" \
+        POSTINSTALL_STATE_FILE="${STATE_FILE}" \
+        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_initialize; runtime_run_module 'common/flatpaks-installation.sh' mutating FLATPAKS_KEEP_CACHE_IDS_JSON"
+    assert_success
+
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_HOME}" \
+        POSTINSTALL_STATE_FILE="${STATE_FILE}" \
+        POSTINSTALL_RESUME=1 \
+        POSTINSTALL_LOG_STDOUT=1 \
+        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_initialize; FLATPAKS_KEEP_CACHE_IDS_JSON=''; runtime_run_module 'common/flatpaks-installation.sh' mutating FLATPAKS_KEEP_CACHE_IDS_JSON; printf '%s\\n' \"\${FLATPAKS_KEEP_CACHE_IDS_JSON}\""
+    assert_success
+    assert_output_contains "Resume: skipping completed module"
+    assert_output_contains '["com.example.Retained"]'
+}
+
+@test "resume restores an empty Flatpak cache-retention selection" {
+    cat > "${SANDBOX_REPO}/common/flatpaks-installation.sh" <<'EOF'
+FLATPAKS_KEEP_CACHE_IDS_JSON='[]'
+EOF
+
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_HOME}" \
+        POSTINSTALL_STATE_FILE="${STATE_FILE}" \
+        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_initialize; runtime_run_module 'common/flatpaks-installation.sh' mutating FLATPAKS_KEEP_CACHE_IDS_JSON"
+    assert_success
+
+    run env \
+        SCRIPT_PATH="${SANDBOX_REPO}" \
+        HOME="${TEST_HOME}" \
+        POSTINSTALL_STATE_FILE="${STATE_FILE}" \
+        POSTINSTALL_RESUME=1 \
+        POSTINSTALL_LOG_STDOUT=1 \
+        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_initialize; FLATPAKS_KEEP_CACHE_IDS_JSON='unset'; runtime_run_module 'common/flatpaks-installation.sh' mutating FLATPAKS_KEEP_CACHE_IDS_JSON; printf '%s\\n' \"\${FLATPAKS_KEEP_CACHE_IDS_JSON}\""
+    assert_success
+    assert_output_contains "Resume: skipping completed module"
+    assert_output_contains "[]"
+}
+
+@test "home configuration depends on resumable Flatpak retention state" {
+    local before after
+
+    before=$(checksum_for workstation/home-configuration.sh \
+        POSTINSTALL_FLAVOR=workstation)
+    printf '\n# provider change\n' >> \
+        "${SANDBOX_REPO}/common/flatpaks-installation.sh"
+    after=$(checksum_for workstation/home-configuration.sh \
+        POSTINSTALL_FLAVOR=workstation)
+    if [ "${before}" = "${after}" ]; then
+        printf 'Flatpak retention provider did not change the consumer fingerprint\n' >&2
+        return 1
+    fi
+
+    run grep -Fx \
+        'common/flatpaks-installation.sh|mutating|FLATPAKS_KEEP_CACHE_IDS_JSON' \
+        "${REPO_ROOT}/common/workstation-modules.psv"
+    assert_success
+
+    run grep -Fx \
+        'common/flatpaks-installation.sh|mutating|FLATPAKS_KEEP_CACHE_IDS_JSON' \
+        "${REPO_ROOT}/common/silverblue-modules.psv"
+    assert_success
+}
+
+@test "home configuration depends on the Flatpak suggestion data" {
+    local before after
+
+    before=$(checksum_for workstation/home-configuration.sh \
+        POSTINSTALL_FLAVOR=workstation)
+    printf '\n# suggestion change\n' >> \
+        "${SANDBOX_REPO}/common/flatpaks-to-install.sh"
+    after=$(checksum_for workstation/home-configuration.sh \
+        POSTINSTALL_FLAVOR=workstation)
+    if [ "${before}" = "${after}" ]; then
+        printf 'Flatpak suggestion data did not change the consumer fingerprint\n' >&2
+        return 1
+    fi
 }
 
 @test "malformed resume records do not mark a module complete" {

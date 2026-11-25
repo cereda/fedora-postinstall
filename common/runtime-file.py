@@ -1312,7 +1312,7 @@ def prune_partials(directory: str) -> None:
 
 
 def prune_versions(directory: str, keep_name: str) -> None:
-    """Evict old visible artifact versions while preserving helper namespaces."""
+    """Evict superseded visible artifact versions while preserving helper namespaces."""
     directory_descriptor = open_existing_directory(directory)
     changed = False
     try:
@@ -1346,13 +1346,6 @@ def prune_versions(directory: str, keep_name: str) -> None:
             os.fsync(directory_descriptor)
     finally:
         os.close(directory_descriptor)
-
-
-def prune_directory(directory: str, keep_name: str) -> None:
-    # Kept as a compatibility alias. Cache-version eviction is intentionally
-    # performed only after a successful publication.
-    del keep_name
-    prune_partials(directory)
 
 
 def find_verified_artifact(directory: str, expected_checksum: str) -> bool:
@@ -1421,7 +1414,6 @@ def prune_lock_state(
 
     directory_descriptor = open_existing_directory(directory)
     scope_prefix = f".postinstall-lock-{scope}-"
-    legacy_scope_prefix = f".{scope_prefix}"
     decision_prefix = f"{keep_decision_name}." if keep_decision_name else ""
     try:
         for name in os.listdir(directory_descriptor):
@@ -1429,10 +1421,7 @@ def prune_lock_state(
                 name == keep_name
                 or name == keep_decision_name
                 or (keep_decision_name and name.startswith(decision_prefix))
-                or (
-                    not name.startswith(scope_prefix)
-                    and not name.startswith(legacy_scope_prefix)
-                )
+                or not name.startswith(scope_prefix)
             ):
                 continue
             try:
@@ -1641,7 +1630,6 @@ def main() -> None:
         "ensure-directory": 3,
         "find-verified": 4,
         "publish": 5,
-        "prune": 4,
         "prune-partials": 3,
         "prune-versions": 4,
         "prune-lock-state": 6,
@@ -1657,7 +1645,7 @@ def main() -> None:
         "backup-destination DESTINATION BACKUP IDENTITY or "
         "replace-destination STAGED DESTINATION IDENTITY or "
         "publish SOURCE DESTINATION SHA256 or find-verified DIRECTORY SHA256 or "
-        "prune-partials DIRECTORY or prune/prune-versions DIRECTORY KEEP_NAME or "
+        "prune-partials DIRECTORY or prune-versions DIRECTORY KEEP_NAME or "
         "rollback DESTINATION BACKUP ORIGINAL_IDENTITY STAGED_IDENTITY "
         "BACKUP_IDENTITY HAD_ORIGINAL or "
         "prune-lock-state DIRECTORY SCOPE KEEP_NAME KEEP_DECISION_NAME"
@@ -1683,8 +1671,6 @@ def main() -> None:
                 raise SystemExit(1)
         elif command == "publish":
             publish_file(sys.argv[2], sys.argv[3], sys.argv[4])
-        elif command == "prune":
-            prune_directory(sys.argv[2], sys.argv[3])
         elif command == "prune-partials":
             prune_partials(sys.argv[2])
         elif command == "prune-versions":

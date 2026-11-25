@@ -2,20 +2,17 @@
 
 # SPDX-License-Identifier: MIT
 
-section "vim installation and configuration"
+ui_section "Vim installation and configuration"
 
-description "Install and configure Vim."
-echo
+ui_description "Install Vim and create a managed configuration."
 
-if question "Do you want to install and configure vim?"; then
+if ui_confirm "Install and configure Vim?" "Install" "Skip"; then
 
-    info "Installing vim as an RPM package."
+    ui_step "Installing Vim and the vim-plug plugin manager."
     sudo dnf install vim -y
-
-    info "Installing the plug-in manager for vim (vim-plug)."
     curl -fLo "${HOME}/.config/vim/autoload/plug.vim" --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
-    info "Creating the configuration file."
+    ui_step "Writing the Vim configuration."
     cat >"${HOME}/.config/vim/vimrc" <<'VIM'
 call plug#begin('~/.config/vim/plugged')
 
@@ -89,4 +86,7 @@ let g:rainbow_active = 0
 set viminfo=""
 VIM
 
+    ui_success "Vim and its configuration are ready."
+else
+    ui_skip "Vim was not installed."
 fi

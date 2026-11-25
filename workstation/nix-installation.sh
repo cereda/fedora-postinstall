@@ -2,13 +2,16 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Nix installation and configuration"
+ui_section "Nix installation"
 
-description "Install Nix on Fedora Workstation."
-echo
+ui_description "Install Nix on Fedora Workstation."
 
-if question "Do you want to install and configure Nix?"; then
+if ui_confirm "Install Nix on Fedora Workstation?" "Install" "Skip"; then
 
-    info "Installing Nix using the Linux planner."
+    ui_step "Installing Nix with the Linux planner."
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm
+
+    ui_success "Nix installed."
+else
+    ui_skip "Nix was not installed."
 fi

@@ -2,31 +2,22 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Rust installation and configuration"
+ui_section "Rust installation and configuration"
 
-description "Install and configure Rust."
-echo
+ui_description "Install and configure Rust."
+ui_warning "Rust requires a C toolchain. Install a C compiler with 'sudo dnf install gcc', install the development tools group, or configure the toolchain inside a toolbox."
 
-warning "Note that Rust requires a C toolchain. Please install a C compiler \
-using 'sudo dnf install gcc' (installing the development tools group will \
-also work). Alternatively, you can set up the C toolchain inside a toolbox."
+if ui_confirm "Install Rust?" "Install" "Skip"; then
 
-echo
-
-if question "Do you want to install Rust?"; then
-
-    info "Preparing the Rust environment."
+    ui_step "Installing Rust."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/environments/rust"
-
-    info "Exporting environment variables."
     export CARGO_HOME="${ROOT_DIRECTORY_STRUCTURE}/environments/rust/cargo"
     export RUSTUP_HOME="${ROOT_DIRECTORY_STRUCTURE}/applications/rustup"
 
     # Keep rustup and Cargo inside the managed applications directory.
-    info "Installing binaries."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --no-modify-path
 
-    info "Writing helper script."
+    ui_step "Creating the Rust environment helper."
     # Resolve managed paths now; escaped values remain runtime shell expressions.
     cat >"${ROOT_DIRECTORY_STRUCTURE}/scripts/rust.sh" <<SH
 #!/bin/bash
@@ -46,4 +37,11 @@ pathmunge \${CARGO_HOME}/bin after
 unset pathmunge
 SH
 
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Rust was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

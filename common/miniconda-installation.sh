@@ -2,24 +2,22 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Miniconda installation"
+ui_section "Miniconda installation"
 
-description "Install and configure Miniconda."
-echo
+ui_description "Install and configure Miniconda."
 
-if question "Do you want to install Miniconda?"; then
+if ui_confirm "Install Miniconda?" "Install" "Skip"; then
 
     MINICONDA_INSTALLATION_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/applications/miniconda/3"
 
-    info "Creating installation directory."
     mkdir -p "${MINICONDA_INSTALLATION_DIRECTORY}"
 
-    info "Downloading Miniconda."
+    ui_step "Downloading Miniconda."
     case "$(runtime_selected_architecture)" in
     x86_64) MINICONDA_ARCHITECTURE="x86_64" ;;
     aarch64) MINICONDA_ARCHITECTURE="aarch64" ;;
     *)
-        text "Unsupported architecture for Miniconda: $(runtime_selected_architecture)."
+        ui_error "Unsupported architecture for Miniconda: $(runtime_selected_architecture)."
         return 1
         ;;
     esac
@@ -28,9 +26,15 @@ if question "Do you want to install Miniconda?"; then
         -O miniconda-linux.sh
 
     # Install in batch mode and update an existing managed installation.
-    info "Installing Miniconda."
+    ui_step "Installing Miniconda."
     bash miniconda-linux.sh -b -u -p "${MINICONDA_INSTALLATION_DIRECTORY}"
 
-    info "Removing installer file."
     rm -f miniconda-linux.sh
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Miniconda was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

@@ -25,7 +25,9 @@ setup() {
     cp "${REPO_ROOT}/common/runtime.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/runtime-file.py" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/lock-holder.py" "${SANDBOX_REPO}/common/"
-    cp "${REPO_ROOT}/common/gum-functions.sh" "${SANDBOX_REPO}/common/"
+    cp "${REPO_ROOT}/common/module-inventory.sh" "${SANDBOX_REPO}/common/"
+    cp "${REPO_ROOT}/common/ui.sh" "${SANDBOX_REPO}/common/"
+    cp "${REPO_ROOT}/common/ui-prompts.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/flatpaks-to-install.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/fonts-to-install.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/color-themes.sh" "${SANDBOX_REPO}/common/"
@@ -38,6 +40,7 @@ setup() {
     cat > "${MOCK_BIN}/gum" <<'EOF'
 #!/usr/bin/env bash
 if [ "${1:-}" = "confirm" ]; then
+    printf '%s\n' "Continue? No"
     exit 1
 fi
 exit 0
@@ -152,9 +155,9 @@ EOF
     chmod +x "${MOCK_BIN}/flatpak"
     export MOCK_FLATPAK_MARKER="${TEST_ROOT}/flatpak-uninstalled"
 
-    run_runtime "section() { :; }; text() { :; }; info() { :; }; runtime_run_module 'silverblue/flatpak-cleanup.sh'"
-    assert_failure
-    assert_output_contains "Module 'silverblue/flatpak-cleanup.sh' failed with status 1"
+    run_runtime "source '${SANDBOX_REPO}/common/ui.sh'; source '${SANDBOX_REPO}/common/ui-prompts.sh'; runtime_run_module 'silverblue/flatpak-cleanup.sh'"
+    assert_equal "${status}" 9
+    assert_output_contains "Module 'silverblue/flatpak-cleanup.sh' failed with status 9"
     assert_file_absent "${MOCK_FLATPAK_MARKER}"
 }
 
@@ -175,9 +178,9 @@ EOF
     export MOCK_FLATPAK_MARKER="${TEST_ROOT}/flatpak-uninstalled"
     export MOCK_GUM_MARKER="${TEST_ROOT}/gum-called"
 
-    run_runtime "section() { :; }; text() { printf '%s\\n' \"\$1\"; }; info() { :; }; GUM='${MOCK_BIN}/gum'; runtime_run_module 'silverblue/flatpak-cleanup.sh'"
+    run_runtime "source '${SANDBOX_REPO}/common/ui.sh'; source '${SANDBOX_REPO}/common/ui-prompts.sh'; GUM='${MOCK_BIN}/gum'; runtime_run_module 'silverblue/flatpak-cleanup.sh'"
     assert_success
-    assert_output_contains "You haven't selected any items from the list"
+    assert_output_contains "No applications selected for removal"
     assert_file_absent "${MOCK_FLATPAK_MARKER}"
     assert_file_absent "${MOCK_GUM_MARKER}"
 }
@@ -198,9 +201,9 @@ EOF
     chmod +x "${MOCK_BIN}/flatpak" "${MOCK_BIN}/gum"
     export MOCK_FLATPAK_MARKER="${TEST_ROOT}/flatpak-uninstalled"
 
-    run_runtime "section() { :; }; text() { :; }; info() { :; }; GUM='${MOCK_BIN}/gum'; runtime_run_module 'silverblue/flatpak-cleanup.sh'"
-    assert_failure
-    assert_output_contains "Module 'silverblue/flatpak-cleanup.sh' failed with status 1"
+    run_runtime "source '${SANDBOX_REPO}/common/ui.sh'; source '${SANDBOX_REPO}/common/ui-prompts.sh'; GUM='${MOCK_BIN}/gum'; runtime_run_module 'silverblue/flatpak-cleanup.sh'"
+    assert_equal "${status}" 7
+    assert_output_contains "Module 'silverblue/flatpak-cleanup.sh' failed with status 7"
     assert_file_absent "${MOCK_FLATPAK_MARKER}"
 }
 
@@ -227,17 +230,17 @@ EOF
     assert_output_contains "failed with status 1"
 }
 
-@test "a declined question is not treated as a module failure" {
-    write_module "declined-question.sh" "source '${SANDBOX_REPO}/common/gum-functions.sh'; if question 'Continue?'; then printf 'accepted\\n'; else printf 'declined\\n'; fi"
+@test "a declined confirmation is not treated as a module failure" {
+    write_module "declined-question.sh" "source '${SANDBOX_REPO}/common/ui.sh'; source '${SANDBOX_REPO}/common/ui-prompts.sh'; if ui_confirm 'Continue?'; then printf 'accepted\\n'; else printf 'declined\\n'; fi"
 
     run_runtime "runtime_run_module 'modules/declined-question.sh'"
     assert_success
     assert_output_contains "declined"
-    refute_output_contains "Command 'question' failed"
+    refute_output_contains "Command 'ui_confirm' failed"
 }
 
-@test "a genuine failure after a declined question is still reported" {
-    write_module "declined-question-failure.sh" "source '${SANDBOX_REPO}/common/gum-functions.sh'; if question 'Continue?'; then printf 'accepted\\n'; fi; false"
+@test "a genuine failure after a declined confirmation is still reported" {
+    write_module "declined-question-failure.sh" "source '${SANDBOX_REPO}/common/ui.sh'; source '${SANDBOX_REPO}/common/ui-prompts.sh'; if ui_confirm 'Continue?'; then printf 'accepted\\n'; fi; false"
 
     run_runtime "runtime_run_module 'modules/declined-question-failure.sh'"
     assert_failure
@@ -261,26 +264,35 @@ EOF
 }
 
 @test "resume checksums include authoritative input lists" {
-    local module dependency before after
+    local module dependency state before after flavor
+    local pair
     local -a pairs=(
-        "common/flatpaks-installation.sh:common/flatpaks-to-install.sh"
-        "common/fonts-installation.sh:common/fonts-to-install.sh"
-        "common/terminal-colors.sh:common/color-themes.sh"
-        "workstation/package-cleanup.sh:workstation/packages-to-remove.sh"
-        "workstation/useful-packages.sh:workstation/packages-to-install.sh"
-        "silverblue/useful-packages.sh:silverblue/packages-to-install.sh"
+        "common/flatpaks-installation.sh:common/flatpaks-to-install.sh:SUGGESTED_FLATPAKS"
+        "common/fonts-installation.sh:common/fonts-to-install.sh:NERD_FONTS"
+        "common/terminal-colors.sh:common/color-themes.sh:COLOR_THEMES"
+        "workstation/package-cleanup.sh:workstation/packages-to-remove.sh:EXISTING_PACKAGES"
+        "workstation/useful-packages.sh:workstation/packages-to-install.sh:PACKAGES_TO_INSTALL"
+        "silverblue/useful-packages.sh:silverblue/packages-to-install.sh:PACKAGES_TO_INSTALL"
     )
 
     for pair in "${pairs[@]}"; do
         module="${pair%%:*}"
-        dependency="${pair#*:}"
-        printf '# checksum fixture\n' > "${SANDBOX_REPO}/${module}"
+        pair="${pair#*:}"
+        dependency="${pair%%:*}"
+        state="${pair#*:}"
+        printf '# checksum fixture\ndeclare -g %s=()\nprintf "%%s\\n" "${%s[@]}"\n' \
+            "${state}" "${state}" > "${SANDBOX_REPO}/${module}"
+        case "${module}" in
+        workstation/*) flavor="workstation" ;;
+        silverblue/*) flavor="silverblue" ;;
+        *) flavor="workstation" ;;
+        esac
 
-        before="$(env SCRIPT_PATH="${SANDBOX_REPO}" bash -c \
-            "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_module_checksum '${module}' '${SANDBOX_REPO}/${module}'")"
+        before="$(env SCRIPT_PATH="${SANDBOX_REPO}" POSTINSTALL_FLAVOR="${flavor}" bash -c \
+            "source '${SANDBOX_REPO}/common/runtime.sh'; source '${SANDBOX_REPO}/common/module-inventory.sh'; runtime_module_checksum '${module}' '${SANDBOX_REPO}/${module}'")"
         printf '# changed input\n' >> "${SANDBOX_REPO}/${dependency}"
-        after="$(env SCRIPT_PATH="${SANDBOX_REPO}" bash -c \
-            "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_module_checksum '${module}' '${SANDBOX_REPO}/${module}'")"
+        after="$(env SCRIPT_PATH="${SANDBOX_REPO}" POSTINSTALL_FLAVOR="${flavor}" bash -c \
+            "source '${SANDBOX_REPO}/common/runtime.sh'; source '${SANDBOX_REPO}/common/module-inventory.sh'; runtime_module_checksum '${module}' '${SANDBOX_REPO}/${module}'")"
 
         if [ "${before}" = "${after}" ]; then
             printf 'checksum did not change for %s\n' "${module}" >&2
@@ -1075,7 +1087,6 @@ EOF
     local decision_name=".postinstall-lock-${lock_scope}-current.decision"
     local candidate_name="${decision_name}.123.tmp"
     local status_temporary_name="${status_name}.123.tmp"
-    local legacy_status_temporary_name=".${status_name}.123.tmp"
     local stale_name=".postinstall-lock-${lock_scope}-stale.decision"
 
     mkdir -p "${cache_dir}"
@@ -1084,7 +1095,6 @@ EOF
     printf 'cancelled' > "${cache_dir}/${decision_name}"
     printf 'candidate\n' > "${cache_dir}/${candidate_name}"
     printf 'temporary\n' > "${cache_dir}/${status_temporary_name}"
-    printf 'legacy-temporary\n' > "${cache_dir}/${legacy_status_temporary_name}"
     printf 'stale\n' > "${cache_dir}/${stale_name}"
 
     run env PYTHONDONTWRITEBYTECODE=1 python3 \
@@ -1098,7 +1108,6 @@ EOF
     assert_file_exists "${cache_dir}/${decision_name}"
     assert_file_exists "${cache_dir}/${candidate_name}"
     assert_file_absent "${cache_dir}/${status_temporary_name}"
-    assert_file_absent "${cache_dir}/${legacy_status_temporary_name}"
     assert_file_absent "${cache_dir}/${stale_name}"
 }
 
@@ -1508,8 +1517,6 @@ module.read_decision_from_parent = lambda _parent, _name: module.DECISION_UNKNOW
 state = module.resolve_cancellation_decision(decision_path)
 if state != module.DECISION_UNKNOWN:
     raise SystemExit(f"an unreadable decision became {state}")
-if module.cancellation_decision_requested(decision_path):
-    raise SystemExit("the compatibility helper classified unknown as cancellation")
 
 module.DECISION_PATH = decision_path
 module.request_cancellation(0, None)
@@ -3207,6 +3214,8 @@ EOF
             RUNTIME_LOCK_PID=4000001
             RUNTIME_LOCK_GUARDIAN_IDENTITY="boot-id:101"
             RUNTIME_LOCK_PGID=4000001
+            RUNTIME_LOCK_DEVICE=1
+            RUNTIME_LOCK_INODE=2
             RUNTIME_LOCK_HOLDER_PID=4000002
             RUNTIME_LOCK_HOLDER_IDENTITY="boot-id:102"
             RUNTIME_LOCK_WORKER_PID=4000003
@@ -3273,6 +3282,8 @@ EOF
             RUNTIME_LOCK_PID=4000001
             RUNTIME_LOCK_GUARDIAN_IDENTITY="boot-id:101"
             RUNTIME_LOCK_PGID=4000001
+            RUNTIME_LOCK_DEVICE=1
+            RUNTIME_LOCK_INODE=2
             RUNTIME_LOCK_HOLDER_PID=4000002
             RUNTIME_LOCK_HOLDER_IDENTITY="boot-id:102"
             RUNTIME_LOCK_WORKER_PID=4000003
@@ -3315,6 +3326,8 @@ EOF
             RUNTIME_LOCK_PID=4000001
             RUNTIME_LOCK_GUARDIAN_IDENTITY="boot-id:101"
             RUNTIME_LOCK_PGID=4000001
+            RUNTIME_LOCK_DEVICE=1
+            RUNTIME_LOCK_INODE=2
             RUNTIME_LOCK_HOLDER_PID=4000002
             RUNTIME_LOCK_HOLDER_IDENTITY="boot-id:102"
             RUNTIME_LOCK_WORKER_PID=4000003
@@ -3694,7 +3707,7 @@ EOF
     fi
 
     # Leave the stopped supervisor as the final descriptor owner after its
-    # former parent and siblings have been removed. Wait until every helper
+    # original parent and siblings have been removed. Wait until every helper
     # has actually entered the stopped state before removing the siblings;
     # otherwise the watchdog can resume the supervisor in the race window.
     kill -STOP \
@@ -4974,6 +4987,8 @@ EOF
             RUNTIME_LOCK_PID=4000001
             RUNTIME_LOCK_GUARDIAN_IDENTITY="boot-id:101"
             RUNTIME_LOCK_PGID=4000001
+            RUNTIME_LOCK_DEVICE=1
+            RUNTIME_LOCK_INODE=2
             RUNTIME_LOCK_HOLDER_PID=4000002
             RUNTIME_LOCK_HOLDER_IDENTITY="boot-id:102"
             RUNTIME_LOCK_WORKER_PID=4000003
@@ -5019,6 +5034,8 @@ EOF
             RUNTIME_LOCK_PID=4000001
             RUNTIME_LOCK_GUARDIAN_IDENTITY="boot-id:101"
             RUNTIME_LOCK_PGID=4000001
+            RUNTIME_LOCK_DEVICE=1
+            RUNTIME_LOCK_INODE=2
             RUNTIME_LOCK_HOLDER_PID=4000002
             RUNTIME_LOCK_HOLDER_IDENTITY="boot-id:102"
             RUNTIME_LOCK_WORKER_PID=4000003
@@ -6724,8 +6741,8 @@ PY
     touch -d '2 hours ago' "${stale_file}"
 
     run env PYTHONDONTWRITEBYTECODE=1 python3 \
-        "${SANDBOX_REPO}/common/runtime-file.py" prune \
-        "${artifact_directory}" "artifact.tar.gz"
+        "${SANDBOX_REPO}/common/runtime-file.py" prune-partials \
+        "${artifact_directory}"
     assert_success
     assert_file_absent "${stale_file}"
     assert_file_exists "${recent_file}"

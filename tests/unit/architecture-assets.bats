@@ -25,20 +25,14 @@ EOF
     chmod +x "${MOCK_BIN}/uname"
 }
 
-@test "runtime architecture aliases normalize to canonical manifest keys" {
+@test "runtime architecture detection returns the canonical host key" {
     run env \
         SCRIPT_PATH="${SANDBOX_REPO}" \
+        MOCK_HOST_ARCHITECTURE="x86_64" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
-        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_normalize_architecture amd64"
+        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_detect_architecture"
     assert_success
     assert_equal "${output}" "x86_64"
-
-    run env \
-        SCRIPT_PATH="${SANDBOX_REPO}" \
-        PATH="${MOCK_BIN}:/usr/bin:/bin" \
-        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_normalize_architecture arm64"
-    assert_success
-    assert_equal "${output}" "aarch64"
 }
 
 @test "an explicit architecture override selects the requested canonical key" {
@@ -156,17 +150,17 @@ EOF
     assert_equal "${output}" "dl/go1.27.4.linux-amd64.tar.gz"
 }
 
-@test "manifest lookup rejects noncanonical architecture aliases" {
+@test "manifest lookup rejects an unsupported architecture key" {
     run env \
         SCRIPT_PATH="${SANDBOX_REPO}" \
-        bash -c "source '${SANDBOX_REPO}/extras/tools-download.sh'; EXTRAS_MANIFEST_FILE='${SANDBOX_REPO}/extras/tools-manifest.json'; extras_manifest_entry fd amd64"
+        bash -c "source '${SANDBOX_REPO}/extras/tools-download.sh'; EXTRAS_MANIFEST_FILE='${SANDBOX_REPO}/extras/tools-manifest.json'; extras_manifest_entry fd invalid"
     assert_failure
     assert_output_contains "unsupported canonical architecture key"
 }
 
 @test "manifest validation rejects noncanonical asset keys" {
     local invalid_manifest="${TEST_ROOT}/invalid-manifest.json"
-    jq '.tools.fd.assets.amd64 = .tools.fd.assets.x86_64 |
+    jq '.tools.fd.assets.invalid = .tools.fd.assets.x86_64 |
         del(.tools.fd.assets.x86_64)' \
         "${SANDBOX_REPO}/extras/tools-manifest.json" > "${invalid_manifest}"
 
@@ -205,7 +199,7 @@ EOF
         POSTINSTALL_TOOL_SELECTION_MODE=interactive \
         GUM="${MOCK_BIN}/gum" \
         MOCK_GUM_ARGUMENTS="${gum_log}" \
-        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; section(){ :; }; description(){ :; }; text(){ :; }; info(){ :; }; source '${SANDBOX_REPO}/extras/additional-tools.sh'"
+        bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; source '${SANDBOX_REPO}/common/ui.sh'; source '${SANDBOX_REPO}/common/ui-prompts.sh'; source '${SANDBOX_REPO}/extras/additional-tools.sh'"
     assert_success
 
     run grep -Fx 'fd' "${gum_log}"

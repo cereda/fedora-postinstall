@@ -47,13 +47,6 @@ case "${1}" in
         printf '%s\n' "${MOCK_FLAVOR:-}"
         exit 0
         ;;
-    style)
-        for argument in "$@"; do
-            last_argument="${argument}"
-        done
-        printf '%s\n' "${last_argument}"
-        exit 0
-        ;;
     input | file) exit 0 ;;
     *) exit 0 ;;
 esac

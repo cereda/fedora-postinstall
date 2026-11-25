@@ -34,6 +34,26 @@ refute_output_contains() {
     esac
 }
 
+assert_stderr_contains() {
+    case "${stderr:-}" in
+        *"${1}"*) return 0 ;;
+        *)
+            printf 'expected stderr to contain <%s>\nstderr:\n%s\n' "${1}" "${stderr:-}" >&2
+            return 1
+            ;;
+    esac
+}
+
+refute_stderr_contains() {
+    case "${stderr:-}" in
+        *"${1}"*)
+            printf 'expected stderr not to contain <%s>\nstderr:\n%s\n' "${1}" "${stderr:-}" >&2
+            return 1
+            ;;
+        *) return 0 ;;
+    esac
+}
+
 assert_file_exists() {
     if [ ! -e "${1}" ]; then
         printf 'expected file to exist: %s\n' "${1}" >&2

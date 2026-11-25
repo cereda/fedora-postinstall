@@ -2,13 +2,19 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME Display Manager"
+ui_section "GNOME Display Manager"
 
-description "Remove the Fedora logo from GDM."
-echo
+ui_description "Remove the Fedora logo from GDM."
 
-if question "Do you want to remove the Fedora logo from GDM?"; then
+if ui_confirm "Remove the Fedora logo from GDM?" "Remove" "Keep"; then
 
-    info "Removing Fedora logo from GDM."
+    ui_step "Removing the Fedora logo from GDM."
     sudo -u gdm gsettings set org.gnome.login-screen logo ''
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "The Fedora logo setting was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

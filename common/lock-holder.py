@@ -532,16 +532,6 @@ def resolve_cancellation_decision(path: str | None) -> str:
     return DECISION_UNKNOWN
 
 
-def cancellation_decision_requested(path: str | None) -> bool:
-    """Return true only when the authoritative decision is ``cancelled``.
-
-    This compatibility helper intentionally does not collapse an unknown
-    decision into cancellation. Callers that need to distinguish all three
-    states should use :func:`resolve_cancellation_decision` directly.
-    """
-    return resolve_cancellation_decision(path) == DECISION_CANCELLED
-
-
 def request_cancellation(_signal_number: int, _frame: object) -> None:
     global CANCELLATION_ABORT_REQUESTED
     global CANCELLATION_DECISION_STATE
@@ -4645,31 +4635,6 @@ def hold_owner_with_monitor(
                     monitor.mark_exited(target)
 
 
-def hold_owner(
-    installer_process_id: int,
-    installer_identity: ProcessIdentity,
-) -> None:
-    """Retain inherited locks until the verified installer exits.
-
-    Unlike :func:`wait_for_installer`, this owner never notifies the
-    installer. It observes the recorded identity and, when available, waits
-    on a verified pidfd without sending even a resume signal to a stopped
-    installer.
-    """
-    configure_signal_handlers(allow_cancellation=False)
-    monitor = ProcessMonitor(
-        [("installer", installer_process_id, installer_identity)]
-    )
-    try:
-        hold_owner_with_monitor(
-            installer_process_id,
-            installer_identity,
-            monitor,
-        )
-    finally:
-        monitor.close()
-
-
 def hold_owner_ready(
     installer_process_id: int,
     installer_identity: ProcessIdentity,
@@ -5495,16 +5460,13 @@ def main() -> None:
             raise SystemExit(75)
         raise SystemExit(1)
 
-    if len(sys.argv) in {4, 6} and sys.argv[1] == "terminate-group":
+    if len(sys.argv) == 6 and sys.argv[1] == "terminate-group":
         configure_signal_handlers(allow_cancellation=False)
         process_identity = parse_process_identity(sys.argv[3])
         if process_identity is None:
             fail("invalid process identity")
-        lock_device = None
-        lock_inode = None
-        if len(sys.argv) == 6:
-            lock_device = int(sys.argv[4])
-            lock_inode = int(sys.argv[5])
+        lock_device = int(sys.argv[4])
+        lock_inode = int(sys.argv[5])
         if not terminate_process_group(
             int(sys.argv[2]),
             process_identity,
@@ -5561,19 +5523,6 @@ def main() -> None:
             f"{encode_process_identity(status.watchdog_identity)} "
             f"{encode_process_identity(status.wrapper_identity)}"
         )
-        return
-
-    if len(sys.argv) == 4 and sys.argv[1] == "hold-owner":
-        installer_identity = parse_process_identity(sys.argv[2])
-        if installer_identity is None:
-            fail("invalid installer process identity")
-        try:
-            installer_process_id = int(sys.argv[3])
-        except ValueError:
-            fail("invalid installer process id")
-        if installer_process_id <= 1:
-            fail("invalid installer process id")
-        hold_owner(installer_process_id, installer_identity)
         return
 
     if len(sys.argv) == 12 and sys.argv[1] == "hold-owner-ready":
@@ -5790,11 +5739,10 @@ def main() -> None:
             "lock-holder.py resume-process PID IDENTITY or "
             "lock-holder.py terminate-process PID IDENTITY or "
             "lock-holder.py terminate-process-required PID IDENTITY or "
-            "lock-holder.py terminate-group PGID IDENTITY [DEVICE INODE] or "
+            "lock-holder.py terminate-group PGID IDENTITY DEVICE INODE or "
             "lock-holder.py verify-group-empty PGID or "
             "lock-holder.py validate-status STATUS WRAPPER_PID INSTALLER_PID "
-            "INSTALLER_IDENTITY or lock-holder.py hold-owner "
-            "INSTALLER_IDENTITY INSTALLER_PID or lock-holder.py hold-owner-ready "
+            "INSTALLER_IDENTITY or lock-holder.py hold-owner-ready "
             "INSTALLER_IDENTITY INSTALLER_PID RUN_ID OWNER_STATUS_PATH "
             "SENTINEL_STATUS_PATH RETIREMENT_MARKER_PATH FILE_FD SCOPE_FD "
             "FILE_IDENTITY SCOPE_IDENTITY or lock-holder.py lock-sentinel "

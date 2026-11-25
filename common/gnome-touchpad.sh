@@ -2,16 +2,20 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME touchpad configuration"
+ui_section "GNOME touchpad configuration"
 
-description "Configure the GNOME touchpad."
-echo
+ui_description "Configure the GNOME touchpad."
 
-if question "Do you want to configure your laptop touchpad?"; then
+if ui_confirm "Configure the GNOME touchpad?" "Enable" "Keep"; then
 
-    info "Enabling tap to click."
+    ui_step "Enabling tap-to-click and two-finger scrolling."
     gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
-
-    info "Enabling two finger scrolling."
     gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "The GNOME touchpad was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

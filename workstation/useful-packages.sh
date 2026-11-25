@@ -2,31 +2,29 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Useful packages"
+ui_section "Useful packages"
 
-description "Install selected system packages."
-echo
+ui_description "Install selected system packages."
 
-if question "Do you want to install some useful packages?"; then
+if ui_confirm "Select system packages to install?" "Select packages" "Skip"; then
 
-    text "Select which packages you want to install."
-
-    echo
-
-    runtime_capture_output PACKAGES_SELECTION "${GUM}" choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}" || return 1
+    runtime_capture_output PACKAGES_SELECTION \
+        ui_choose_many "Select packages to install" "" "${PACKAGES_TO_INSTALL[@]}" || return $?
     readarray -t SELECTED_PACKAGES <<<"${PACKAGES_SELECTION}"
 
     if [ -z "${SELECTED_PACKAGES}" ]; then
 
-        text "You haven't selected any items from the list. Moving on."
+        ui_skip "No packages selected for installation."
     else
-
-        text "You've selected ${#SELECTED_PACKAGES[@]} package(s) to install. Please wait."
 
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
         PACKAGE_INSTALL_LIST="${PACKAGE_INSTALL_LIST:1}"
 
-        info "Installing packages."
+        ui_step "Installing the selected packages."
         sudo dnf install ${PACKAGE_INSTALL_LIST} -y
+
+        ui_success "Selected packages installed."
     fi
+else
+    ui_skip "No packages were installed."
 fi

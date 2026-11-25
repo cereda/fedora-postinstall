@@ -2,16 +2,20 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME Nautilus"
+ui_section "GNOME Nautilus"
 
-description "Configure Nautilus folder views and thumbnails."
-echo
+ui_description "Configure Nautilus folder views and thumbnails."
 
-if question "Do you want to configure Nautilus?"; then
+if ui_confirm "Configure Nautilus folder views and thumbnails?" "Apply" "Keep"; then
 
-    info "Setting default folder viewer."
+    ui_step "Configuring Nautilus folder views and thumbnails."
     gsettings set org.gnome.nautilus.preferences default-folder-viewer icon-view
-
-    info "Disabling image thumbnails."
     gsettings set org.gnome.nautilus.preferences show-image-thumbnails never
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Nautilus was left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

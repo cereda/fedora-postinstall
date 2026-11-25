@@ -12,8 +12,11 @@ setup() {
     MOCK_BIN="${TEST_ROOT}/bin"
     TMP_ROOT="${TEST_ROOT}/tmp"
     FORBIDDEN_MARKER="${TEST_ROOT}/forbidden-command"
+    GUM_MARKER="${TEST_ROOT}/gum-called"
     DEPENDENCY_MARKER="${TEST_ROOT}/dependency-source-called"
     OS_RELEASE_FILE="${TEST_ROOT}/os-release"
+    STDOUT_FILE="${TEST_ROOT}/stdout"
+    STDERR_FILE="${TEST_ROOT}/stderr"
 
     mkdir -p \
         "${SANDBOX_REPO}" \
@@ -62,13 +65,8 @@ EOF
 
     cat > "${MOCK_BIN}/gum" <<'EOF'
 #!/usr/bin/env bash
+: > "${MOCK_GUM_MARKER}"
 case "${1:-}" in
-    style)
-        for argument in "$@"; do
-            last_argument="${argument}"
-        done
-        printf '%s\n' "${last_argument}"
-        ;;
     *) exit 0 ;;
 esac
 EOF
@@ -88,6 +86,7 @@ EOF
 
     export MOCK_ARCHITECTURE="x86_64"
     export MOCK_FORBIDDEN_MARKER="${FORBIDDEN_MARKER}"
+    export MOCK_GUM_MARKER="${GUM_MARKER}"
     export POSTINSTALL_OS_RELEASE_FILE="${OS_RELEASE_FILE}"
 }
 
@@ -111,6 +110,7 @@ run_cli() {
     assert_output_contains "--cache-dir PATH"
     assert_output_contains "--lock-file PATH"
     assert_file_absent "${FORBIDDEN_MARKER}"
+    assert_file_absent "${GUM_MARKER}"
 }
 
 @test "a command is required and no-command invocation has no side effects" {
@@ -172,6 +172,7 @@ run_cli() {
         .paths.lock_file == "'"${TEST_ROOT}"'/cache/fedora-postinstall/postinstall.lock"
     ' <<<"${output}"
     assert_success
+    assert_file_absent "${GUM_MARKER}"
 }
 
 @test "the default lock follows the effective cache directory" {
@@ -285,44 +286,13 @@ run_cli() {
     assert_success
 }
 
-@test "CLI_TOOLS_ONLY is rejected instead of selecting the extras flow" {
-    run env \
-        CLI_TOOLS_ONLY=0 \
-        HOME="${TEST_HOME}" \
-        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
-        TMPDIR="${TMP_ROOT}" \
-        PATH="${MOCK_BIN}:/usr/bin:/bin" \
-        bash "${SANDBOX_REPO}/fedora-postinstall.sh" extras
-
-    assert_equal "${status}" 64
-    assert_output_contains "CLI_TOOLS_ONLY is not supported"
-    assert_output_contains "extras command"
-    assert_file_absent "${FORBIDDEN_MARKER}"
-    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
-}
-
-@test "CLI_TOOLS_ONLY cannot override an explicit install" {
-    run env \
-        CLI_TOOLS_ONLY=1 \
-        HOME="${TEST_HOME}" \
-        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
-        TMPDIR="${TMP_ROOT}" \
-        PATH="${MOCK_BIN}:/usr/bin:/bin" \
-        bash "${SANDBOX_REPO}/fedora-postinstall.sh" install --dry-run --json
-
-    assert_equal "${status}" 64
-    assert_output_contains "CLI_TOOLS_ONLY is not supported"
-    refute_output_contains "Fedora post-installation plan"
-    assert_file_absent "${FORBIDDEN_MARKER}"
-    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
-}
-
 @test "detect reports the operating system, flavor, and architecture" {
     run_cli detect
     assert_success
     assert_output_contains "Fedora Workstation"
     assert_output_contains "Selected flavor: workstation"
     assert_output_contains "Selected architecture: x86_64"
+    assert_file_absent "${GUM_MARKER}"
 }
 
 @test "detect can emit stable JSON" {
@@ -335,16 +305,115 @@ run_cli() {
         .architecture.selected == "x86_64"
     ' <<<"${output}"
     assert_success
+    assert_file_absent "${GUM_MARKER}"
 }
 
-@test "architecture aliases select only canonical manifest keys" {
-    run_cli plan --json --architecture amd64 --tool fd
+@test "JSON output remains parseable when runtime logs are enabled" {
+    run bash -c '
+        env \
+            HOME="$1" \
+            XDG_CONFIG_HOME="$2" \
+            XDG_STATE_HOME="$3" \
+            XDG_CACHE_HOME="$4" \
+            TMPDIR="$5" \
+            PATH="$6" \
+            POSTINSTALL_STATE_FILE="$7" \
+            bash "$8" detect --json --log-stdout \
+            >"$9" 2>"${10}"
+    ' _ \
+        "${TEST_HOME}" \
+        "${TEST_ROOT}/config" \
+        "${TEST_ROOT}/state" \
+        "${TEST_ROOT}/cache" \
+        "${TMP_ROOT}" \
+        "${MOCK_BIN}:/usr/bin:/bin" \
+        "${TEST_ROOT}/state.tsv" \
+        "${SANDBOX_REPO}/fedora-postinstall.sh" \
+        "${STDOUT_FILE}" \
+        "${STDERR_FILE}"
+
+    assert_success
+    run jq -e '.schema_version == 1 and .os.id == "fedora"' "${STDOUT_FILE}"
+    assert_success
+    run grep -F 'Runtime initialized.' "${STDERR_FILE}"
+    assert_success
+    assert_file_absent "${GUM_MARKER}"
+}
+
+@test "removed option and value aliases are rejected" {
+    local argument
+
+    for argument in \
+        "--flavour=workstation" \
+        "--flavour" \
+        "--arch=x86_64" \
+        "--arch"; do
+        run_cli plan "${argument}"
+        assert_equal "${status}" 64
+        assert_output_contains "unknown option"
+    done
+
+    run_cli plan --flavour workstation
+    assert_equal "${status}" 64
+    assert_output_contains "unknown option"
+
+    run_cli plan --arch x86_64
+    assert_equal "${status}" 64
+    assert_output_contains "unknown option"
+
+    for argument in amd64 x64 arm64; do
+        run_cli plan "--architecture=${argument}"
+        assert_equal "${status}" 64
+        assert_output_contains "invalid architecture"
+    done
+
+    run_cli plan --log-format text
+    assert_equal "${status}" 64
+    assert_output_contains "invalid log format"
+
+    run_cli plan --log-level warning
+    assert_equal "${status}" 64
+    assert_output_contains "invalid log level"
+
+    export POSTINSTALL_ARCHITECTURE=amd64
+    run_cli plan
+    assert_equal "${status}" 64
+    assert_output_contains "invalid architecture"
+    unset POSTINSTALL_ARCHITECTURE
+
+    export POSTINSTALL_LOG_FORMAT=text
+    run_cli plan
+    assert_equal "${status}" 64
+    assert_output_contains "invalid log format"
+    unset POSTINSTALL_LOG_FORMAT
+
+    export POSTINSTALL_LOG_LEVEL=warning
+    run_cli plan
+    assert_equal "${status}" 64
+    assert_output_contains "invalid log level"
+    unset POSTINSTALL_LOG_LEVEL
+}
+
+@test "the retired CLI_TOOLS_ONLY environment variable is ignored" {
+    export CLI_TOOLS_ONLY=1
+    run_cli plan --json
+    assert_success
+    run jq -e '
+        .extras.mode == "interactive" and
+        (.extras.tools | length == 0)
+    ' <<<"${output}"
+    assert_success
+    unset CLI_TOOLS_ONLY
+}
+
+@test "canonical x86_64 architecture selects the matching manifest asset" {
+    run_cli plan --json --architecture x86_64 --tool fd
     assert_success
     run jq -e '
         .architecture.selected == "x86_64" and
         (.extras.tools | length == 1) and
         (.extras.tools[0].id == "fd") and
-        (.extras.tools[0].url | contains("x86_64") or contains("amd64"))
+        (.extras.tools[0].url | contains("x86_64"))
     ' <<<"${output}"
     assert_success
 }

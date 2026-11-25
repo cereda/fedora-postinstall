@@ -2,20 +2,21 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Distrobox installation and configuration"
+ui_section "Distrobox installation and configuration"
 
-description "Run Linux distributions in isolated containers."
-echo
+ui_description "Run Linux distributions in isolated containers."
+ui_warning "BoxBuddy provides a separate graphical interface for Distrobox. Consider installing it when you prefer a desktop workflow."
 
-warning "Consider installing BoxBuddy, a graphical user interface for \
-Distrobox. This application makes creating and using containers simple \
-and convenient by providing a simple UI for many common tasks."
-
-echo
-
-if question "Do you want to install and configure Distrobox?"; then
+if ui_confirm "Install and configure Distrobox?" "Install" "Skip"; then
 
     # Install under the user prefix without changing the shell profile.
-    info "Installing and configuring Distrobox from GitHub."
+    ui_step "Installing and configuring Distrobox from GitHub."
     curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Distrobox was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

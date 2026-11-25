@@ -2,13 +2,16 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Nix installation and configuration"
+ui_section "Nix installation"
 
-description "Install Nix on Fedora Silverblue."
-echo
+ui_description "Install Nix on Fedora Silverblue."
 
-if question "Do you want to install and configure Nix?"; then
+if ui_confirm "Install Nix on Fedora Silverblue?" "Install" "Skip"; then
 
-    info "Installing Nix using the OSTree planner."
+    ui_step "Installing Nix with the OSTree planner."
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install ostree --no-confirm --persistence=/var/lib/nix
+
+    ui_success "Nix installed."
+else
+    ui_skip "Nix was not installed."
 fi

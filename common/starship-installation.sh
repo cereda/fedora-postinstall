@@ -2,25 +2,21 @@
 
 # SPDX-License-Identifier: MIT
 
-section "starship installation and configuration"
+ui_section "Starship installation and configuration"
 
-description "Install and configure the Starship prompt."
-echo
+ui_description "Install and configure the Starship prompt."
 
-if question "Do you want to install starship?"; then
+if ui_confirm "Install and configure Starship?" "Install" "Skip"; then
 
-    info "Preparing the installation directory."
+    ui_step "Installing Starship."
     mkdir -p "${HOME}/.local/bin"
 
     # Install into ~/.local/bin and replace an existing binary.
-    info "Installing starship."
-    runtime_capture_output INSTALLER_SCRIPT curl -fsSL https://starship.rs/install.sh || return 1
+    runtime_capture_output INSTALLER_SCRIPT curl -fsSL https://starship.rs/install.sh || return $?
     sh -c "${INSTALLER_SCRIPT}" -- -b "${HOME}/.local/bin" -y
 
-    info "Preparing the configuration directory."
+    ui_step "Configuring Starship."
     mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/starship"
-
-    info "Creating the configuration file for starship."
     cat >"${ROOT_DIRECTORY_STRUCTURE}/config/starship/starship.toml" <<'TOML'
 [character]
 success_symbol = "[➜](bold green)"
@@ -67,4 +63,11 @@ style = "bold green"
 # style = "bright-blue bold"
 TOML
 
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "Starship was not installed."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

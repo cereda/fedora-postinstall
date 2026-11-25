@@ -7,7 +7,7 @@ workstation/packages-to-remove.sh|read-only|
 workstation/package-cleanup.sh|mutating|
 workstation/rpmfusion-configuration.sh|mutating|
 workstation/terra-installation.sh|mutating|
-common/flatpaks-installation.sh|mutating|
+common/flatpaks-installation.sh|mutating|FLATPAKS_KEEP_CACHE_IDS_JSON
 common/gnome-font-rendering.sh|mutating|
 workstation/gnome-text-editor.sh|mutating|
 common/gnome-clock.sh|mutating|

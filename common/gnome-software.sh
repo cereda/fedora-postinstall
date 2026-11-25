@@ -2,16 +2,20 @@
 
 # SPDX-License-Identifier: MIT
 
-section "GNOME Software"
+ui_section "GNOME Software"
 
-description "Disable GNOME Software update notifications."
-echo
+ui_description "Disable automatic GNOME Software update downloads and notifications."
 
-if question "Do you want to disable notifications from GNOME Software?"; then
+if ui_confirm "Disable automatic GNOME Software update downloads and notifications?" "Disable" "Keep"; then
 
-    info "Disabling download updates."
+    ui_step "Disabling automatic GNOME Software update downloads and notifications."
     gsettings set org.gnome.software download-updates false
-
-    info "Disabling notify updates."
     gsettings set org.gnome.software download-updates-notify false
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "GNOME Software update downloads and notifications were left unchanged."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

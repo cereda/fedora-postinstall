@@ -2,16 +2,22 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Profile photo"
+ui_section "Profile photo"
 
-description "Install a generated desktop profile photo."
-echo
+ui_description "Generate a profile photo and save it in the managed profile directory."
 
-if question "Do you want to generate and copy the profile photo?"; then
+if ui_confirm "Generate and save a profile photo?" "Generate" "Skip"; then
 
-    info "Generating profile photo."
+    ui_step "Generating the profile photo."
     bash common/generate-cat.sh
 
-    info "Copying profile photo."
+    ui_step "Copying the profile photo."
     cp cat.png "${ROOT_DIRECTORY_STRUCTURE}/profile/cat.png"
+else
+    CONFIRM_STATUS="${?}"
+    if [ "${CONFIRM_STATUS}" -eq 1 ]; then
+        ui_skip "A profile photo was not generated or saved."
+    else
+        return "${CONFIRM_STATUS}"
+    fi
 fi

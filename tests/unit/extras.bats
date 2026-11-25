@@ -37,8 +37,15 @@ EOF
 
     cat > "${MOCK_BIN}/gum" <<'EOF'
 #!/usr/bin/env bash
-case "${1}" in
+case "${1:-}" in
+    --version)
+        printf '%s\n' 'gum version v2.0.2'
+        ;;
     choose)
+        if [ "${2:-}" = "--help" ]; then
+            printf '%s\n' '--no-limit' '--header' '--height' '--selected'
+            exit 0
+        fi
         : > "${MOCK_CHOOSE_MARKER}"
         if [ "${MOCK_CHOOSE_FAIL:-0}" = "1" ]; then
             exit 7
@@ -49,11 +56,21 @@ case "${1}" in
             printf '%s\n' "${MOCK_SELECTED_TOOL}"
         fi
         ;;
-    style)
-        for argument in "$@"; do
-            last_argument="${argument}"
-        done
-        printf '%s\n' "${last_argument}"
+    confirm)
+        if [ "${2:-}" = "--help" ]; then
+            printf '%s\n' '--show-output' '--affirmative' '--negative' \
+                '--prompt.foreground' '--selected.background'
+        fi
+        ;;
+    input)
+        if [ "${2:-}" = "--help" ]; then
+            printf '%s\n' '--value' '--prompt'
+        fi
+        ;;
+    file)
+        if [ "${2:-}" = "--help" ]; then
+            printf '%s\n' '--file' '--directory' '--all' '--[no-]permissions'
+        fi
         ;;
     *) exit 0 ;;
 esac
@@ -389,7 +406,7 @@ run_extras_command() {
 
     run_installer
     assert_failure
-    assert_output_contains "invalid command line tool manifest"
+    assert_output_contains "Invalid command-line tool manifest"
     assert_file_absent "${CURL_LOG}"
 }
 
@@ -500,7 +517,7 @@ run_extras_command() {
 
     run_extras_command --tools fd
     assert_failure
-    assert_output_contains "download failed"
+    assert_output_contains "Download failed"
     assert_file_absent "${stale_file}"
 }
 
@@ -519,7 +536,7 @@ run_extras_command() {
 
     run_extras_command --tools fd
     assert_failure
-    assert_output_contains "download failed"
+    assert_output_contains "Download failed"
     assert_file_exists "${previous_artifact}"
     run stat -c '%d:%i' -- "${previous_artifact}"
     assert_success
@@ -562,7 +579,7 @@ PY
 
     run_extras_command --tools fd
     assert_failure
-    assert_output_contains "download failed"
+    assert_output_contains "Download failed"
     assert_file_exists "${artifact}"
     run sha256sum "${artifact}"
     assert_success
@@ -654,7 +671,7 @@ PY
 
     run_extras_command --tools fd
     assert_failure
-    assert_output_contains "unsafe cached artifact"
+    assert_output_contains "Unsafe cached artifact"
     assert_file_absent "${CURL_LOG}"
     run cat "${outside}"
     assert_success
@@ -762,8 +779,9 @@ PY
 
 @test "an unknown explicit tool fails before downloading" {
     run_extras_command --tools not-a-tool
-    assert_failure
-    assert_output_contains "unknown tool identifier"
+    assert_equal "${status}" 69
+    assert_output_contains "error: Unknown command-line tool identifier: not-a-tool."
+    refute_output_contains "plan:"
     assert_file_absent "${CURL_LOG}"
     assert_file_absent "${MOCK_CHOOSE_MARKER}"
 }
@@ -812,7 +830,7 @@ PY
 
     run_installer
     assert_failure
-    assert_output_contains "checksum verification failed"
+    assert_output_contains "Checksum verification failed"
     run grep -Fx 'old content' "${TEST_HOME}/.local/bin/fd"
     assert_success
     assert_file_absent "${SANDBOX_REPO}/archives"
@@ -1125,6 +1143,52 @@ PY
     assert_success
 }
 
+@test "rollback restores symbolic-link originals without following their targets" {
+    local deployment_directory="${TEST_ROOT}/rollback-symlink"
+    local destination="${deployment_directory}/tool"
+    local backup_directory="${deployment_directory}/backups"
+    local backup="${backup_directory}/tool"
+    local staged="${deployment_directory}/.tool.staged"
+    local helper="${SANDBOX_REPO}/common/runtime-file.py"
+    local original_identity backup_identity staged_identity target
+
+    mkdir -p "${deployment_directory}" "${backup_directory}" "${deployment_directory}/target-directory"
+    chmod 0700 "${deployment_directory}" "${backup_directory}" "${deployment_directory}/target-directory"
+
+    for target in \
+        "${deployment_directory}/target-directory" \
+        "${deployment_directory}/missing-target"; do
+        rm -f -- "${destination}"
+        ln -s "${target}" "${destination}"
+        original_identity=$(stat -c '%d:%i' -- "${destination}")
+
+        run python3 "${helper}" backup-destination \
+            "${destination}" "${backup}" "${original_identity}"
+        assert_success
+        backup_identity=$(stat -c '%d:%i' -- "${backup}")
+        assert_equal "${backup_identity}" "${original_identity}"
+
+        printf 'staged content\n' > "${staged}"
+        staged_identity=$(stat -c '%d:%i' -- "${staged}")
+        run python3 "${helper}" replace-destination \
+            "${staged}" "${destination}" "${staged_identity}"
+        assert_success
+
+        run python3 "${helper}" rollback \
+            "${destination}" "${backup}" "${original_identity}" "${staged_identity}" \
+            "${backup_identity}" 1
+        assert_success
+        if [ ! -L "${destination}" ]; then
+            printf 'expected the original symbolic link to be restored\n' >&2
+            return 1
+        fi
+        run readlink "${destination}"
+        assert_success
+        assert_equal "${output}" "${target}"
+        assert_file_absent "${backup}"
+    done
+}
+
 @test "standalone artifacts are checksum-verified and deployed" {
     printf '#!/usr/bin/env bash\nprintf "raw fixture\\n"\n' > "${FIXTURE_ROOT}/fd-raw"
     chmod +x "${FIXTURE_ROOT}/fd-raw"
@@ -1249,6 +1313,29 @@ PY
     refute_output_contains ".fedora-postinstall-backups."
 }
 
+@test "a signal after backup move restores a dangling relative symlink" {
+    local destination="${TEST_HOME}/.local/bin/fd"
+
+    mkdir -p "${TEST_HOME}/.local/bin"
+    ln -s "original-target" "${destination}"
+    export MOCK_BACKUP_SIGNAL_TARGET="fd"
+
+    run_installer_with_pid
+    assert_equal "${status}" 143
+    assert_file_exists "${MOCK_BACKUP_SIGNAL_MARKER}"
+    if [ ! -L "${destination}" ]; then
+        printf 'expected the original dangling symbolic link to be restored\n' >&2
+        return 1
+    fi
+    run readlink "${destination}"
+    assert_success
+    assert_equal "${output}" "original-target"
+    run find "${TEST_HOME}/.local/bin" -maxdepth 1 \
+        -type d -name '.fedora-postinstall-backups.*' -print
+    assert_success
+    refute_output_contains ".fedora-postinstall-backups."
+}
+
 @test "lock loss immediately after a deployment rename rolls back the replacement" {
     mkdir -p "${TEST_HOME}/.local/bin"
     printf 'old content\n' > "${TEST_HOME}/.local/bin/fd"
@@ -1309,7 +1396,7 @@ PY
     mock_rollback_failure "fd" 0
 
     run_installer
-    assert_failure
+    assert_equal "${status}" 1
     assert_output_contains "rollback was incomplete"
     run grep -F 'fixture fd' "${TEST_HOME}/.local/bin/fd"
     assert_success
@@ -1317,6 +1404,43 @@ PY
         -type d -name '.fedora-postinstall-backups.*' -print
     assert_success
     assert_output_contains ".fedora-postinstall-backups."
+}
+
+@test "extras workspace cleanup failure retains its status" {
+    cat > "${MOCK_BIN}/rm" <<'EOF'
+#!/usr/bin/env bash
+for rm_argument in "$@"; do
+    case "${rm_argument}" in
+        */fedora-postinstall-extras.*) exit 7 ;;
+    esac
+done
+exec /usr/bin/rm "$@"
+EOF
+    chmod +x "${MOCK_BIN}/rm"
+
+    run_installer
+    assert_equal "${status}" 7
+    assert_output_contains "Could not remove the command-line tool temporary workspace"
+
+    /usr/bin/rm -rf "${TMP_ROOT}"/fedora-postinstall-extras.*
+}
+
+@test "committed recovery-backup cleanup failure fails the runtime cleanup" {
+    cat > "${MOCK_BIN}/rm" <<'EOF'
+#!/usr/bin/env bash
+for rm_argument in "$@"; do
+    case "${rm_argument}" in
+        */.fedora-postinstall-backups.*) exit 7 ;;
+    esac
+done
+exec /usr/bin/rm "$@"
+EOF
+    chmod +x "${MOCK_BIN}/rm"
+
+    run_installer
+    assert_equal "${status}" 7
+    assert_output_contains "Could not remove the command-line tool recovery backups"
+    assert_file_exists "${TEST_HOME}/.local/bin/fd"
 }
 
 @test "a failed tool selection aborts without downloading" {
@@ -1339,13 +1463,13 @@ PY
     assert_file_absent "${CURL_LOG}"
 }
 
-@test "architecture aliases select the declared native asset" {
+@test "the canonical AArch64 architecture selects the declared native asset" {
     jq '.tools.fd.assets.aarch64 = (.tools.fd.assets.x86_64 |
         .url = "https://example.test/fd-test-1-aarch64.tar.gz")' \
         "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
     mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
 
-    run_installer "arm64"
+    run_installer "aarch64"
     assert_success
     run grep -Fx 'https://example.test/fd-test-1-aarch64.tar.gz' "${CURL_LOG}"
     assert_success
@@ -1447,8 +1571,32 @@ PY
     export MOCK_SELECTED_TOOLS=$'fd\nf2'
 
     run_installer
-    assert_failure
+    assert_equal "${status}" 69
     assert_output_contains "deploy the same command"
+    assert_file_absent "${CURL_LOG}"
+    assert_file_absent "${TEST_HOME}/.local/bin/fd"
+}
+
+@test "an explicit selection with duplicate command targets is rejected before download" {
+    jq '.tools.f2 = {
+        "version": "test-2",
+        "description": "Rename files and directories in batches.",
+        "source": "example/f2",
+        "assets": {
+            "x86_64": {
+                "url": "https://example.test/f2-test-2.tar.gz",
+                "sha256": .tools.fd.assets.x86_64.sha256,
+                "type": "tar.gz",
+                "files": {"fd": "fd"}
+            }
+        }
+    }' "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_extras_command --tool fd --tool f2
+    assert_equal "${status}" 69
+    assert_output_contains "error: Command-line tools f2 and fd deploy the same command fd."
+    refute_output_contains "extras:"
     assert_file_absent "${CURL_LOG}"
     assert_file_absent "${TEST_HOME}/.local/bin/fd"
 }
@@ -1474,7 +1622,7 @@ PY
 
     run_installer
     assert_failure
-    assert_output_contains "checksum verification failed"
+    assert_output_contains "Checksum verification failed"
     run grep -Fx 'old content' "${TEST_HOME}/.local/bin/fd"
     assert_success
 }

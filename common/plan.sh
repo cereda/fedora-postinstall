@@ -10,6 +10,17 @@ declare -g PLAN_LOCK_FILE=""
 declare -ga PLAN_WARNINGS=()
 declare -ga PLAN_TOOL_DETAILS=()
 
+function plan_report_error {
+    local plan_local_message="${1:-}"
+    local plan_local_plain_message="${2:-${plan_local_message}}"
+
+    if declare -F ui_error >/dev/null; then
+        ui_error "${plan_local_message}"
+        return $?
+    fi
+    printf 'plan: %s\n' "${plan_local_plain_message}" >&2
+}
+
 function plan_tool_is_registered {
     local plan_local_tool="${1:-}"
     local plan_local_registered
@@ -45,16 +56,17 @@ function plan_resolve_tools {
     local plan_local_tool
     local plan_local_registered
     local plan_local_entry
+    local plan_local_status=0
     local -a plan_local_ordered=()
 
     source "${SCRIPT_PATH}/extras/tools-list.sh"
     source "${SCRIPT_PATH}/extras/tools-download.sh"
     source "${SCRIPT_PATH}/extras/tools-unpacking.sh"
     EXTRAS_MANIFEST_FILE="${SCRIPT_PATH}/extras/tools-manifest.json"
+    EXTRAS_ARCHITECTURE="${plan_local_architecture}"
     PLAN_TOOL_DETAILS=()
 
     if ! extras_validate_manifest_file; then
-        printf 'plan: unable to validate the authoritative tool manifest\n' >&2
         return 69
     fi
 
@@ -79,13 +91,16 @@ function plan_resolve_tools {
     explicit)
         for plan_local_tool in "${CLI_SELECTED_TOOLS[@]}"; do
             if ! plan_tool_is_registered "${plan_local_tool}"; then
-                printf 'plan: unknown tool identifier: %s\n' "${plan_local_tool}" >&2
+                plan_report_error \
+                    "Unknown command-line tool identifier: ${plan_local_tool}." \
+                    "unknown tool identifier: ${plan_local_tool}"
                 return 69
             fi
             if ! plan_local_entry=$(plan_manifest_entry \
                 "${plan_local_tool}" "${plan_local_architecture}"); then
-                printf 'plan: tool "%s" is not available for architecture %s\n' \
-                    "${plan_local_tool}" "${plan_local_architecture}" >&2
+                plan_report_error \
+                    "Command-line tool ${plan_local_tool} is not available for architecture ${plan_local_architecture}." \
+                    "tool \"${plan_local_tool}\" is not available for architecture ${plan_local_architecture}"
                 return 69
             fi
             if ! extras_validate_manifest_entry \
@@ -95,8 +110,9 @@ function plan_resolve_tools {
         done
         ;;
     *)
-        printf 'plan: invalid tool selection mode: %s\n' \
-            "${CLI_TOOL_SELECTION_MODE}" >&2
+        plan_report_error \
+            "Invalid command-line tool selection mode: ${CLI_TOOL_SELECTION_MODE}." \
+            "invalid tool selection mode: ${CLI_TOOL_SELECTION_MODE}"
         return 69
         ;;
     esac
@@ -110,6 +126,11 @@ function plan_resolve_tools {
         done
     done
     CLI_SELECTED_TOOLS=("${plan_local_ordered[@]}")
+
+    extras_validate_selected_tools "${CLI_SELECTED_TOOLS[@]}" || {
+        plan_local_status="${?}"
+        return "${plan_local_status}"
+    }
 
     for plan_local_tool in "${CLI_SELECTED_TOOLS[@]}"; do
         plan_local_entry=$(plan_manifest_entry \

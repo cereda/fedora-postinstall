@@ -4,39 +4,52 @@
 
 PACKAGE_INSTALL_LIST="No packages provided. This is a clean toolbox."
 
-section "Useful packages"
+ui_section "Useful packages"
 
-description "Install selected packages inside the toolbox."
-echo
+ui_description "Install selected packages inside the toolbox."
 
-if question "Do you want to install some useful packages?"; then
+if ui_confirm "Choose packages to install in the ${TOOLBOX_NAME} toolbox?" \
+    "Select packages" "Skip"; then
 
-    text "Select which packages you want to install."
-
-    echo
-
-    runtime_capture_output PACKAGES_SELECTION "${GUM}" choose --no-limit --height 15 "${PACKAGES_TO_INSTALL[@]}" || return 1
+    runtime_capture_output PACKAGES_SELECTION \
+        ui_choose_many "Select packages to install" "" \
+        "${PACKAGES_TO_INSTALL[@]}" || return $?
     readarray -t SELECTED_PACKAGES <<<"${PACKAGES_SELECTION}"
 
     if [ -z "${SELECTED_PACKAGES}" ]; then
 
-        text "You haven't selected any items from the list. Moving on."
+        ui_skip "No packages selected for installation."
     else
-
-        text "You've selected ${#SELECTED_PACKAGES[@]} package(s) to install. Please wait."
 
         PACKAGE_INSTALL_LIST=$(printf " %s" "${SELECTED_PACKAGES[@]}")
         PACKAGE_INSTALL_LIST="${PACKAGE_INSTALL_LIST:1}"
 
-        echo
+        runtime_capture_output PACKAGE_INSTALL_ACTION \
+            ui_choose_one "What should happen with the selected packages?" \
+            "Save for later" "Install now" || return $?
 
-        if question "Should I install them now? It's advisable to do this later."; then
-
-            info "Installing packages inside the ${TOOLBOX_NAME} toolbox."
-            toolbox --container "${TOOLBOX_NAME}" run sudo dnf install ${PACKAGE_INSTALL_LIST}
-        fi
+        case "${PACKAGE_INSTALL_ACTION}" in
+        "Install now")
+            ui_step "Installing the selected packages in the ${TOOLBOX_NAME} toolbox."
+            toolbox --container "${TOOLBOX_NAME}" run sudo dnf install \
+                "${SELECTED_PACKAGES[@]}"
+            ui_success "Selected packages installed."
+            ;;
+        "Save for later")
+            ui_skip "Package installation was deferred."
+            ;;
+        *)
+            ui_error "No deferred package installation action was selected."
+            return 1
+            ;;
+        esac
     fi
+else
+    ui_skip "No packages were selected."
 fi
 
-info "Adding package list to helper function (for reproducibility)."
-sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST}/" "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
+ui_step "Saving the package list for reproducibility."
+sed -i "s/TOOLBOX_INSTALLATION_LIST/${PACKAGE_INSTALL_LIST}/" \
+    "${ROOT_DIRECTORY_STRUCTURE}/scripts/aliases.sh"
+
+ui_success "Package list saved."

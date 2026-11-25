@@ -2,17 +2,13 @@
 
 # SPDX-License-Identifier: MIT
 
-section "Unpinning Flatpak runtimes"
+ui_section "Fedora Flatpak runtime updates"
 
-description "Allow Fedora Flatpak runtimes to update automatically."
-echo
+ui_description "Unpin the Fedora platform runtimes for this release and architecture so they can update automatically."
 
-warning "In case this action fails, please run 'flatpak pin <runtime> \
---remove' to unpin the Flatpak runtimes."
+ui_warning "If this fails, remove any remaining pin with: flatpak pin <runtime> --remove"
 
-echo
-
-if question "Do you want to unpin the platform runtimes?"; then
+if ui_confirm "Unpin the Fedora platform runtimes now?" "Unpin runtimes" "Leave unchanged"; then
 
     # unpin only the Fedora platform runtimes for the current architecture and
     # release; other pins may have been created intentionally by the user
@@ -22,8 +18,12 @@ if question "Do you want to unpin the platform runtimes?"; then
         "runtime/org.fedoraproject.Platform.GL.default/${FLATPAK_ARCH}/f${FEDORA_VERSION}"
     )
 
-    info "Unpinning Fedora platform runtimes."
+    ui_step "Unpinning the Fedora platform runtimes."
     for FEDORA_RUNTIME_PIN in "${FEDORA_RUNTIME_PINS[@]}"; do
         flatpak pin --remove "${FEDORA_RUNTIME_PIN}"
     done
+
+    ui_success "The Fedora platform runtimes are unpinned."
+else
+    ui_skip "No changes were made to the Fedora runtime pins."
 fi
