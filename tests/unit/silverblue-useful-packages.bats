@@ -86,6 +86,20 @@ run_useful_packages() {
     assert_equal "${output}" $'ack\nbat'
 }
 
+@test "the Toolbox package list rejects a symlinked data directory" {
+    local outside_directory="${TEST_ROOT}/toolbox-outside"
+
+    mkdir -p \
+        "${TEST_ROOT}/data" \
+        "${outside_directory}"
+    ln -s "${outside_directory}" "${TEST_ROOT}/data/toolbox"
+
+    run run_useful_packages "no"
+    assert_equal "${status}" "1"
+    assert_output_contains "symbolic link"
+    assert_file_absent "${outside_directory}/packages.txt"
+}
+
 @test "accepting install now installs selected packages in the toolbox" {
     run run_useful_packages "yes"
     assert_success

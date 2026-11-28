@@ -462,8 +462,8 @@ EOF
             source "$1"
             _host_run_rolling_installer "https://example.test/install" sh
         ' _ "${aliases_file}"
-    assert_equal "${status}" "9"
-    assert_output_contains "temporary file could not be removed"
+    assert_equal "${status}" "0"
+    refute_output_contains "temporary file could not be removed"
 
     run cat "${removal_log}"
     assert_success
@@ -471,6 +471,121 @@ EOF
     run find "${temporary_root}" -maxdepth 1 -type f -print
     assert_success
     assert_equal "${output}" ""
+}
+
+@test "generated rolling cleanup retains the exit fallback after repeated failures" {
+    local aliases_file="${SCRIPT_ROOT}/aliases.sh"
+    local mock_bin="${TEST_ROOT}/rolling-retry-fallback-bin"
+    local temporary_root="${TEST_ROOT}/rolling-retry-fallback-tmp"
+    local removal_log="${TEST_ROOT}/rolling-removal-fallback-log"
+    local runtime_directory="${TEST_ROOT}/runtime"
+
+    mkdir -p "${mock_bin}" "${temporary_root}" "${runtime_directory}"
+    cat > "${mock_bin}/curl" <<'EOF'
+#!/usr/bin/env bash
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output)
+            output="${2:-}"
+            shift 2
+            ;;
+        --retry | --retry-delay | --connect-timeout | --max-time | --proto)
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "${output}"
+EOF
+    chmod +x "${mock_bin}/curl"
+
+    run bash -c '
+        source "$1/common/home-helpers.sh"
+        home_helpers_render_aliases_content "$2" workstation host_test_machine 1 "" > "$3"
+    ' _ "${REPO_ROOT}" "${MANAGED_ROOT}" "${aliases_file}"
+    assert_success
+
+    run env \
+        MOCK_REMOVAL_LOG="${removal_log}" \
+        PATH="${mock_bin}:/usr/bin:/bin" \
+        TMPDIR="${temporary_root}" \
+        XDG_RUNTIME_DIR="${runtime_directory}" \
+        bash -c '
+            rm() {
+                count=0
+                [ ! -f "${MOCK_REMOVAL_LOG}" ] ||
+                    count=$(tail -n 1 "${MOCK_REMOVAL_LOG}")
+                count=$((count + 1))
+                printf "%s\n" "${count}" >> "${MOCK_REMOVAL_LOG}"
+                if [ "${count}" -le 2 ]; then
+                    return 9
+                fi
+                /usr/bin/rm "$@"
+            }
+            source "$1"
+            _host_run_rolling_installer "https://example.test/install" sh
+        ' _ "${aliases_file}"
+    assert_equal "${status}" "9"
+    assert_output_contains "temporary file could not be removed"
+
+    run cat "${removal_log}"
+    assert_success
+    assert_equal "${output}" $'1\n2\n3'
+    run find "${temporary_root}" -maxdepth 1 -type f -print
+    assert_success
+    assert_equal "${output}" ""
+}
+
+@test "generated rolling downloads disable user curl configuration" {
+    local aliases_file="${SCRIPT_ROOT}/aliases.sh"
+    local mock_bin="${TEST_ROOT}/rolling-curl-config-bin"
+    local runtime_directory="${TEST_ROOT}/runtime"
+    local curl_arguments="${TEST_ROOT}/rolling-curl-arguments"
+
+    mkdir -p "${mock_bin}" "${runtime_directory}"
+    cat > "${mock_bin}/curl" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" > "${MOCK_CURL_ARGUMENTS}"
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output)
+            output="${2:-}"
+            shift 2
+            ;;
+        --retry | --retry-delay | --connect-timeout | --max-time | --proto)
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "${output}"
+EOF
+    chmod +x "${mock_bin}/curl"
+
+    run bash -c '
+        source "$1/common/home-helpers.sh"
+        home_helpers_render_aliases_content "$2" workstation host_test_machine 1 "" > "$3"
+    ' _ "${REPO_ROOT}" "${MANAGED_ROOT}" "${aliases_file}"
+    assert_success
+
+    run env \
+        MOCK_CURL_ARGUMENTS="${curl_arguments}" \
+        PATH="${mock_bin}:/usr/bin:/bin" \
+        XDG_RUNTIME_DIR="${runtime_directory}" \
+        bash -c '
+            source "$1"
+            _host_run_rolling_installer "https://example.test/install" sh
+        ' _ "${aliases_file}"
+    assert_success
+    run bash -c 'head -n 1 "$1" | cut -d " " -f 1' _ "${curl_arguments}"
+    assert_success
+    assert_equal "${output}" "--disable"
 }
 
 @test "helper rendering validates every argument before writing a partial set" {

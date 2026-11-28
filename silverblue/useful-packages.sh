@@ -7,11 +7,50 @@ ui_section "Useful packages"
 ui_description "Install selected packages inside the toolbox."
 
 SELECTED_PACKAGES=()
-TOOLBOX_PACKAGE_LIST_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/data/toolbox"
+TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/data"
+TOOLBOX_PACKAGE_LIST_DIRECTORY="${TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY}/toolbox"
 TOOLBOX_PACKAGE_LIST_FILE="${TOOLBOX_PACKAGE_LIST_DIRECTORY}/packages.txt"
 
+function ensure_toolbox_package_list_directory {
+    if [ -z "${ROOT_DIRECTORY_STRUCTURE}" ] ||
+        [[ "${ROOT_DIRECTORY_STRUCTURE}" != /* ]] ||
+        [ -L "${ROOT_DIRECTORY_STRUCTURE}" ] ||
+        [ ! -d "${ROOT_DIRECTORY_STRUCTURE}" ]; then
+        ui_error "The managed root is unavailable for the Toolbox package list."
+        return 1
+    fi
+    if [ -L "${TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY}" ]; then
+        ui_error "Refusing to store the Toolbox package list through a symbolic link: ${TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY}."
+        return 1
+    fi
+    if [ ! -e "${TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY}" ]; then
+        mkdir "${TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY}" || return $?
+    fi
+    if [ -L "${TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY}" ] ||
+        [ ! -d "${TOOLBOX_PACKAGE_LIST_DATA_DIRECTORY}" ]; then
+        ui_error "The managed data directory is unsafe for the Toolbox package list."
+        return 1
+    fi
+    if [ -L "${TOOLBOX_PACKAGE_LIST_DIRECTORY}" ]; then
+        ui_error "Refusing to store the Toolbox package list through a symbolic link: ${TOOLBOX_PACKAGE_LIST_DIRECTORY}."
+        return 1
+    fi
+    if [ ! -e "${TOOLBOX_PACKAGE_LIST_DIRECTORY}" ]; then
+        mkdir "${TOOLBOX_PACKAGE_LIST_DIRECTORY}" || return $?
+    fi
+    if [ -L "${TOOLBOX_PACKAGE_LIST_DIRECTORY}" ] ||
+        [ ! -d "${TOOLBOX_PACKAGE_LIST_DIRECTORY}" ]; then
+        ui_error "The Toolbox package-list directory is unsafe."
+        return 1
+    fi
+    if [ -L "${TOOLBOX_PACKAGE_LIST_FILE}" ]; then
+        ui_error "Refusing to replace the Toolbox package list through a symbolic link: ${TOOLBOX_PACKAGE_LIST_FILE}."
+        return 1
+    fi
+}
+
 function save_toolbox_package_list {
-    mkdir -p "${TOOLBOX_PACKAGE_LIST_DIRECTORY}" || return $?
+    ensure_toolbox_package_list_directory || return $?
     (
         TOOLBOX_PACKAGE_LIST_TEMPORARY=$(mktemp \
             "${TOOLBOX_PACKAGE_LIST_FILE}.tmp.XXXXXX") || exit 1
