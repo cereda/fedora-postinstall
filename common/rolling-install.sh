@@ -459,6 +459,7 @@ function rolling_installer_download_raw {
     # installer immediately for an unguarded failure, which would otherwise
     # bypass the temporary-file cleanup in rolling_installer_run.
     curl \
+        --disable \
         --fail \
         --location \
         --silent \

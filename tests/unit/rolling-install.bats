@@ -16,6 +16,9 @@ setup() {
 write_curl_mock() {
     cat > "${MOCK_BIN}/curl" <<'EOF'
 #!/usr/bin/env bash
+if [ -n "${MOCK_CURL_ARGS_FILE:-}" ]; then
+    printf '%s\n' "$*" > "${MOCK_CURL_ARGS_FILE}"
+fi
 output=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -59,6 +62,7 @@ EOF
 
 run_rolling_installer() {
     run env \
+        MOCK_CURL_ARGS_FILE="${TEST_ROOT}/curl-arguments" \
         MOCK_CURL_EMPTY="${MOCK_CURL_EMPTY:-0}" \
         MOCK_CURL_STATUS="${MOCK_CURL_STATUS:-0}" \
         MOCK_INSTALLER_STATUS="${MOCK_INSTALLER_STATUS:-0}" \
@@ -73,6 +77,7 @@ run_rolling_installer() {
 
 run_rolling_installer_with_err_trap() {
     run env \
+        MOCK_CURL_ARGS_FILE="${TEST_ROOT}/curl-arguments" \
         MOCK_CURL_EMPTY="${MOCK_CURL_EMPTY:-0}" \
         MOCK_CURL_STATUS="${MOCK_CURL_STATUS:-0}" \
         MOCK_INSTALLER_STATUS="${MOCK_INSTALLER_STATUS:-0}" \
@@ -97,10 +102,23 @@ run_rolling_installer_with_err_trap() {
     assert_equal "${output}" "--prefix"
 }
 
+@test "rolling installer downloads disable user curl configuration" {
+    write_curl_mock
+
+    run_rolling_installer
+    assert_success
+    run bash -c 'head -n 1 "$1" | cut -d " " -f 1' \
+        _ "${TEST_ROOT}/curl-arguments"
+    assert_success
+    assert_equal "${output}" "--disable"
+}
+
 @test "the Starship caller forwards installer options without a separator" {
     local home_directory="${TEST_ROOT}/home"
 
-    mkdir -p "${home_directory}"
+    mkdir -p \
+        "${home_directory}" \
+        "${TEST_ROOT}/managed/config"
     write_curl_mock
 
     run env \
@@ -124,6 +142,69 @@ run_rolling_installer_with_err_trap() {
     assert_output_contains "-y"
     run bash -c '! grep -Fx -- "--" "$1"' _ "${TEST_ROOT}/installer-arguments"
     assert_success
+}
+
+@test "the Starship configuration rejects a directory target" {
+    local home_directory="${TEST_ROOT}/home"
+
+    mkdir -p \
+        "${home_directory}" \
+        "${TEST_ROOT}/managed/config/starship/starship.toml"
+    write_curl_mock
+
+    run env \
+        HOME="${home_directory}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        ROOT_DIRECTORY_STRUCTURE="${TEST_ROOT}/managed" \
+        SCRIPT_PATH="${REPO_ROOT}" \
+        bash -c '
+            ui_section() { :; }
+            ui_description() { :; }
+            ui_step() { :; }
+            ui_success() { :; }
+            ui_error() { printf "%s\n" "$*" >&2; }
+            ui_confirm() { return 0; }
+            source "$1/common/starship-installation.sh"
+        ' _ "${REPO_ROOT}"
+    assert_failure
+    assert_output_contains "not a regular file"
+    run test -d "${TEST_ROOT}/managed/config/starship/starship.toml"
+    assert_success
+    run find "${TEST_ROOT}/managed/config/starship" \
+        -maxdepth 1 -name 'starship.toml.tmp.*' -print
+    assert_success
+    assert_equal "${output}" ""
+}
+
+@test "the Starship configuration rejects a symbolic-link target" {
+    local home_directory="${TEST_ROOT}/home"
+    local outside_directory="${TEST_ROOT}/outside"
+
+    mkdir -p \
+        "${home_directory}" \
+        "${TEST_ROOT}/managed/config/starship" \
+        "${outside_directory}"
+    ln -s "${outside_directory}" \
+        "${TEST_ROOT}/managed/config/starship/starship.toml"
+    write_curl_mock
+
+    run env \
+        HOME="${home_directory}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        ROOT_DIRECTORY_STRUCTURE="${TEST_ROOT}/managed" \
+        SCRIPT_PATH="${REPO_ROOT}" \
+        bash -c '
+            ui_section() { :; }
+            ui_description() { :; }
+            ui_step() { :; }
+            ui_success() { :; }
+            ui_error() { printf "%s\n" "$*" >&2; }
+            ui_confirm() { return 0; }
+            source "$1/common/starship-installation.sh"
+        ' _ "${REPO_ROOT}"
+    assert_failure
+    assert_output_contains "not a regular file"
+    assert_file_absent "${outside_directory}/starship.toml"
 }
 
 @test "the Distrobox caller forwards installer options without a separator" {

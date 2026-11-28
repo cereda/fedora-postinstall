@@ -21,10 +21,43 @@ if ui_confirm "Install and configure Starship?" "Install" "Skip"; then
     ui_success "Starship was installed."
 
     ui_step "Configuring Starship."
-    mkdir -p "${ROOT_DIRECTORY_STRUCTURE}/config/starship" || return $?
+    STARSHIP_CONFIG_DIRECTORY="${ROOT_DIRECTORY_STRUCTURE}/config/starship"
+    STARSHIP_CONFIG_FILE="${STARSHIP_CONFIG_DIRECTORY}/starship.toml"
+    for STARSHIP_CONFIG_COMPONENT in \
+        "${ROOT_DIRECTORY_STRUCTURE}" \
+        "${ROOT_DIRECTORY_STRUCTURE}/config" \
+        "${STARSHIP_CONFIG_DIRECTORY}"; do
+        if [ -L "${STARSHIP_CONFIG_COMPONENT}" ]; then
+            ui_error "Refusing to configure Starship through a symbolic link: ${STARSHIP_CONFIG_COMPONENT}."
+            return 1
+        fi
+        if [ -e "${STARSHIP_CONFIG_COMPONENT}" ] &&
+            [ ! -d "${STARSHIP_CONFIG_COMPONENT}" ]; then
+            ui_error "The Starship configuration path is not a directory: ${STARSHIP_CONFIG_COMPONENT}."
+            return 1
+        fi
+    done
+    if [ ! -d "${ROOT_DIRECTORY_STRUCTURE}" ] ||
+        [ ! -d "${ROOT_DIRECTORY_STRUCTURE}/config" ]; then
+        ui_error "The managed Starship configuration directory is unavailable."
+        return 1
+    fi
+    if [ ! -e "${STARSHIP_CONFIG_DIRECTORY}" ]; then
+        mkdir "${STARSHIP_CONFIG_DIRECTORY}" || return $?
+    fi
+    if [ -L "${STARSHIP_CONFIG_DIRECTORY}" ] ||
+        [ ! -d "${STARSHIP_CONFIG_DIRECTORY}" ]; then
+        ui_error "The Starship configuration directory became unsafe."
+        return 1
+    fi
+    if [ -L "${STARSHIP_CONFIG_FILE}" ] ||
+        { [ -e "${STARSHIP_CONFIG_FILE}" ] && [ ! -f "${STARSHIP_CONFIG_FILE}" ]; }; then
+        ui_error "The Starship configuration target is not a regular file: ${STARSHIP_CONFIG_FILE}."
+        return 1
+    fi
     (
         STARSHIP_CONFIG_TEMPORARY=$(mktemp \
-            "${ROOT_DIRECTORY_STRUCTURE}/config/starship/starship.toml.tmp.XXXXXX") || exit 1
+            "${STARSHIP_CONFIG_DIRECTORY}/starship.toml.tmp.XXXXXX") || exit 1
         trap 'rm -f -- "${STARSHIP_CONFIG_TEMPORARY}" 2>/dev/null || true' EXIT
         trap 'exit 129' HUP
         trap 'exit 130' INT
@@ -76,8 +109,8 @@ style = "bold green"
 # style = "bright-blue bold"
 TOML
         chmod 0644 "${STARSHIP_CONFIG_TEMPORARY}" || exit $?
-        mv -f -- "${STARSHIP_CONFIG_TEMPORARY}" \
-            "${ROOT_DIRECTORY_STRUCTURE}/config/starship/starship.toml" || exit $?
+        mv -fT -- "${STARSHIP_CONFIG_TEMPORARY}" \
+            "${STARSHIP_CONFIG_FILE}" || exit $?
         trap - EXIT HUP INT TERM
         exit 0
     ) || return $?

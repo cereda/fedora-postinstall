@@ -502,6 +502,8 @@ HOME_HELPERS_ALIASES_HEADER
     printf '_HOST_ROLLING_RECEIVED_SIGNAL_NAME=""\n'
     printf '_HOST_ROLLING_RUNNER_RECEIVED_SIGNAL_STATUS=0\n'
     printf '_HOST_ROLLING_RUNNER_RECEIVED_SIGNAL_NAME=""\n'
+    printf '_HOST_ROLLING_TEMPORARY_PATH=""\n'
+    printf '_HOST_ROLLING_PREVIOUS_EXIT_TRAP=""\n'
     for home_helpers_local_keep_id in "${home_helpers_local_keep_ids[@]}"; do
         [ -n "${home_helpers_local_keep_id}" ] || continue
         printf 'HOME_CONFIGURATION_FLATPAKS_KEEP_FILTER+=("-not" "-name" %q)\n' \
@@ -979,6 +981,45 @@ _host_rolling_execute() {
     return "${host_rolling_status}"
 }
 
+_host_rolling_cleanup_temporary() {
+    local host_rolling_path="${_HOST_ROLLING_TEMPORARY_PATH:-}"
+
+    if [ -z "${host_rolling_path}" ]; then
+        return 0
+    fi
+    if [ -e "${host_rolling_path}" ] || [ -L "${host_rolling_path}" ]; then
+        rm -f -- "${host_rolling_path}" || return $?
+    fi
+    _HOST_ROLLING_TEMPORARY_PATH=""
+    return 0
+}
+
+_host_rolling_prepare_previous_exit_action() {
+    local host_rolling_previous="${1:-}"
+    local host_rolling_action=""
+
+    if [ -z "${host_rolling_previous}" ]; then
+        return 0
+    fi
+    host_rolling_action="${host_rolling_previous#trap -- }"
+    case "${host_rolling_action}" in
+        *" EXIT") host_rolling_action="${host_rolling_action% EXIT}" ;;
+        *) return 0 ;;
+    esac
+    eval "_host_rolling_previous_exit_action() { eval ${host_rolling_action}; }" ||
+        return 1
+}
+
+_host_rolling_exit_cleanup() {
+    local host_rolling_status=0
+
+    _host_rolling_cleanup_temporary || host_rolling_status="${?}"
+    if declare -F _host_rolling_previous_exit_action >/dev/null; then
+        _host_rolling_previous_exit_action || true
+    fi
+    return "${host_rolling_status}"
+}
+
 _host_run_rolling_installer_inner() {
     local host_installer_url="${1:-}"
     local host_installer_shell="${2:-}"
@@ -1000,6 +1041,25 @@ _host_run_rolling_installer_inner() {
     fi
     shift 2
 
+    if [ -n "${_HOST_ROLLING_TEMPORARY_PATH:-}" ]; then
+        host_cleanup_status=0
+        _host_rolling_cleanup_temporary || host_cleanup_status="${?}"
+        if [ "${host_cleanup_status}" -ne 0 ]; then
+            _host_error "Unable to remove the previous rolling installer temporary file."
+            return "${host_cleanup_status}"
+        fi
+        _host_rolling_restore_trap "${_HOST_ROLLING_PREVIOUS_EXIT_TRAP}" EXIT
+        _HOST_ROLLING_PREVIOUS_EXIT_TRAP=""
+        unset -f _host_rolling_previous_exit_action 2>/dev/null || true
+    fi
+
+    host_previous_exit=$(trap -p EXIT) || true
+    _HOST_ROLLING_PREVIOUS_EXIT_TRAP="${host_previous_exit}"
+    if ! _host_rolling_prepare_previous_exit_action "${host_previous_exit}"; then
+        _host_error "Unable to preserve the existing exit cleanup handler."
+        return 1
+    fi
+
     _host_rolling_lock_acquire "${host_installer_url}" ||
         host_lock_status="${?}"
     if [ "${host_lock_status}" -ne 0 ]; then
@@ -1012,10 +1072,11 @@ _host_run_rolling_installer_inner() {
         _host_rolling_lock_release || true
         return 1
     }
-    host_previous_exit=$(trap -p EXIT) || true
-    trap 'rm -f -- "${host_installer_path}" 2>/dev/null || true' EXIT
+    _HOST_ROLLING_TEMPORARY_PATH="${host_installer_path}"
+    trap '_host_rolling_exit_cleanup' EXIT
 
     curl \
+        --disable \
         --fail \
         --location \
         --silent \
@@ -1041,12 +1102,16 @@ _host_run_rolling_installer_inner() {
             host_installer_status="${?}"
     fi
 
-    rm -f -- "${host_installer_path}" ||
-        host_cleanup_status="${?}"
+    host_cleanup_status=0
+    _host_rolling_cleanup_temporary || host_cleanup_status="${?}"
     if [ "${host_cleanup_status}" -ne 0 ]; then
-        # Retry immediately so a transient removal failure cannot leave the
-        # downloaded installer behind when this function returns normally.
-        rm -f -- "${host_installer_path}" 2>/dev/null || true
+        # Retry immediately so a transient removal failure does not produce a
+        # false failure after the downloaded installer was actually removed.
+        if _host_rolling_cleanup_temporary; then
+            host_cleanup_status=0
+        else
+            host_cleanup_status="${?}"
+        fi
     fi
     _host_rolling_lock_release ||
         host_lock_release_status="${?}"
@@ -1059,7 +1124,11 @@ _host_run_rolling_installer_inner() {
     if [ "${host_lock_release_status}" -ne 0 ]; then
         _host_error "The rolling installer completed, but its update lock could not be released."
     fi
-    _host_rolling_restore_trap "${host_previous_exit}" EXIT
+    if [ "${host_cleanup_status}" -eq 0 ]; then
+        _host_rolling_restore_trap "${host_previous_exit}" EXIT
+        _HOST_ROLLING_PREVIOUS_EXIT_TRAP=""
+        unset -f _host_rolling_previous_exit_action 2>/dev/null || true
+    fi
     if [ "${host_installer_status}" -ne 0 ]; then
         return "${host_installer_status}"
     fi
@@ -1130,6 +1199,7 @@ _host_export_permissions() {
     local host_permission_timestamp
     local host_permission_target
     local host_permission_temporary
+    local host_permission_filtered
     local host_permission_status=0
 
     if [ -z "${HOME:-}" ] || [[ "${HOME}" != /* ]]; then
@@ -1177,9 +1247,24 @@ _host_export_permissions() {
             return 1
     fi
     (
-        trap 'rm -f -- "${host_permission_temporary:-}" "${host_permission_temporary:-}.filtered" "${host_permission_target}" 2>/dev/null || true' EXIT
+        host_permission_temporary=""
+        host_permission_filtered=""
+        host_permission_cleanup() {
+            if [ -n "${host_permission_temporary}" ]; then
+                rm -f -- "${host_permission_temporary}" 2>/dev/null || true
+            fi
+            if [ -n "${host_permission_filtered}" ]; then
+                rm -f -- "${host_permission_filtered}" 2>/dev/null || true
+            fi
+            rm -f -- "${host_permission_target}" 2>/dev/null || true
+        }
+        trap 'host_permission_cleanup' EXIT
         host_permission_temporary=$(mktemp \
-            "${host_permission_directory}/.flatpak-permissions.XXXXXX") || exit 1
+            "${host_permission_directory}/.flatpak-permissions.XXXXXX") || {
+            host_permission_status="${?}"
+            exit "${host_permission_status}"
+        }
+        host_permission_filtered="${host_permission_temporary}.filtered"
         trap 'exit 129' HUP
         trap 'exit 130' INT
         trap 'exit 143' TERM
@@ -1192,15 +1277,16 @@ _host_export_permissions() {
         if [ -n "${host_permission_app}" ]; then
             awk -F '\t' -v app="${host_permission_app}" \
                 '$3 == app { print }' "${host_permission_temporary}" \
-                >"${host_permission_temporary}.filtered" || {
+                >"${host_permission_filtered}" || {
                 host_permission_status="${?}"
                 exit "${host_permission_status}"
             }
-            mv -fT -- "${host_permission_temporary}.filtered" \
+            mv -fT -- "${host_permission_filtered}" \
                 "${host_permission_temporary}" || {
                 host_permission_status="${?}"
                 exit "${host_permission_status}"
             }
+            host_permission_filtered=""
         fi
         chmod 0600 "${host_permission_temporary}" || exit $?
         mv -fT -- "${host_permission_temporary}" "${host_permission_target}" || {
@@ -1208,6 +1294,8 @@ _host_export_permissions() {
             _host_error "Unable to store the Flatpak permission export."
             exit "${host_permission_status}"
         }
+        host_permission_temporary=""
+        host_permission_filtered=""
         trap - EXIT HUP INT TERM
         exit 0
     )
@@ -1273,7 +1361,7 @@ _host_reset_all_permissions() {
         fi
     done <"${HOST_PERMISSION_EXPORT}"
     if [ "${host_permission_status}" -ne 0 ]; then
-        _host_error "Unable to reset the Flatpak permissions for ${host_permission_app:-the host}."
+        _host_error "Unable to reset the Flatpak permissions for ${host_permission_app:-the host}. Grants processed before the failure may already be reset; the private export was retained at ${HOST_PERMISSION_EXPORT}."
         return "${host_permission_status}"
     fi
     _host_done "All Flatpak permission-store grants were reset."

@@ -122,9 +122,9 @@ The home-configuration module generates a `host_<machine-name>` command inside t
 - `use server [DIRECTORY] [--public]` serves a directory with `python3`, or the `python` fallback; `DIRECTORY` defaults to the current directory.
 - `playlist URL OUTPUT_DIRECTORY`, `video-downloader OUTPUT_DIRECTORY URL...`, and `audio-to-ogg SOURCE OUTPUT_DIRECTORY` use explicit output directories, stable names, and no-overwrite behavior.
 
-Flatpak permission exports are stored privately under `~/.host/backups/flatpak-permissions/` with mode `0700` for directories and `0600` for files. The export is completed before the reset confirmation is requested, so a declined or failed reset never modifies permissions and an approved reset always has a private copy of the preceding state.
+Flatpak permission exports are stored privately under `~/.host/backups/flatpak-permissions/` with mode `0700` for directories and `0600` for files. The export is completed before the reset confirmation is requested, so a declined reset never modifies permissions and an approved reset always has a private copy of the preceding state. Flatpak does not expose a single atomic command for the complete global reset; if Flatpak reports a failure after some grants were processed, those earlier grants can remain reset. The helper reports this partial-change state and retains the private export for recovery.
 
-On Silverblue, the package choices selected for the Toolbox are saved to `data/toolbox/packages.txt` in the managed directory. Distrobox, direnv, and Starship remain intentionally rolling tools: they are installed outside Fedora's package manager, are not pinned in the extras manifest, and are updated independently through their own installers.
+On Silverblue, the package choices selected for the Toolbox are saved to `data/toolbox/packages.txt` in the managed directory. Distrobox, direnv, and Starship remain intentionally rolling tools: they are installed outside Fedora's package manager, are not pinned in the extras manifest, and are updated independently through their own installers. Rolling-installer downloads disable user-supplied `curl` configuration before fetching the installer script.
 
 ## Automation, logging, and recovery
 

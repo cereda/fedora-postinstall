@@ -669,6 +669,75 @@ EOF
     assert_equal "${output}" ""
 }
 
+@test "generated Flatpak export cleanup does not remove an unrelated filtered file" {
+    local working_directory="${TEST_ROOT}/permission-export-working"
+    local filtered_file="${working_directory}/.filtered"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+    mkdir -p "${working_directory}"
+    printf '%s\n' "unrelated" > "${filtered_file}"
+    cat > "${MOCK_BIN}/mktemp" <<'EOF'
+#!/usr/bin/env bash
+for mock_mktemp_argument in "$@"; do
+    case "${mock_mktemp_argument}" in
+        */.flatpak-permissions.*) exit 9 ;;
+    esac
+done
+exec /usr/bin/mktemp "$@"
+EOF
+    chmod +x "${MOCK_BIN}/mktemp"
+
+    run --separate-stderr env \
+        HOME="${HOME_DIR}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        TMPDIR="${TMP_ROOT}" \
+        bash -c '
+            cd "$2" || exit 1
+            source "$1"
+            shift 2
+            "$@"
+        ' _ "${VALID_DIRECTORY}/scripts/aliases.sh" "${working_directory}" \
+        "host_test_machine" "clean" "permissions" "reset"
+    assert_equal "${status}" "9"
+    run cat "${filtered_file}"
+    assert_success
+    assert_equal "${output}" "unrelated"
+}
+
+@test "generated Flatpak reset discloses grants changed before a failure" {
+    local permission_log="${TEST_ROOT}/flatpak-partial-reset"
+
+    cat > "${MOCK_BIN}/flatpak" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+    permissions)
+        printf 'notifications\tnotification\tcom.example.First\tyes\t0x00\n'
+        printf 'notifications\tnotification\tcom.example.Second\tyes\t0x00\n'
+        ;;
+    permission-reset)
+        printf '%s\n' "${2:-}" >> "${MOCK_PERMISSION_LOG}"
+        if [ "${2:-}" = "com.example.Second" ]; then
+            exit 9
+        fi
+        ;;
+esac
+exit 0
+EOF
+    chmod +x "${MOCK_BIN}/flatpak"
+    export MOCK_PERMISSION_LOG="${permission_log}"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+    run_generated_helper_with_input clean permissions "RESET" reset
+    assert_equal "${status}" "9"
+    assert_stderr_contains "may already be reset"
+    assert_stderr_contains "private export was retained"
+    run cat "${permission_log}"
+    assert_success
+    assert_equal "${output}" $'com.example.First\ncom.example.Second'
+}
+
 @test "generated per-application Flatpak permission reset exports before confirmation" {
     local flavor
     local permission_log="${TEST_ROOT}/flatpak-permission-actions"
