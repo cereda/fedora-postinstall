@@ -48,7 +48,7 @@ format:
 		xargs -0 -r -n1 sh -c 'test ! -f "$$0" || $(SHFMT) -w $(SHFMT_FLAGS) "$$0"'
 
 python:
-	@files="$$(git ls-files '*.py')"; \
+	@files="$$(git ls-files --cached --others --exclude-standard -- '*.py')"; \
 	if [ -n "$$files" ]; then \
 		cache="$$(mktemp -d)"; \
 		trap 'rm -rf "$$cache"' EXIT; \
@@ -56,7 +56,7 @@ python:
 	fi
 
 json:
-	@files="$$(git ls-files '*.json')"; \
+	@files="$$(git ls-files --cached --others --exclude-standard -- '*.json')"; \
 	if [ -n "$$files" ]; then \
 		while IFS= read -r file; do $(JQ) empty "$$file"; done <<< "$$files"; \
 	fi

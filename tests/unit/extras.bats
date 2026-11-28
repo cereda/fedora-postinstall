@@ -315,7 +315,7 @@ write_manifest() {
       "source": "example/fd",
       "assets": {
         "x86_64": {
-          "url": "https://example.test/fd-test-1.tar.gz",
+          "url": "https://github.com/example/fd/releases/download/test-1/fd-test-1.tar.gz",
           "sha256": "${checksum}",
           "type": "tar.gz",
           "files": {"fd": "fd"}
@@ -336,6 +336,8 @@ run_installer() {
         HOME="${TEST_HOME}" \
         XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
+        NO_COLOR=1 \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
         bash "${SANDBOX_REPO}/fedora-postinstall.sh" extras
 }
 
@@ -347,6 +349,8 @@ run_installer_with_pid() {
         HOME="${TEST_HOME}" \
         XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
+        NO_COLOR=1 \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
         bash -c \
             'printf "%s\n" "$$" > "$1"; exec bash "$2" extras' \
             _ "${MOCK_INSTALLER_PID_FILE}" \
@@ -359,6 +363,8 @@ run_extras_command() {
         HOME="${TEST_HOME}" \
         XDG_CACHE_HOME="${TEST_ROOT}/cache" \
         TMPDIR="${TMP_ROOT}" \
+        NO_COLOR=1 \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
         bash "${SANDBOX_REPO}/fedora-postinstall.sh" extras "$@"
 }
 
@@ -395,7 +401,7 @@ run_extras_command() {
 
 @test "the README tool table matches manifest descriptions" {
     run bash -c \
-        "jq -r '.tools | to_entries[] | [.key, .value.description] | @tsv' '${REPO_ROOT}/extras/tools-manifest.json' | while IFS=\$'\\t' read -r tool description; do printf '| \\x60%s\\x60 | %s |\\n' \"\${tool}\" \"\${description}\"; done > '${TEST_ROOT}/expected-tools.md'; sed -n '/^| .*binsider.* |/,/^| .*zellij.* |/p' '${REPO_ROOT}/README.md' > '${TEST_ROOT}/actual-tools.md'; diff -u '${TEST_ROOT}/expected-tools.md' '${TEST_ROOT}/actual-tools.md'"
+        "jq -r '.tools | to_entries[] | [.key, .value.description] | @tsv' '${REPO_ROOT}/extras/tools-manifest.json' | while IFS=\$'\\t' read -r tool description; do printf '| \\x60%s\\x60 | %s |\\n' \"\${tool}\" \"\${description}\"; done > '${TEST_ROOT}/expected-tools.md'; sed -n '/^| .*atuin.* |/,/^| .*zellij.* |/p' '${REPO_ROOT}/README.md' > '${TEST_ROOT}/actual-tools.md'; diff -u '${TEST_ROOT}/expected-tools.md' '${TEST_ROOT}/actual-tools.md'"
     assert_success
 }
 
@@ -431,6 +437,182 @@ run_extras_command() {
         ] | length == 0)
     ' "${REPO_ROOT}/extras/tools-manifest.json"
     assert_success
+}
+
+@test "a hexadecimal release tag is not mistaken for a commit" {
+    local version="1234567890abcdef1234567890abcdef12345678"
+
+    jq --arg version "${version}" '
+        .tools.fd.version = $version |
+        .tools.fd.assets.x86_64.url =
+            ("https://github.com/example/fd/releases/download/" + $version + "/fd-test-1.tar.gz")
+    ' "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_extras_command --tools fd
+    assert_success
+}
+
+@test "the ncdu source cannot use a GitHub release URL" {
+    run python3 "${REPO_ROOT}/extras/manifest_url.py" \
+        --source yorhel/ncdu \
+        --version 2.9.1 \
+        --mode release \
+        --url https://github.com/yorhel/ncdu/releases/download/2.9.1/ncdu
+    assert_failure
+    assert_output_contains "ncdu source requires the ncdu URL mode"
+}
+
+@test "the official ncdu URL remains valid at runtime" {
+    jq '.tools.fd.version = "2.9.1" |
+        .tools.fd.source = "yorhel/ncdu" |
+        .tools.fd.assets.x86_64.url =
+            "https://dev.yorhel.nl/download/ncdu-2.9.1-linux-x86_64.tar.gz"' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_extras_command --tools fd
+    assert_success
+}
+
+@test "a genuine hexadecimal commit URL remains a commit asset" {
+    local version="1234567890abcdef1234567890abcdef12345678"
+
+    jq --arg version "${version}" '
+        .tools.fd.version = $version |
+        .tools.fd.assets.x86_64.url =
+            ("https://raw.githubusercontent.com/example/fd/" + $version + "/fd") |
+        .tools.fd.assets.x86_64.type = "none" |
+        .tools.fd.assets.x86_64.files = {"fd": "fd"}
+    ' "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_extras_command --tools fd
+    assert_success
+}
+
+@test "encoded URL path separators are rejected before download" {
+    jq '.tools.fd.assets.x86_64.url =
+        "https://github.com/example/fd/releases/download/test-1/fd%2F..%2Fother.tar.gz"' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_extras_command --tools fd
+    assert_failure
+    assert_output_contains "does not match its configured source"
+    assert_file_absent "${CURL_LOG}"
+}
+
+@test "an encoded raw commit path separator is rejected before download" {
+    local version="1234567890abcdef1234567890abcdef12345678"
+
+    jq --arg version "${version}" '
+        .tools.fd.version = $version |
+        .tools.fd.assets.x86_64.url =
+            ("https://raw.githubusercontent.com/example/fd/" + $version + "/%2E%2E/fd")
+    ' "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_extras_command --tools fd
+    assert_failure
+    assert_output_contains "does not match its configured source"
+    assert_file_absent "${CURL_LOG}"
+}
+
+@test "a non-hexadecimal raw commit URL is rejected" {
+    jq '.tools.fd.assets.x86_64.url =
+        "https://raw.githubusercontent.com/example/fd/test-1/fd.tar.gz"' \
+        "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
+    mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
+
+    run_extras_command --tools fd --dry-run
+    assert_failure
+    assert_output_contains "does not match its configured source"
+    assert_file_absent "${CURL_LOG}"
+}
+
+@test "the runtime extractor bounds TAR extended metadata" {
+    local archive="${FIXTURE_ROOT}/oversized-pax.tar.gz"
+    local destination="${TEST_ROOT}/pax-extraction"
+
+    run python3 "${REPO_ROOT}/tests/helpers/make-tar-fixture.py" \
+        "${archive}" pax-oversized
+    assert_success
+    run python3 "${REPO_ROOT}/extras/archive-extract.py" \
+        --archive "${archive}" \
+        --type tar.gz \
+        --destination "${destination}" \
+        --members fd
+    assert_failure
+    assert_output_contains "extended metadata exceeds the permitted size"
+    assert_file_absent "${destination}/fd"
+}
+
+@test "the runtime extractor bounds GNU long-name metadata" {
+    local archive="${FIXTURE_ROOT}/oversized-long-name.tar.gz"
+    local destination="${TEST_ROOT}/long-name-extraction"
+
+    run python3 "${REPO_ROOT}/tests/helpers/make-tar-fixture.py" \
+        "${archive}" gnu-long-oversized
+    assert_success
+    run python3 "${REPO_ROOT}/extras/archive-extract.py" \
+        --archive "${archive}" \
+        --type tar.gz \
+        --destination "${destination}" \
+        --members fd
+    assert_failure
+    assert_output_contains "extended metadata exceeds the permitted size"
+    assert_file_absent "${destination}/fd"
+}
+
+@test "the runtime extractor bounds PAX record counts" {
+    local archive="${FIXTURE_ROOT}/too-many-pax-records.tar.gz"
+    local destination="${TEST_ROOT}/too-many-pax-extraction"
+
+    run python3 "${REPO_ROOT}/tests/helpers/make-tar-fixture.py" \
+        "${archive}" pax-too-many-records
+    assert_success
+    run python3 "${REPO_ROOT}/extras/archive-extract.py" \
+        --archive "${archive}" \
+        --type tar.gz \
+        --destination "${destination}" \
+        --members fd
+    assert_failure
+    assert_output_contains "too many records"
+    assert_file_absent "${destination}/fd"
+}
+
+@test "the runtime extractor accepts bounded PAX metadata" {
+    local archive="${FIXTURE_ROOT}/valid-pax.tar.gz"
+    local destination="${TEST_ROOT}/valid-pax-extraction"
+
+    run python3 "${REPO_ROOT}/tests/helpers/make-tar-fixture.py" \
+        "${archive}" valid-pax
+    assert_success
+    run python3 "${REPO_ROOT}/extras/archive-extract.py" \
+        --archive "${archive}" \
+        --type tar.gz \
+        --destination "${destination}" \
+        --members fd
+    assert_success
+    assert_file_exists "${destination}/fd"
+}
+
+@test "the runtime extractor rejects sparse TAR metadata" {
+    local archive="${FIXTURE_ROOT}/sparse-pax.tar.gz"
+    local destination="${TEST_ROOT}/sparse-extraction"
+
+    run python3 "${REPO_ROOT}/tests/helpers/make-tar-fixture.py" \
+        "${archive}" pax-sparse
+    assert_success
+    run python3 "${REPO_ROOT}/extras/archive-extract.py" \
+        --archive "${archive}" \
+        --type tar.gz \
+        --destination "${destination}" \
+        --members fd
+    assert_failure
+    assert_output_contains "sparse metadata is not permitted"
+    assert_file_absent "${destination}/fd"
 }
 
 @test "a real extras run creates and releases its installation lock" {
@@ -773,7 +955,7 @@ PY
     assert_success
     assert_file_exists "${TEST_HOME}/.local/bin/fd"
     assert_file_absent "${MOCK_CHOOSE_MARKER}"
-    run grep -Fx 'https://example.test/fd-test-1.tar.gz' "${CURL_LOG}"
+    run grep -Fx 'https://github.com/example/fd/releases/download/test-1/fd-test-1.tar.gz' "${CURL_LOG}"
     assert_success
 }
 
@@ -793,7 +975,7 @@ PY
 
     run_installer
     assert_success
-    run grep -Fx 'https://example.test/fd-test-1.tar.gz' "${CURL_LOG}"
+    run grep -Fx 'https://github.com/example/fd/releases/download/test-1/fd-test-1.tar.gz' "${CURL_LOG}"
     assert_success
 
     run_installer
@@ -804,7 +986,7 @@ PY
     assert_equal "${output}" "1"
 
     jq '.tools.fd.version = "test-2" |
-        .tools.fd.assets.x86_64.url = "https://example.test/fd-test-2.tar.gz"' \
+        .tools.fd.assets.x86_64.url = "https://github.com/example/fd/releases/download/test-2/fd-test-2.tar.gz"' \
         "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
     mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
     local source_namespace="${TEST_ROOT}/cache/fedora-postinstall/extras/x86_64/fd/.fd-test-1.tar.gz.source.quarantine"
@@ -1194,7 +1376,7 @@ PY
     chmod +x "${FIXTURE_ROOT}/fd-raw"
     export MOCK_CURL_SOURCE="${FIXTURE_ROOT}/fd-raw"
     write_manifest "$(sha256sum "${FIXTURE_ROOT}/fd-raw" | cut -d' ' -f1)"
-    jq '.tools.fd.assets.x86_64.url = "https://example.test/test-1/fd" |
+    jq '.tools.fd.assets.x86_64.url = "https://github.com/example/fd/releases/download/test-1/fd" |
         .tools.fd.assets.x86_64.type = "none" |
         .tools.fd.assets.x86_64.files = {"fd": "fd"}' \
         "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
@@ -1465,13 +1647,13 @@ EOF
 
 @test "the canonical AArch64 architecture selects the declared native asset" {
     jq '.tools.fd.assets.aarch64 = (.tools.fd.assets.x86_64 |
-        .url = "https://example.test/fd-test-1-aarch64.tar.gz")' \
+        .url = "https://github.com/example/fd/releases/download/test-1/fd-test-1-aarch64.tar.gz")' \
         "${MANIFEST_FILE}" > "${MANIFEST_FILE}.new"
     mv "${MANIFEST_FILE}.new" "${MANIFEST_FILE}"
 
     run_installer "aarch64"
     assert_success
-    run grep -Fx 'https://example.test/fd-test-1-aarch64.tar.gz' "${CURL_LOG}"
+    run grep -Fx 'https://github.com/example/fd/releases/download/test-1/fd-test-1-aarch64.tar.gz' "${CURL_LOG}"
     assert_success
     assert_file_exists "${TEST_HOME}/.local/bin/fd"
 }
@@ -1560,7 +1742,7 @@ PY
         "source": "example/f2",
         "assets": {
             "x86_64": {
-                "url": "https://example.test/f2-test-2.tar.gz",
+                "url": "https://github.com/example/f2/releases/download/test-2/f2-test-2.tar.gz",
                 "sha256": .tools.fd.assets.x86_64.sha256,
                 "type": "tar.gz",
                 "files": {"fd": "fd"}
@@ -1584,7 +1766,7 @@ PY
         "source": "example/f2",
         "assets": {
             "x86_64": {
-                "url": "https://example.test/f2-test-2.tar.gz",
+                "url": "https://github.com/example/f2/releases/download/test-2/f2-test-2.tar.gz",
                 "sha256": .tools.fd.assets.x86_64.sha256,
                 "type": "tar.gz",
                 "files": {"fd": "fd"}
@@ -1608,7 +1790,7 @@ PY
         "source": "example/f2",
         "assets": {
             "x86_64": {
-                "url": "https://example.test/f2-test-2.tar.gz",
+                "url": "https://github.com/example/f2/releases/download/test-2/f2-test-2.tar.gz",
                 "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
                 "type": "tar.gz",
                 "files": {"f2": "f2"}

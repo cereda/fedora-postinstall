@@ -146,6 +146,20 @@ run_cli() {
     assert_output_contains "--profile-file requires a value"
 }
 
+@test "snapshot labels and identifiers reject unsafe terminal text" {
+    run_cli snapshot create $'unsafe\nlabel'
+    assert_equal "${status}" "64"
+    assert_output_contains "invalid snapshot label"
+
+    run_cli snapshot diff valid $'unsafe\nidentifier'
+    assert_equal "${status}" "64"
+    assert_output_contains "invalid snapshot identifier"
+
+    run_cli snapshot restore $'unsafe\nidentifier'
+    assert_equal "${status}" "64"
+    assert_output_contains "invalid snapshot identifier"
+}
+
 @test "cache and lock options require values" {
     run_cli plan --cache-dir
     assert_equal "${status}" 64
@@ -162,6 +176,16 @@ run_cli() {
     run_cli plan --lock-file=
     assert_equal "${status}" 64
     assert_output_contains "--lock-file requires a value"
+}
+
+@test "state and log file options reject empty values" {
+    run_cli plan --state-file=
+    assert_equal "${status}" 64
+    assert_output_contains "--state-file requires a value"
+
+    run_cli plan --log-file=
+    assert_equal "${status}" 64
+    assert_output_contains "--log-file requires a value"
 }
 
 @test "plans report the default cache and lock paths" {
@@ -514,6 +538,93 @@ run_cli() {
     assert_success
     run jq -e '.flavor.selected == "workstation"' <<<"${output}"
     assert_success
+}
+
+@test "command-line options replace invalid environment defaults" {
+    run env \
+        HOME="${TEST_HOME}" \
+        XDG_CONFIG_HOME="${TEST_ROOT}/config" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        POSTINSTALL_FLAVOR=invalid \
+        POSTINSTALL_ARCHITECTURE=invalid \
+        POSTINSTALL_LOG_FORMAT=invalid \
+        POSTINSTALL_LOG_LEVEL=invalid \
+        POSTINSTALL_TOOLS=INVALID \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" plan --json \
+        --flavor workstation \
+        --architecture x86_64 \
+        --log-format json \
+        --log-level debug \
+        --tool fd
+    assert_success
+    run jq -e '
+        .flavor.selected == "workstation" and
+        .architecture.selected == "x86_64" and
+        (.extras.tools | length == 1) and
+        (.extras.tools[0].id == "fd")
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "CLI parsing exposes effective command-line replacements" {
+    run env \
+        POSTINSTALL_INVOCATION_DIRECTORY="${TEST_ROOT}" \
+        POSTINSTALL_FLAVOR=invalid \
+        POSTINSTALL_ARCHITECTURE=invalid \
+        POSTINSTALL_LOG_FORMAT=invalid \
+        POSTINSTALL_LOG_LEVEL=invalid \
+        POSTINSTALL_TOOLS=INVALID \
+        bash -c '
+            source "$1/common/cli.sh" || exit 1
+            cli_parse_arguments plan \
+                --flavor workstation \
+                --architecture x86_64 \
+                --log-format json \
+                --log-level debug \
+                --tool fd || exit 1
+            printf "%s\n" "${CLI_FLAVOR}" "${CLI_ARCHITECTURE}" \
+                "${CLI_LOG_FORMAT}" "${CLI_LOG_LEVEL}" \
+                "${CLI_SELECTED_TOOLS[*]}"
+        ' _ "${REPO_ROOT}"
+    assert_success
+    assert_equal "${output}" $'workstation\nx86_64\njson\ndebug\nfd'
+}
+
+@test "all extras replaces an environment tool selection" {
+    run env \
+        HOME="${TEST_HOME}" \
+        XDG_CONFIG_HOME="${TEST_ROOT}/config" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        POSTINSTALL_TOOLS=not-a-tool \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" plan --json \
+        --architecture x86_64 --all-extras
+    assert_success
+    run jq -e '
+        .extras.mode == "all" and
+        (.extras.tools | length > 1) and
+        (any(.extras.tools[]; .id == "fd"))
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "an invalid environment tool selection is rejected without a CLI replacement" {
+    run env \
+        HOME="${TEST_HOME}" \
+        XDG_CONFIG_HOME="${TEST_ROOT}/config" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        TMPDIR="${TMP_ROOT}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        POSTINSTALL_TOOLS=INVALID \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" plan
+    assert_equal "${status}" "64"
+    assert_output_contains "invalid tool identifier"
 }
 
 @test "an explicit install honors the environment flavor" {

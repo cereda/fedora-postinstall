@@ -114,6 +114,26 @@ run_cli() {
     assert_file_absent "${STATE_FILE}"
 }
 
+@test "extras dry-run combines repeated tool options" {
+    run_cli extras --dry-run --tool fd --tools ripgrep,yq --json
+    assert_success
+    run jq -e '
+        .extras.mode == "explicit" and
+        ([.extras.tools[].id] | sort) == ["fd", "ripgrep", "yq"]
+    ' <<<"${output}"
+    assert_success
+}
+
+@test "extras dry-run rejects empty and duplicate tool selections" {
+    run_cli extras --dry-run --tools=
+    assert_equal "${status}" "64"
+    assert_output_contains "tool list must contain at least one identifier"
+
+    run_cli extras --dry-run --tool fd --tools fd
+    assert_equal "${status}" "64"
+    assert_output_contains "duplicate tool identifier"
+}
+
 @test "extras dry-run rejects tools with conflicting command targets" {
     local manifest="${SANDBOX_REPO}/extras/tools-manifest.json"
     jq '.tools.fd.assets.x86_64.files |= with_entries(.value = "rg")' \

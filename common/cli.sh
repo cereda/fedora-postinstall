@@ -24,10 +24,14 @@ declare -g CLI_LOG_FILE=""
 declare -g CLI_LOG_STDOUT=0
 declare -g CLI_LOG_FORMAT="plain"
 declare -g CLI_LOG_LEVEL="info"
+declare -g CLI_LOGGING_EXPLICIT=0
 declare -g CLI_TOOL_SELECTION_MODE="interactive"
 declare -g CLI_TOOL_SELECTION_SOURCE="default"
 declare -ga CLI_SELECTED_TOOLS=()
 declare -g CLI_JSON=0
+declare -g CLI_SUBCOMMAND=""
+declare -ga CLI_ARGUMENTS=()
+declare -ga CLI_SNAPSHOT_PATHS=()
 
 function cli_is_true {
     case "${1:-}" in
@@ -165,11 +169,12 @@ function cli_append_tool {
 function cli_split_tool_list {
     local cli_local_raw="${1:-}"
     local cli_local_item
+    local cli_local_initial_count="${#CLI_SELECTED_TOOLS[@]}"
     local -a cli_local_items=()
 
-    CLI_SELECTED_TOOLS=()
     if [ -z "${cli_local_raw}" ]; then
-        return 0
+        printf 'cli: tool list must contain at least one identifier\n' >&2
+        return 1
     fi
 
     IFS=',' read -r -a cli_local_items <<<"${cli_local_raw}"
@@ -180,6 +185,10 @@ function cli_split_tool_list {
         fi
         cli_append_tool "${cli_local_item}" || return 1
     done
+    if [ "${#CLI_SELECTED_TOOLS[@]}" -eq "${cli_local_initial_count}" ]; then
+        printf 'cli: tool list must contain at least one identifier\n' >&2
+        return 1
+    fi
     return 0
 }
 
@@ -191,6 +200,32 @@ function cli_path_is_valid {
     case "/${cli_local_path}/" in
     */../*) return 1 ;;
     esac
+    return 0
+}
+
+function cli_snapshot_label_is_valid {
+    [[ "${1:-}" =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]{0,119}$ ]]
+}
+
+function cli_snapshot_identifier_is_valid {
+    [[ "${1:-}" =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]{0,127}$ ]]
+}
+
+function cli_snapshot_path_is_valid {
+    local cli_local_path="${1:-}"
+    local cli_local_component
+    local -a cli_local_components=()
+
+    [ -n "${cli_local_path}" ] || return 1
+    [[ "${cli_local_path}" =~ [[:cntrl:]] ]] && return 1
+    [[ "${cli_local_path}" == *\\* ]] && return 1
+    [[ "${cli_local_path}" == /* ]] && return 1
+    IFS='/' read -r -a cli_local_components <<<"${cli_local_path}"
+    for cli_local_component in "${cli_local_components[@]}"; do
+        case "${cli_local_component}" in
+        "" | . | ..) return 1 ;;
+        esac
+    done
     return 0
 }
 
@@ -267,15 +302,23 @@ function cli_finalize_paths {
         return 1
     fi
     CLI_LOCK_FILE=$(cli_normalize_path "${CLI_LOCK_FILE}") || return 1
+
+    if [ -n "${CLI_STATE_FILE}" ]; then
+        if ! cli_path_is_valid "${CLI_STATE_FILE}"; then
+            printf 'cli: invalid state file path\n' >&2
+            return 1
+        fi
+        CLI_STATE_FILE=$(cli_normalize_path "${CLI_STATE_FILE}") || return 1
+    fi
     return 0
 }
 
 function cli_reset_options {
     CLI_COMMAND=""
-    CLI_FLAVOR=""
+    CLI_FLAVOR="${POSTINSTALL_FLAVOR:-}"
     CLI_FLAVOR_EXPLICIT=0
     CLI_FLAVOR_OPTION_EXPLICIT=0
-    CLI_ARCHITECTURE=""
+    CLI_ARCHITECTURE="${POSTINSTALL_ARCHITECTURE:-}"
     CLI_ARCHITECTURE_EXPLICIT=0
     CLI_PROFILE_REQUEST="${POSTINSTALL_PROFILE:-default}"
     CLI_PROFILE_FILE="${POSTINSTALL_PROFILE_FILE:-}"
@@ -297,19 +340,17 @@ function cli_reset_options {
     CLI_LOCK_FILE="${POSTINSTALL_LOCK_FILE:-}"
     CLI_LOG_FILE="${POSTINSTALL_LOG_FILE:-}"
     CLI_LOG_STDOUT=0
-    CLI_LOG_FORMAT="plain"
-    CLI_LOG_LEVEL="info"
+    CLI_LOG_FORMAT="${POSTINSTALL_LOG_FORMAT:-plain}"
+    CLI_LOG_LEVEL="${POSTINSTALL_LOG_LEVEL:-info}"
+    CLI_LOGGING_EXPLICIT=0
     CLI_TOOL_SELECTION_MODE="interactive"
     CLI_TOOL_SELECTION_SOURCE="default"
     CLI_SELECTED_TOOLS=()
     CLI_JSON=0
+    CLI_SUBCOMMAND=""
+    CLI_ARGUMENTS=()
+    CLI_SNAPSHOT_PATHS=()
 
-    if [ -n "${POSTINSTALL_FLAVOR:-}" ]; then
-        cli_set_flavor "${POSTINSTALL_FLAVOR}" || return 1
-    fi
-    if [ -n "${POSTINSTALL_ARCHITECTURE:-}" ]; then
-        cli_set_architecture "${POSTINSTALL_ARCHITECTURE}" || return 1
-    fi
     if cli_is_true "${POSTINSTALL_DRY_RUN:-0}"; then
         CLI_DRY_RUN=1
     fi
@@ -319,15 +360,13 @@ function cli_reset_options {
     if cli_is_true "${POSTINSTALL_LOG_STDOUT:-0}"; then
         CLI_LOG_STDOUT=1
     fi
-    if [ -n "${POSTINSTALL_LOG_FORMAT:-}" ]; then
-        cli_set_log_format "${POSTINSTALL_LOG_FORMAT}" || return 1
-    fi
-    if [ -n "${POSTINSTALL_LOG_LEVEL:-}" ]; then
-        cli_set_log_level "${POSTINSTALL_LOG_LEVEL}" || return 1
+    if [ -n "${POSTINSTALL_LOG_FILE:-}" ] ||
+        [ "${CLI_LOG_STDOUT}" -eq 1 ] ||
+        [ -n "${POSTINSTALL_LOG_FORMAT:-}" ] ||
+        [ -n "${POSTINSTALL_LOG_LEVEL:-}" ]; then
+        CLI_LOGGING_EXPLICIT=1
     fi
     if [ -n "${POSTINSTALL_TOOLS:-}" ]; then
-        cli_split_tool_list "${POSTINSTALL_TOOLS}" || return 1
-        CLI_TOOL_SELECTION_MODE="explicit"
         CLI_TOOL_SELECTION_SOURCE="environment"
     fi
 
@@ -342,6 +381,9 @@ function cli_parse_arguments {
     local cli_local_profile_file_option_set=0
     local cli_local_tool_option_set=0
     local cli_local_all_option_set=0
+    local cli_local_path_option_set=0
+    local cli_local_log_format_option_set=0
+    local cli_local_log_level_option_set=0
 
     cli_reset_options || return 64
 
@@ -467,6 +509,10 @@ function cli_parse_arguments {
             shift
             ;;
         --tools=*)
+            if [ "${CLI_TOOL_SELECTION_SOURCE}" = "environment" ]; then
+                CLI_SELECTED_TOOLS=()
+                CLI_TOOL_SELECTION_SOURCE="command-line"
+            fi
             cli_split_tool_list "${cli_local_argument#*=}" || return 64
             cli_local_tool_option_set=1
             shift
@@ -476,6 +522,10 @@ function cli_parse_arguments {
             if [ "$#" -eq 0 ]; then
                 printf 'cli: --tools requires a value\n' >&2
                 return 64
+            fi
+            if [ "${CLI_TOOL_SELECTION_SOURCE}" = "environment" ]; then
+                CLI_SELECTED_TOOLS=()
+                CLI_TOOL_SELECTION_SOURCE="command-line"
             fi
             cli_split_tool_list "${1}" || return 64
             cli_local_tool_option_set=1
@@ -522,12 +572,17 @@ function cli_parse_arguments {
             shift
             ;;
         --state-file=*)
-            CLI_STATE_FILE="${cli_local_argument#*=}"
+            cli_local_value="${cli_local_argument#*=}"
+            if [ -z "${cli_local_value}" ]; then
+                printf 'cli: --state-file requires a value\n' >&2
+                return 64
+            fi
+            CLI_STATE_FILE="${cli_local_value}"
             shift
             ;;
         --state-file)
             shift
-            if [ "$#" -eq 0 ]; then
+            if [ "$#" -eq 0 ] || [ -z "${1}" ]; then
                 printf 'cli: --state-file requires a value\n' >&2
                 return 64
             fi
@@ -535,20 +590,29 @@ function cli_parse_arguments {
             shift
             ;;
         --log-file=*)
-            CLI_LOG_FILE="${cli_local_argument#*=}"
+            cli_local_value="${cli_local_argument#*=}"
+            if [ -z "${cli_local_value}" ]; then
+                printf 'cli: --log-file requires a value\n' >&2
+                return 64
+            fi
+            CLI_LOG_FILE="${cli_local_value}"
+            CLI_LOGGING_EXPLICIT=1
             shift
             ;;
         --log-file)
             shift
-            if [ "$#" -eq 0 ]; then
+            if [ "$#" -eq 0 ] || [ -z "${1}" ]; then
                 printf 'cli: --log-file requires a value\n' >&2
                 return 64
             fi
             CLI_LOG_FILE="${1}"
+            CLI_LOGGING_EXPLICIT=1
             shift
             ;;
         --log-format=*)
             cli_set_log_format "${cli_local_argument#*=}" || return 64
+            cli_local_log_format_option_set=1
+            CLI_LOGGING_EXPLICIT=1
             shift
             ;;
         --log-format)
@@ -558,10 +622,14 @@ function cli_parse_arguments {
                 return 64
             fi
             cli_set_log_format "${1}" || return 64
+            cli_local_log_format_option_set=1
+            CLI_LOGGING_EXPLICIT=1
             shift
             ;;
         --log-level=*)
             cli_set_log_level "${cli_local_argument#*=}" || return 64
+            cli_local_log_level_option_set=1
+            CLI_LOGGING_EXPLICIT=1
             shift
             ;;
         --log-level)
@@ -571,6 +639,36 @@ function cli_parse_arguments {
                 return 64
             fi
             cli_set_log_level "${1}" || return 64
+            cli_local_log_level_option_set=1
+            CLI_LOGGING_EXPLICIT=1
+            shift
+            ;;
+        --path=*)
+            cli_local_value="${cli_local_argument#*=}"
+            if [ -z "${cli_local_value}" ]; then
+                printf 'cli: --path requires a value\n' >&2
+                return 64
+            fi
+            if ! cli_snapshot_path_is_valid "${cli_local_value}"; then
+                printf 'cli: invalid snapshot path\n' >&2
+                return 64
+            fi
+            CLI_SNAPSHOT_PATHS+=("${cli_local_value}")
+            cli_local_path_option_set=1
+            shift
+            ;;
+        --path)
+            shift
+            if [ "$#" -eq 0 ] || [ -z "${1}" ]; then
+                printf 'cli: --path requires a value\n' >&2
+                return 64
+            fi
+            if ! cli_snapshot_path_is_valid "${1}"; then
+                printf 'cli: invalid snapshot path\n' >&2
+                return 64
+            fi
+            CLI_SNAPSHOT_PATHS+=("${1}")
+            cli_local_path_option_set=1
             shift
             ;;
         --dry-run)
@@ -583,6 +681,7 @@ function cli_parse_arguments {
             ;;
         --log-stdout)
             CLI_LOG_STDOUT=1
+            CLI_LOGGING_EXPLICIT=1
             shift
             ;;
         --json)
@@ -602,40 +701,69 @@ function cli_parse_arguments {
             ;;
         *)
             if [ "${cli_local_command_set}" -eq 1 ]; then
-                printf 'cli: unexpected positional argument: %s\n' \
-                    "${cli_local_argument}" >&2
-                return 64
+                if [ "${CLI_COMMAND}" != "snapshot" ]; then
+                    printf 'cli: unexpected positional argument: %s\n' \
+                        "${cli_local_argument}" >&2
+                    return 64
+                fi
+                CLI_ARGUMENTS+=("${cli_local_argument}")
+            else
+                case "${cli_local_argument}" in
+                install)
+                    CLI_COMMAND="install"
+                    ;;
+                extras)
+                    CLI_COMMAND="extras"
+                    ;;
+                detect)
+                    CLI_COMMAND="detect"
+                    ;;
+                plan)
+                    CLI_COMMAND="plan"
+                    ;;
+                doctor)
+                    CLI_COMMAND="doctor"
+                    ;;
+                snapshot)
+                    CLI_COMMAND="snapshot"
+                    ;;
+                help)
+                    CLI_COMMAND="help"
+                    ;;
+                *)
+                    printf 'cli: unknown command: %s\n' "${cli_local_argument}" >&2
+                    return 64
+                    ;;
+                esac
+                cli_local_command_set=1
             fi
-            case "${cli_local_argument}" in
-            install)
-                CLI_COMMAND="install"
-                ;;
-            extras)
-                CLI_COMMAND="extras"
-                ;;
-            detect)
-                CLI_COMMAND="detect"
-                ;;
-            plan)
-                CLI_COMMAND="plan"
-                ;;
-            help)
-                CLI_COMMAND="help"
-                ;;
-            *)
-                printf 'cli: unknown command: %s\n' "${cli_local_argument}" >&2
-                return 64
-                ;;
-            esac
-            cli_local_command_set=1
             shift
             ;;
         esac
     done
 
     if [ "${cli_local_command_set}" -eq 0 ]; then
-        printf 'cli: a command is required (install, extras, detect, plan, or help)\n' >&2
+        printf 'cli: a command is required (install, extras, detect, plan, doctor, snapshot, or help)\n' >&2
         return 64
+    fi
+
+    # Environment values are defaults. Validate them only after command-line
+    # options have had a chance to replace an invalid environment value.
+    if [ "${CLI_FLAVOR_OPTION_EXPLICIT}" -eq 0 ] &&
+        [ -n "${CLI_FLAVOR}" ]; then
+        cli_set_flavor "${CLI_FLAVOR}" || return 64
+    fi
+    if [ "${CLI_ARCHITECTURE_EXPLICIT}" -eq 0 ] &&
+        [ -n "${CLI_ARCHITECTURE}" ]; then
+        cli_set_architecture "${CLI_ARCHITECTURE}" || return 64
+    fi
+    if [ "${cli_local_log_format_option_set}" -eq 0 ] &&
+        [ -n "${POSTINSTALL_LOG_FORMAT:-}" ]; then
+        cli_set_log_format "${POSTINSTALL_LOG_FORMAT}" || return 64
+    fi
+    if [ "${cli_local_log_level_option_set}" -eq 0 ] &&
+        [ -n "${POSTINSTALL_LOG_LEVEL:-}" ]; then
+        cli_set_log_level "${POSTINSTALL_LOG_LEVEL}" || return 64
     fi
 
     cli_finalize_paths || return 64
@@ -662,16 +790,90 @@ function cli_parse_arguments {
         return 64
     fi
     if [ "${cli_local_all_option_set}" -eq 1 ]; then
-        if [ "${CLI_TOOL_SELECTION_SOURCE}" = "environment" ]; then
-            printf 'cli: --all-extras conflicts with POSTINSTALL_TOOLS\n' >&2
-            return 64
-        fi
         CLI_TOOL_SELECTION_MODE="all"
         CLI_TOOL_SELECTION_SOURCE="command-line"
         CLI_SELECTED_TOOLS=()
     elif [ "${cli_local_tool_option_set}" -eq 1 ]; then
         CLI_TOOL_SELECTION_MODE="explicit"
         CLI_TOOL_SELECTION_SOURCE="command-line"
+    fi
+
+    if [ "${CLI_COMMAND}" = "snapshot" ]; then
+        if [ "${#CLI_ARGUMENTS[@]}" -eq 0 ]; then
+            printf 'cli: snapshot requires a subcommand (create, list, diff, restore, or recover)\n' >&2
+            return 64
+        fi
+        CLI_SUBCOMMAND="${CLI_ARGUMENTS[0]}"
+        CLI_ARGUMENTS=("${CLI_ARGUMENTS[@]:1}")
+        case "${CLI_SUBCOMMAND}" in
+        create)
+            if [ "${#CLI_ARGUMENTS[@]}" -gt 1 ]; then
+                printf 'cli: snapshot create accepts at most one label\n' >&2
+                return 64
+            fi
+            if [ "${#CLI_ARGUMENTS[@]}" -eq 1 ] &&
+                ! cli_snapshot_label_is_valid "${CLI_ARGUMENTS[0]}"; then
+                printf 'cli: invalid snapshot label\n' >&2
+                return 64
+            fi
+            if [ "${cli_local_path_option_set}" -eq 1 ]; then
+                printf 'cli: --path is only valid for snapshot restore\n' >&2
+                return 64
+            fi
+            ;;
+        list)
+            if [ "${#CLI_ARGUMENTS[@]}" -ne 0 ]; then
+                printf 'cli: snapshot list does not accept arguments\n' >&2
+                return 64
+            fi
+            if [ "${cli_local_path_option_set}" -eq 1 ]; then
+                printf 'cli: --path is only valid for snapshot restore\n' >&2
+                return 64
+            fi
+            ;;
+        diff)
+            if [ "${#CLI_ARGUMENTS[@]}" -ne 2 ]; then
+                printf 'cli: snapshot diff requires two snapshot identifiers\n' >&2
+                return 64
+            fi
+            if ! cli_snapshot_identifier_is_valid "${CLI_ARGUMENTS[0]}" ||
+                ! cli_snapshot_identifier_is_valid "${CLI_ARGUMENTS[1]}"; then
+                printf 'cli: invalid snapshot identifier\n' >&2
+                return 64
+            fi
+            if [ "${cli_local_path_option_set}" -eq 1 ]; then
+                printf 'cli: --path is only valid for snapshot restore\n' >&2
+                return 64
+            fi
+            ;;
+        restore)
+            if [ "${#CLI_ARGUMENTS[@]}" -ne 1 ]; then
+                printf 'cli: snapshot restore requires one snapshot identifier\n' >&2
+                return 64
+            fi
+            if ! cli_snapshot_identifier_is_valid "${CLI_ARGUMENTS[0]}"; then
+                printf 'cli: invalid snapshot identifier\n' >&2
+                return 64
+            fi
+            ;;
+        recover)
+            if [ "${#CLI_ARGUMENTS[@]}" -ne 0 ]; then
+                printf 'cli: snapshot recover does not accept arguments\n' >&2
+                return 64
+            fi
+            if [ "${cli_local_path_option_set}" -eq 1 ]; then
+                printf 'cli: --path is only valid for snapshot restore\n' >&2
+                return 64
+            fi
+            ;;
+        *)
+            printf 'cli: unknown snapshot subcommand\n' >&2
+            return 64
+            ;;
+        esac
+    elif [ "${cli_local_path_option_set}" -eq 1 ]; then
+        printf 'cli: --path is only valid for snapshot restore\n' >&2
+        return 64
     fi
 
     case "${CLI_COMMAND}" in
@@ -691,9 +893,29 @@ function cli_parse_arguments {
             return 64
         fi
         ;;
+    doctor)
+        if [ "${CLI_PROFILE_EXPLICIT}" -eq 1 ] ||
+            [ "${CLI_PROFILE_FILE_EXPLICIT}" -eq 1 ] ||
+            [ "${CLI_TOOL_SELECTION_SOURCE}" != "default" ] ||
+            [ "${CLI_DRY_RUN}" -eq 1 ] || [ "${CLI_RESUME}" -eq 1 ] ||
+            [ "${CLI_LOGGING_EXPLICIT}" -eq 1 ]; then
+            printf 'cli: profile, tool, dry-run, resume, and logging options are not valid for doctor\n' >&2
+            return 64
+        fi
+        ;;
+    snapshot)
+        if [ "${CLI_PROFILE_EXPLICIT}" -eq 1 ] ||
+            [ "${CLI_PROFILE_FILE_EXPLICIT}" -eq 1 ] ||
+            [ "${CLI_TOOL_SELECTION_SOURCE}" != "default" ] ||
+            [ "${CLI_DRY_RUN}" -eq 1 ] || [ "${CLI_RESUME}" -eq 1 ] ||
+            [ "${CLI_JSON}" -eq 1 ]; then
+            printf 'cli: profile, tool, dry-run, resume, and JSON options are not valid for snapshot\n' >&2
+            return 64
+        fi
+        ;;
     install)
         if [ "${CLI_JSON}" -eq 1 ] && [ "${CLI_DRY_RUN}" -ne 1 ]; then
-            printf 'cli: --json is only valid for detect, plan, and dry runs\n' >&2
+            printf 'cli: --json is only valid for detect, plan, doctor, and dry runs\n' >&2
             return 64
         fi
         ;;
@@ -705,11 +927,20 @@ function cli_parse_arguments {
             return 64
         fi
         if [ "${CLI_JSON}" -eq 1 ] && [ "${CLI_DRY_RUN}" -ne 1 ]; then
-            printf 'cli: --json is only valid for detect, plan, and dry runs\n' >&2
+            printf 'cli: --json is only valid for detect, plan, doctor, and dry runs\n' >&2
             return 64
         fi
         ;;
     esac
+
+    # Parse an environment tool list only when no command-line selection
+    # replaced it. This keeps an invalid environment value from overriding an
+    # explicit CLI choice while still rejecting the environment on its own.
+    if [ "${CLI_TOOL_SELECTION_SOURCE}" = "environment" ]; then
+        CLI_SELECTED_TOOLS=()
+        cli_split_tool_list "${POSTINSTALL_TOOLS}" || return 64
+        CLI_TOOL_SELECTION_MODE="explicit"
+    fi
 
     return 0
 }
@@ -747,26 +978,39 @@ A command is required. Commands:
   extras               Install only the additional command-line tools
   detect               Show detected OS, flavor, and architecture
   plan                 Show the module plan without changing the system
+  doctor               Run read-only host diagnostics
+  snapshot             Manage snapshots of the managed home directory
   help                 Show this help
+
+Snapshot subcommands:
+  snapshot create [LABEL]       Create a managed-home snapshot
+  snapshot list                 List available snapshots
+  snapshot diff SNAP_A SNAP_B   Compare two snapshots
+  snapshot restore SNAP         Restore a snapshot (optionally with --path)
+  snapshot recover              Recover an interrupted snapshot transaction
+
+Use --flavor to select a flavor-specific managed root when runtime state
+contains more than one root.
 
 Options:
   --flavor NAME        Fedora flavor: auto, workstation, or silverblue
   --architecture NAME  Target architecture: auto, x86_64, or aarch64
   --profile NAME|PATH  Built-in/user profile name or JSON profile path
   --profile-file PATH  Read a profile from an explicit JSON file
-  --cache-dir PATH     Cache directory for verified tool downloads
+  --cache-dir PATH     Cache directory and default installer lock scope
   --lock-file PATH     Installer lock file
   --tool ID            Select an extra tool (repeatable)
   --tools LIST         Select comma-separated extra tools
   --all-extras         Select every extra tool available for the architecture
   --dry-run            Print a non-mutating plan (JSON with --json)
   --resume             Reuse compatible completed state
-  --state-file PATH    Resume state file
+  --state-file PATH    Runtime state for resume and snapshot discovery
   --log-file PATH      Structured runtime log file
   --log-format FORMAT  Runtime log format: plain or json (JSON Lines)
   --log-level LEVEL    Log level: debug, info, warn, or error
   --log-stdout         Also write logs to stdout (JSON logs to stderr)
-  --json               Emit machine-readable detect, plan, or dry-run output
+  --json               Emit machine-readable detect, plan, doctor, or dry-run output
+  --path RELATIVE_PATH Restore one snapshot path (repeatable)
   -h, --help           Show this help
 
 Environment equivalents include POSTINSTALL_FLAVOR, POSTINSTALL_ARCHITECTURE,
@@ -774,6 +1018,7 @@ POSTINSTALL_PROFILE, POSTINSTALL_PROFILE_FILE, POSTINSTALL_TOOLS,
 POSTINSTALL_CACHE_DIR, POSTINSTALL_LOCK_FILE, POSTINSTALL_DRY_RUN,
 POSTINSTALL_RESUME, POSTINSTALL_STATE_FILE, POSTINSTALL_LOG_FILE,
 POSTINSTALL_LOG_FORMAT, POSTINSTALL_LOG_LEVEL, and
-POSTINSTALL_LOG_STDOUT.
+POSTINSTALL_LOG_STDOUT. Command-line options override environment defaults.
+Runtime logging options are not valid for doctor.
 HELP
 }

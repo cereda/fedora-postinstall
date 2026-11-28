@@ -102,8 +102,94 @@ run_runtime_default_state() {
     assert_success
 }
 
+@test "runtime reports numbered module progress and a final summary" {
+    write_module "progress-one.sh" "printf 'one\\n'"
+    write_module "progress-two.sh" "printf 'two\\n'"
+
+    run_runtime "RUNTIME_MODULE_TOTAL=2; RUNTIME_OPERATION_LABEL='Test operation'; runtime_run_module 'modules/progress-one.sh'; runtime_run_module 'modules/progress-two.sh'; runtime_render_result_summary 'Test operation complete' \"\${RUNTIME_MODULE_TOTAL}\" \"\${RUNTIME_MODULE_COMPLETED}\" \"\${RUNTIME_MODULE_SKIPPED}\" \"\${RUNTIME_MODULE_FAILED}\""
+    assert_success
+    assert_output_contains "Module 1/2: modules/progress-one.sh"
+    assert_output_contains "Module 2/2: modules/progress-two.sh"
+    assert_output_contains "Test operation complete: 2 completed, 0 skipped, 0 failed in"
+}
+
+@test "runtime counts profile exclusions and resumed modules as skipped" {
+    write_module "selected.sh" "printf 'selected\\n'"
+
+    run_runtime "RUNTIME_MODULE_TOTAL=2; RUNTIME_PROFILE_ENABLED=1; RUNTIME_PROFILE_MODULES=('modules/selected.sh'); runtime_run_module 'modules/selected.sh'; runtime_run_module 'modules/not-selected.sh'; runtime_render_result_summary 'Selection test' \"\${RUNTIME_MODULE_TOTAL}\" \"\${RUNTIME_MODULE_COMPLETED}\" \"\${RUNTIME_MODULE_SKIPPED}\" \"\${RUNTIME_MODULE_FAILED}\""
+    assert_success
+    assert_output_contains "Module 1/2: modules/selected.sh"
+    assert_output_contains "Module 2/2: modules/not-selected.sh (skipped)"
+    assert_output_contains "Selection test: 1 completed, 1 skipped, 0 failed in"
+
+    write_module "resume-summary.sh" "printf 'run\\n' >> \"\${RUNTIME_TEST_OUTPUT}\""
+    run_runtime "RUNTIME_TEST_OUTPUT='${TEST_ROOT}/resume-summary.txt'; runtime_run_module 'modules/resume-summary.sh'"
+    run_runtime "POSTINSTALL_RESUME=1; RUNTIME_MODULE_TOTAL=1; runtime_run_module 'modules/resume-summary.sh'; runtime_render_result_summary 'Resume test' \"\${RUNTIME_MODULE_TOTAL}\" \"\${RUNTIME_MODULE_COMPLETED}\" \"\${RUNTIME_MODULE_SKIPPED}\" \"\${RUNTIME_MODULE_FAILED}\""
+    assert_success
+    assert_output_contains "Resume: skipping completed module"
+    assert_output_contains "Resume test: 0 completed, 1 skipped, 0 failed in"
+}
+
+@test "runtime reports failed modules in the final summary" {
+    write_module "summary-failure.sh" "return 7"
+
+    run_runtime "RUNTIME_MODULE_TOTAL=1; RUNTIME_OPERATION_LABEL='Failure test'; runtime_run_module 'modules/summary-failure.sh'"
+    assert_equal "${status}" "7"
+    assert_output_contains "Failure test failed: 0 completed, 0 skipped, 1 failed in"
+    refute_output_contains "Traceback"
+}
+
+@test "an explicit zero exit inside a module is reported as a failure" {
+    write_module "explicit-zero-exit.sh" "printf 'first\\n' >> \"\${RUNTIME_TEST_OUTPUT}\"; exit 0"
+    write_module "never-after-zero-exit.sh" "printf 'second\\n' >> \"\${RUNTIME_TEST_OUTPUT}\""
+
+    run_runtime "RUNTIME_TEST_OUTPUT='${TEST_ROOT}/explicit-exit.txt'; RUNTIME_MODULE_TOTAL=2; RUNTIME_OPERATION_LABEL='Explicit exit test'; runtime_run_module 'modules/explicit-zero-exit.sh'; runtime_run_module 'modules/never-after-zero-exit.sh'"
+    assert_equal "${status}" "1"
+    assert_output_contains "terminated unexpectedly with status 1"
+    assert_output_contains "Explicit exit test failed: 0 completed, 0 skipped, 1 failed in"
+
+    run cat "${TEST_ROOT}/explicit-exit.txt"
+    assert_success
+    assert_equal "${output}" "first"
+}
+
+@test "an explicit nonzero exit inside a module preserves its status" {
+    write_module "explicit-seven-exit.sh" "exit 7"
+    write_module "never-after-seven-exit.sh" "printf 'second\\n' >> \"\${RUNTIME_TEST_OUTPUT}\""
+
+    run_runtime "RUNTIME_TEST_OUTPUT='${TEST_ROOT}/explicit-seven-exit.txt'; RUNTIME_MODULE_TOTAL=2; RUNTIME_OPERATION_LABEL='Explicit exit test'; runtime_run_module 'modules/explicit-seven-exit.sh'; runtime_run_module 'modules/never-after-seven-exit.sh'"
+    assert_equal "${status}" "7"
+    assert_output_contains "terminated unexpectedly with status 7"
+    assert_output_contains "Explicit exit test failed: 0 completed, 0 skipped, 1 failed in"
+
+    run test ! -e "${TEST_ROOT}/explicit-seven-exit.txt"
+    assert_success
+}
+
+@test "runtime reports an operation-level failure as one failed unit" {
+    run_runtime "RUNTIME_MODULE_TOTAL=1; RUNTIME_OPERATION_LABEL='Snapshot operation test'; exit 7"
+    assert_equal "${status}" "7"
+    assert_output_contains "Snapshot operation test failed: 0 completed, 0 skipped, 1 failed in"
+}
+
+@test "runtime counts an operation failure after every module completed" {
+    write_module "completed-before-operation-failure.sh" "printf 'complete\\n'"
+
+    run_runtime "RUNTIME_MODULE_TOTAL=1; RUNTIME_OPERATION_LABEL='Post-module failure test'; runtime_run_module 'modules/completed-before-operation-failure.sh'; exit 7"
+    assert_equal "${status}" "7"
+    assert_output_contains "Post-module failure test failed: 1 completed, 0 skipped, 1 failed in"
+}
+
+@test "runtime formats elapsed durations" {
+    run_runtime "runtime_format_duration 3661; runtime_format_duration 61; runtime_format_duration 1"
+    assert_success
+    assert_output_contains "1h 1m 1s"
+    assert_output_contains "1m 1s"
+    assert_output_contains "1s"
+}
+
 @test "runtime preserves global arrays declared by list modules" {
-    run_runtime "runtime_run_module 'extras/tools-list.sh'; test \"\${#CLI_TOOLS_LIST[@]}\" -eq 40"
+    run_runtime "runtime_run_module 'extras/tools-list.sh'; test \"\${#CLI_TOOLS_LIST[@]}\" -eq 45"
     assert_success
 }
 
@@ -132,6 +218,7 @@ run_runtime_default_state() {
     assert_equal "${status}" 7
     assert_output_contains "Module 'modules/nested-failure.sh' failed with status 7"
     assert_output_contains "Module 'modules/nested-parent.sh' failed with status 7"
+    assert_output_contains "Operation failed: 0 completed, 0 skipped, 1 failed in"
 }
 
 @test "a nested module failure cannot be masked by its parent" {
@@ -396,6 +483,39 @@ EOF
     run_runtime "cleanup_failure() { return 1; }; runtime_register_cleanup 'failure' cleanup_failure; runtime_cleanup"
     assert_failure
     assert_equal "${status}" "1"
+}
+
+@test "a cleanup-only failure replaces the success summary and counts one failed unit" {
+    local summary_count
+
+    write_module "cleanup-only-failure.sh" "printf 'module-complete\\n'"
+
+    run_runtime "RUNTIME_MODULE_TOTAL=1; RUNTIME_OPERATION_LABEL='Installation'; runtime_run_module 'modules/cleanup-only-failure.sh'; runtime_render_result_summary 'Installation complete' \"\${RUNTIME_MODULE_TOTAL}\" \"\${RUNTIME_MODULE_COMPLETED}\" \"\${RUNTIME_MODULE_SKIPPED}\" \"\${RUNTIME_MODULE_FAILED}\"; cleanup_failure() { printf 'cleanup-finished\\n'; return 3; }; runtime_register_cleanup 'failure' cleanup_failure"
+    assert_equal "${status}" "3"
+    assert_output_contains "Installation failed: 1 completed, 0 skipped, 1 failed in"
+    refute_output_contains "Installation complete"
+    if [[ "${output}" != *"cleanup-finished"*"Installation failed:"* ]]; then
+        printf 'the result summary was rendered before cleanup completed\noutput:\n%s\n' \
+            "${output}" >&2
+        return 1
+    fi
+
+    summary_count="$(printf '%s\n' "${output}" | grep -Fc 'Installation failed:' || true)"
+    assert_equal "${summary_count}" "1"
+}
+
+@test "a failed summary renderer fails an otherwise successful run" {
+    run_runtime "ui_summary() { return 9; }; runtime_render_result_summary 'Summary test' 0 0 0 0"
+    assert_equal "${status}" "9"
+}
+
+@test "a module failure remains primary when cleanup and summary reporting fail" {
+    write_module "primary-failure.sh" "return 7"
+
+    run_runtime "cleanup_failure() { return 3; }; ui_summary() { return 9; }; runtime_register_cleanup 'failure' cleanup_failure; runtime_run_module 'modules/primary-failure.sh'"
+    assert_equal "${status}" "7"
+    assert_output_contains "Cleanup callback 'failure' failed with status 3"
+    assert_output_contains "Module 'modules/primary-failure.sh' failed with status 7"
 }
 
 @test "an exiting cleanup callback cannot skip installation lock cleanup" {
