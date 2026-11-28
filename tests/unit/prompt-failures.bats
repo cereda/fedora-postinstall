@@ -12,12 +12,14 @@ setup() {
     HOME_DIR="${TEST_ROOT}/home"
     MOCK_BIN="${TEST_ROOT}/bin"
     FILE_COUNTER="${TEST_ROOT}/file-chooser-calls"
+    TMP_ROOT="${TEST_ROOT}/tmp"
     VALID_DIRECTORY="${HOME_DIR}/selected"
     INVALID_DIRECTORY="${TEST_ROOT}/outside-home"
 
     mkdir -p \
         "${HOME_DIR}" \
         "${MOCK_BIN}" \
+        "${TMP_ROOT}" \
         "${VALID_DIRECTORY}" \
         "${INVALID_DIRECTORY}"
     : >"${HOME_DIR}/.bashrc"
@@ -108,6 +110,7 @@ run_home_configuration() {
     local confirm_status="${2}"
     local file_mode="${3}"
     local file_status="${4}"
+    local selected_directory="${5:-${VALID_DIRECTORY}}"
 
     run --separate-stderr env \
         HOME="${HOME_DIR}" \
@@ -116,10 +119,10 @@ run_home_configuration() {
         MACHINE_NAME="test-machine" \
         MOCK_CONFIRM_STATUS="${confirm_status}" \
         MOCK_FILE_COUNTER="${FILE_COUNTER}" \
-        MOCK_FILE_FALLBACK_PATH="${VALID_DIRECTORY}" \
+        MOCK_FILE_FALLBACK_PATH="${selected_directory}" \
         MOCK_FILE_INVALID_PATH="${INVALID_DIRECTORY}" \
         MOCK_FILE_MODE="${file_mode}" \
-        MOCK_FILE_PATH="${VALID_DIRECTORY}" \
+        MOCK_FILE_PATH="${selected_directory}" \
         MOCK_FILE_STATUS="${file_status}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
         bash -c '
@@ -201,6 +204,7 @@ run_generated_helper() {
     run --separate-stderr env \
         HOME="${HOME_DIR}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        TMPDIR="${TMP_ROOT}" \
         bash -c '
             source "$1"
             shift
@@ -214,14 +218,21 @@ run_generated_helper_with_input() {
     local input="${3:-}"
     local helper_file="${VALID_DIRECTORY}/scripts/aliases.sh"
 
+    shift 3
     run --separate-stderr env \
         HOME="${HOME_DIR}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        TMPDIR="${TMP_ROOT}" \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
+        --stdin-only \
+        --stderr-tty \
+        --input "${input}" \
+        -- \
         bash -c '
             source "$1"
             shift
             "$@"
-        ' _ "${helper_file}" "host_test_machine" "${action}" "${target}" <<<"${input}"
+        ' _ "${helper_file}" "host_test_machine" "${action}" "${target}" "$@"
 }
 
 run_generated_helper_with_read_status() {
@@ -234,12 +245,17 @@ run_generated_helper_with_read_status() {
         HOME="${HOME_DIR}" \
         MOCK_READ_STATUS="${read_status}" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        TMPDIR="${TMP_ROOT}" \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
+        --stdin-only \
+        --stderr-tty \
+        -- \
         bash -c '
             read() { return "${MOCK_READ_STATUS}"; }
             source "$1"
             shift
             "$@"
-        ' _ "${helper_file}" "host_test_machine" "${action}" "${target}" < /dev/null
+        ' _ "${helper_file}" "host_test_machine" "${action}" "${target}"
 }
 
 @test "confirmation accepts the affirmative response" {
@@ -393,7 +409,71 @@ run_generated_helper_with_read_status() {
     done
 }
 
-@test "generated Firefox cleanup aborts when confirmation input fails" {
+@test "home configuration rejects a symbolic-link managed root" {
+    local flavor
+    local selected_link="${HOME_DIR}/selected-link"
+
+    ln -s "${VALID_DIRECTORY}" "${selected_link}"
+    for flavor in workstation silverblue; do
+        rm -f "${FILE_COUNTER}"
+        rm -rf "${VALID_DIRECTORY}/scripts"
+
+        run_home_configuration "${flavor}" 1 selected 0 "${selected_link}"
+
+        assert_equal "${status}" "1"
+        assert_stderr_contains "non-symbolic-link"
+        assert_file_call_count 3
+        assert_file_absent "${VALID_DIRECTORY}/scripts/bash.sh"
+    done
+}
+
+@test "home configuration rejects a symbolic-link managed child" {
+    local flavor
+    local selected_directory="${HOME_DIR}/selected-with-linked-child"
+    local outside_directory="${TEST_ROOT}/outside-child"
+
+    mkdir -p "${selected_directory}" "${outside_directory}"
+    ln -s "${outside_directory}" "${selected_directory}/scripts"
+    for flavor in workstation silverblue; do
+        rm -f "${FILE_COUNTER}"
+
+        run_home_configuration "${flavor}" 1 selected 0 "${selected_directory}"
+
+        assert_equal "${status}" "1"
+        assert_stderr_contains "symbolic links"
+        assert_file_call_count 3
+        assert_file_absent "${outside_directory}/bash.sh"
+    done
+}
+
+@test "home configuration accepts a symbolic-link home and updates the canonical Bash entry point" {
+    local flavor
+    local home_link="${TEST_ROOT}/home-link"
+
+    ln -s "${HOME_DIR}" "${home_link}"
+    for flavor in workstation silverblue; do
+        run --separate-stderr env \
+            HOME="${home_link}" \
+            GUM="${MOCK_BIN}/gum" \
+            FLATPAKS_KEEP_CACHE_IDS_JSON="[]" \
+            MACHINE_NAME="test-machine" \
+            MOCK_CONFIRM_STATUS=0 \
+            PATH="${MOCK_BIN}:/usr/bin:/bin" \
+            bash -c '
+                source "$1/common/ui.sh"
+                source "$1/common/ui-prompts.sh"
+                source "$1/common/validation.sh"
+                source "$2"
+            ' _ "${REPO_ROOT}" "${REPO_ROOT}/${flavor}/home-configuration.sh"
+        assert_success
+
+        run grep -F "source ${HOME_DIR}/.test-machine/scripts/bash.sh" \
+            "${HOME_DIR}/.bashrc"
+        assert_success
+    done
+}
+
+@test "generated Firefox cleanup requires a terminal before cleanup" {
     local flavor
     local cleanup_marker="${TEST_ROOT}/firefox-cleanup-called"
 
@@ -429,31 +509,74 @@ EOF
         assert_success
 
         run_generated_helper clean cache
-        assert_equal "${status}" 1
-        assert_stderr_contains "Unable to read the Firefox confirmation"
+        assert_equal "${status}" 64
+        assert_stderr_contains "terminal is required"
         assert_file_absent "${cleanup_marker}"
     done
 }
 
-@test "generated Flatpak permission cleanup passes only the first two columns" {
+@test "generated application-grid reset restores the GNOME schema default" {
+    local gsettings_log="${TEST_ROOT}/gsettings-calls"
+
+    cat > "${MOCK_BIN}/gsettings" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${MOCK_GSETTINGS_LOG}"
+exit "${MOCK_GSETTINGS_STATUS:-0}"
+EOF
+    chmod +x "${MOCK_BIN}/gsettings"
+    export MOCK_GSETTINGS_LOG="${gsettings_log}"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+
+    run_generated_helper_with_input config reset "" app-grid
+    assert_success
+    run cat "${gsettings_log}"
+    assert_success
+    assert_equal "${output}" "reset org.gnome.shell app-picker-layout"
+}
+
+@test "generated application-grid reset preserves the schema reset failure" {
+    cat > "${MOCK_BIN}/gsettings" <<'EOF'
+#!/usr/bin/env bash
+exit 9
+EOF
+    chmod +x "${MOCK_BIN}/gsettings"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+
+    run_generated_helper_with_input config reset "" app-grid
+    assert_equal "${status}" "9"
+}
+
+@test "generated Flatpak permission reset exports the real table before resetting each application" {
     local flavor
-    local permission_log="${TEST_ROOT}/flatpak-permission-removals"
+    local permission_log="${TEST_ROOT}/flatpak-permission-resets"
 
     cat > "${MOCK_BIN}/flatpak" <<'EOF'
 #!/usr/bin/env bash
 case "${1:-}" in
     permissions)
-        printf 'com.example.First\tfiles\tthird\tfourth\n'
-        printf 'com.example.Second\tdbus\tother\n'
-        printf 'com.example.EmptySecond\t\tthird\n'
-        printf 'com.example.NoSecond\n'
+        printf 'notifications\tnotification\tcom.example.First\tyes\t0x00\n'
+        printf 'notifications\tshared\tcom.example.First\tyes\t0x01\n'
+        printf 'notifications\tnotification\tcom.example.Second\tyes\t0x00\n'
+        printf 'notifications\tglobal\t\tyes\t0x00\n'
+        printf 'notifications\tglobal\t\tyes\t0x00\n'
+        ;;
+    permission-reset)
+        if [ "$#" -ne 2 ]; then
+            printf 'unexpected argument count: %s\n' "$#" >&2
+            exit 9
+        fi
+        printf '%s\n' "${2:-}" >> "${MOCK_PERMISSION_LOG}"
         ;;
     permission-remove)
         if [ "$#" -ne 3 ]; then
             printf 'unexpected argument count: %s\n' "$#" >&2
             exit 9
         fi
-        printf '%s\t%s\n' "${2:-}" "${3:-}" >> "${MOCK_PERMISSION_LOG}"
+        printf '%s:%s\n' "${2:-}" "${3:-}" >> "${MOCK_PERMISSION_LOG}"
         ;;
 esac
 exit 0
@@ -467,11 +590,134 @@ EOF
         run_home_configuration "${flavor}" 1 selected 0
         assert_success
 
-        run_generated_helper clean permissions
+        run_generated_helper_with_input clean permissions "RESET" reset
         assert_success
         run cat "${permission_log}"
         assert_success
-        assert_equal "${output}" $'com.example.First\tfiles\ncom.example.Second\tdbus'
+        assert_equal "${output}" $'com.example.First\ncom.example.Second\nnotifications:global'
+
+        run stat -c '%a' "${HOME_DIR}/.host/backups/flatpak-permissions"
+        assert_success
+        assert_equal "${output}" "700"
+        run bash -c '
+            find "$1" -type f -name "flatpak-permissions-*.txt" \
+                -exec stat -c "%a" {} \; |
+                awk "BEGIN { found = 0 } { found = 1; if (\$1 != \"600\") exit 1 } END { exit(found ? 0 : 1) }"
+        ' _ "${HOME_DIR}/.host/backups/flatpak-permissions"
+        assert_success
+    done
+}
+
+@test "generated destructive confirmation requires the prompt destination to be a terminal" {
+    local permission_log="${TEST_ROOT}/flatpak-permission-redirected-stderr"
+    local stderr_file="${TEST_ROOT}/generated-helper-stderr"
+    local helper_file="${VALID_DIRECTORY}/scripts/aliases.sh"
+
+    cat > "${MOCK_BIN}/flatpak" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+    permissions)
+        printf 'notifications\tnotification\tcom.example.First\tyes\t0x00\n'
+        ;;
+    permission-reset)
+        printf '%s\n' "${2:-}" >> "${MOCK_PERMISSION_LOG}"
+        ;;
+esac
+exit 0
+EOF
+    chmod +x "${MOCK_BIN}/flatpak"
+    export MOCK_PERMISSION_LOG="${permission_log}"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+
+    run env \
+        HOME="${HOME_DIR}" \
+        MOCK_STDERR_FILE="${stderr_file}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
+        --stdin-only \
+        --input "RESET" \
+        -- \
+        bash -c '
+            exec 2>"${MOCK_STDERR_FILE}"
+            source "$1"
+            shift
+            "$@"
+        ' _ "${helper_file}" "host_test_machine" clean permissions reset
+    assert_equal "${status}" "64"
+    assert_file_absent "${permission_log}"
+    run cat "${stderr_file}"
+    assert_success
+    assert_output_contains "terminal is required"
+}
+
+@test "generated Flatpak permission export rejects a symlinked backup root" {
+    local outside_root="${TEST_ROOT}/permission-backups-outside"
+
+    mkdir -p "${outside_root}"
+    run_home_configuration workstation 1 selected 0
+    assert_success
+
+    rm -rf "${HOME_DIR}/.host"
+    ln -s "${outside_root}" "${HOME_DIR}/.host"
+    run_generated_helper_with_input clean permissions "RESET" reset
+    assert_equal "${status}" "1"
+    assert_stderr_contains "symbolic link"
+    run find "${outside_root}" -type f -print
+    assert_success
+    assert_equal "${output}" ""
+}
+
+@test "generated per-application Flatpak permission reset exports before confirmation" {
+    local flavor
+    local permission_log="${TEST_ROOT}/flatpak-permission-actions"
+    local permission_export
+
+    cat > "${MOCK_BIN}/flatpak" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+    permissions)
+        printf 'permissions\n' >> "${MOCK_PERMISSION_LOG}"
+        printf 'notifications\tnotification\tcom.example.First\tyes\t0x00\n'
+        printf 'notifications\tnotification\tcom.example.Second\tyes\t0x00\n'
+        ;;
+    permission-reset)
+        printf 'reset:%s\n' "${2:-}" >> "${MOCK_PERMISSION_LOG}"
+        ;;
+esac
+exit 0
+EOF
+    chmod +x "${MOCK_BIN}/flatpak"
+    export MOCK_PERMISSION_LOG="${permission_log}"
+
+    for flavor in workstation silverblue; do
+        : > "${permission_log}"
+        rm -f "${FILE_COUNTER}"
+        run_home_configuration "${flavor}" 1 selected 0
+        assert_success
+
+        run_generated_helper_with_input clean permissions "NO" app com.example.First
+        assert_equal "${status}" "1"
+        run cat "${permission_log}"
+        assert_success
+        assert_equal "${output}" "permissions"
+
+        run_generated_helper_with_input clean permissions "RESET" app com.example.First
+        assert_success
+        run cat "${permission_log}"
+        assert_success
+        assert_equal "${output}" $'permissions\npermissions\nreset:com.example.First'
+
+        run find "${HOME_DIR}/.host/backups/flatpak-permissions" \
+            -type f -name 'flatpak-permissions-com.example.First-*.txt' \
+            -print -quit
+        assert_success
+        permission_export="${output}"
+        run cat "${permission_export}"
+        assert_success
+        assert_output_contains "com.example.First"
+        refute_output_contains "com.example.Second"
     done
 }
 
@@ -630,7 +876,7 @@ EOF
     assert_file_absent "${gio_marker}"
 }
 
-@test "generated Flatpak permission cleanup preserves operational statuses" {
+@test "generated Flatpak permission reset preserves operational statuses" {
     local flavor
 
     cat > "${MOCK_BIN}/flatpak" <<'EOF'
@@ -640,10 +886,10 @@ case "${1:-}" in
         if [ "${MOCK_FLATPAK_PERMISSIONS_STATUS:-0}" -ne 0 ]; then
             exit "${MOCK_FLATPAK_PERMISSIONS_STATUS}"
         fi
-        printf 'com.example.First\tfiles\n'
+        printf 'notifications\tnotification\tcom.example.First\tyes\t0x00\n'
         ;;
-    permission-remove)
-        exit "${MOCK_FLATPAK_REMOVE_STATUS:-0}"
+    permission-reset)
+        exit "${MOCK_FLATPAK_RESET_STATUS:-0}"
         ;;
 esac
 exit 0
@@ -656,16 +902,16 @@ EOF
         assert_success
 
         export MOCK_FLATPAK_PERMISSIONS_STATUS=7
-        run_generated_helper clean permissions
+        run_generated_helper_with_input clean permissions "RESET" reset
         assert_equal "${status}" 7
-        assert_stderr_contains "Unable to read the Flatpak permissions"
+        assert_stderr_contains "Unable to export the Flatpak permissions"
 
         unset MOCK_FLATPAK_PERMISSIONS_STATUS
-        export MOCK_FLATPAK_REMOVE_STATUS=9
-        run_generated_helper clean permissions
+        export MOCK_FLATPAK_RESET_STATUS=9
+        run_generated_helper_with_input clean permissions "RESET" reset
         assert_equal "${status}" 9
-        assert_stderr_contains "unable to reset the Flatpak permission"
-        unset MOCK_FLATPAK_REMOVE_STATUS
+        assert_stderr_contains "Unable to reset the Flatpak permission"
+        unset MOCK_FLATPAK_RESET_STATUS
     done
 }
 
@@ -819,6 +1065,76 @@ EOF
     done
 }
 
+@test "generated Firefox detection fails closed when no detector is available" {
+    local cleanup_marker="${TEST_ROOT}/cache-cleanup-called"
+    local helper_file="${VALID_DIRECTORY}/scripts/aliases.sh"
+
+    cat > "${MOCK_BIN}/bleachbit" <<'EOF'
+#!/usr/bin/env bash
+: > "${MOCK_CLEANUP_MARKER}"
+EOF
+    chmod +x "${MOCK_BIN}/bleachbit"
+    export MOCK_CLEANUP_MARKER="${cleanup_marker}"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+
+    run -127 --separate-stderr env \
+        HOME="${HOME_DIR}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash -c '
+            command() {
+                if [ "${1:-}" = "-v" ]; then
+                    case "${2:-}" in
+                        pidof | pgrep) return 1 ;;
+                    esac
+                fi
+                builtin command "$@"
+            }
+            source "$1"
+            host_test_machine clean cache
+        ' _ "${helper_file}"
+    assert_equal "${status}" "127"
+    assert_stderr_contains "Unable to determine whether Firefox is running"
+    assert_file_absent "${cleanup_marker}"
+}
+
+@test "generated Firefox detection preserves an operational pgrep failure" {
+    local cleanup_marker="${TEST_ROOT}/cache-cleanup-called"
+    local helper_file="${VALID_DIRECTORY}/scripts/aliases.sh"
+
+    cat > "${MOCK_BIN}/pgrep" <<'EOF'
+#!/usr/bin/env bash
+exit 7
+EOF
+    cat > "${MOCK_BIN}/bleachbit" <<'EOF'
+#!/usr/bin/env bash
+: > "${MOCK_CLEANUP_MARKER}"
+EOF
+    chmod +x "${MOCK_BIN}/pgrep" "${MOCK_BIN}/bleachbit"
+    export MOCK_CLEANUP_MARKER="${cleanup_marker}"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+
+    run --separate-stderr env \
+        HOME="${HOME_DIR}" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        bash -c '
+            command() {
+                if [ "${1:-}" = "-v" ] && [ "${2:-}" = "pidof" ]; then
+                    return 1
+                fi
+                builtin command "$@"
+            }
+            source "$1"
+            host_test_machine clean cache
+        ' _ "${helper_file}"
+    assert_equal "${status}" "7"
+    assert_stderr_contains "Unable to determine whether Firefox is running"
+    assert_file_absent "${cleanup_marker}"
+}
+
 @test "an empty Firefox confirmation does not terminate Firefox" {
     local flavor
     local kill_marker="${TEST_ROOT}/killall-called"
@@ -931,6 +1247,10 @@ EOF
         assert_stderr_contains "unable to enumerate Flatpak application data"
         refute_output_contains "unable to enumerate Flatpak application data"
         assert_file_exists "${removable_data}"
+        run find "${TMP_ROOT}" -maxdepth 1 \
+            -type f -name 'fedora-postinstall-flatpak-cleanup.*' -print
+        assert_success
+        assert_equal "${output}" ""
     done
 }
 
@@ -996,4 +1316,41 @@ EOF
         assert_file_exists "${flatpak_marker}"
         assert_file_exists "${retained_data}"
     done
+}
+
+@test "generated mise failures preserve their operational statuses" {
+    cat > "${MOCK_BIN}/mise" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+    self-update)
+        exit "${MOCK_MISE_SELF_UPDATE_STATUS:-0}"
+        ;;
+    upgrade)
+        exit "${MOCK_MISE_UPGRADE_STATUS:-0}"
+        ;;
+    activate)
+        exit "${MOCK_MISE_ACTIVATE_STATUS:-0}"
+        ;;
+esac
+exit 0
+EOF
+    chmod +x "${MOCK_BIN}/mise"
+
+    run_home_configuration workstation 1 selected 0
+    assert_success
+
+    export MOCK_MISE_SELF_UPDATE_STATUS=7
+    run_generated_helper upgrade mise
+    assert_equal "${status}" "7"
+    unset MOCK_MISE_SELF_UPDATE_STATUS
+
+    export MOCK_MISE_UPGRADE_STATUS=8
+    run_generated_helper upgrade mise
+    assert_equal "${status}" "8"
+    unset MOCK_MISE_UPGRADE_STATUS
+
+    export MOCK_MISE_ACTIVATE_STATUS=9
+    run_generated_helper use mise
+    assert_equal "${status}" "9"
+    unset MOCK_MISE_ACTIVATE_STATUS
 }

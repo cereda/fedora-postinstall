@@ -92,6 +92,18 @@ run_installer() {
         XDG_STATE_HOME="${TEST_ROOT}/state" \
         TMPDIR="${TEST_ROOT}/tmp" \
         PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        NO_COLOR=1 \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
+        bash "${SANDBOX_REPO}/fedora-postinstall.sh" "$@"
+}
+
+run_installer_without_terminal() {
+    run env \
+        HOME="${TEST_ROOT}/home" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        TMPDIR="${TEST_ROOT}/tmp" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
         bash "${SANDBOX_REPO}/fedora-postinstall.sh" "$@"
 }
 
@@ -217,6 +229,55 @@ EOF
     assert_failure
     assert_output_contains "Unable to determine the Fedora version"
     refute_output_contains "another installer is already running"
+}
+
+@test "install and extras reject a missing terminal before creating runtime state" {
+    run_installer_without_terminal install --flavor workstation
+    assert_equal "${status}" "64"
+    assert_output_contains "terminal is required"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+
+    run_installer_without_terminal extras --tool fd
+    assert_equal "${status}" "64"
+    assert_output_contains "terminal is required"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+}
+
+@test "interactive commands gate on standard input and standard error" {
+    local stderr_file="${TEST_ROOT}/redirected-stderr"
+    local stdout_file="${TEST_ROOT}/redirected-stdout"
+
+    run env \
+        HOME="${TEST_ROOT}/home" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        TMPDIR="${TEST_ROOT}/tmp" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
+        bash -c \
+            'exec 2>"$1"; exec bash "$2" extras --tool fd' \
+            _ "${stderr_file}" "${SANDBOX_REPO}/fedora-postinstall.sh"
+    assert_equal "${status}" "64"
+    run cat "${stderr_file}"
+    assert_success
+    assert_output_contains "terminal is required"
+    assert_file_absent "${TEST_ROOT}/cache/fedora-postinstall"
+
+    run env \
+        GUM="${TEST_ROOT}/missing-gum" \
+        HOME="${TEST_ROOT}/home" \
+        XDG_CACHE_HOME="${TEST_ROOT}/cache" \
+        XDG_STATE_HOME="${TEST_ROOT}/state" \
+        TMPDIR="${TEST_ROOT}/tmp" \
+        PATH="${MOCK_BIN}:/usr/bin:/bin" \
+        python3 "${REPO_ROOT}/tests/helpers/run-with-pty.py" \
+        --stdin-only \
+        --stderr-tty \
+        bash -c \
+            'exec >"$1"; exec bash "$2" extras --tool fd' \
+            _ "${stdout_file}" "${SANDBOX_REPO}/fedora-postinstall.sh"
+    assert_equal "${status}" "1"
+    assert_output_contains "configured Gum executable is unavailable"
 }
 
 @test "a checkout reached through a directory symlink remains usable" {

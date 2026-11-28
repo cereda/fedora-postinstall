@@ -12,6 +12,11 @@ import sys
 import time
 
 
+MAXIMUM_FILE_SIZE = 256 * 1024 * 1024
+ELF_MACHINE_X86_64 = 62
+ELF_MACHINE_AARCH64 = 183
+
+
 def fail(message: str) -> None:
     print(f"runtime-file: {message}", file=sys.stderr)
     raise SystemExit(1)
@@ -304,6 +309,93 @@ def write_all(descriptor: int, content: bytes) -> None:
         offset += os.write(descriptor, content[offset:])
 
 
+def copy_limited(
+    source_descriptor: int,
+    destination_descriptor: int,
+    source_path: str,
+) -> str:
+    """Copy a regular file while enforcing the shared artifact-size ceiling."""
+    digest = hashlib.sha256()
+    copied = 0
+    while True:
+        chunk = os.read(source_descriptor, 1024 * 1024)
+        if not chunk:
+            break
+        copied += len(chunk)
+        if copied > MAXIMUM_FILE_SIZE:
+            fail(f"file exceeds the supported size: {source_path}")
+        digest.update(chunk)
+        write_all(destination_descriptor, chunk)
+    return digest.hexdigest()
+
+
+def validate_executable_descriptor(
+    descriptor: int,
+    path: str,
+    architecture: str,
+    allow_script: bool,
+) -> None:
+    """Require an ELF executable for the selected architecture, or a declared script."""
+    header = os.pread(descriptor, 20, 0)
+    if allow_script:
+        if header.startswith(b"#!"):
+            return
+        fail(f"declared script does not have a shebang: {path}")
+
+    if len(header) < 20 or header[:4] != b"\x7fELF":
+        fail(f"executable is not an ELF file: {path}")
+    if header[4] != 2:
+        fail(f"executable is not a 64-bit ELF file: {path}")
+    byte_order = header[5]
+    if byte_order == 1:
+        machine = int.from_bytes(header[18:20], "little")
+    elif byte_order == 2:
+        machine = int.from_bytes(header[18:20], "big")
+    else:
+        fail(f"executable has an invalid ELF byte order: {path}")
+
+    expected = {
+        "x86_64": ELF_MACHINE_X86_64,
+        "aarch64": ELF_MACHINE_AARCH64,
+    }.get(architecture)
+    if expected is None:
+        fail(f"unsupported executable architecture: {architecture}")
+    if machine != expected:
+        fail(
+            "executable ELF architecture does not match "
+            f"{architecture}: {path}"
+        )
+
+
+def validate_executable(path: str, architecture: str, mode: str) -> None:
+    if mode not in {"native", "script"}:
+        fail(f"invalid executable validation mode: {mode}")
+    descriptor = open_regular_file(path)
+    try:
+        validate_executable_descriptor(
+            descriptor,
+            path,
+            architecture,
+            allow_script=mode == "script",
+        )
+    finally:
+        os.close(descriptor)
+
+
+def deployment_executable_mode(destination_name: str) -> tuple[str, bool] | None:
+    architecture = os.environ.get("EXTRAS_EXPECTED_ARCHITECTURE", "")
+    if not architecture:
+        return None
+    if architecture not in {"x86_64", "aarch64"}:
+        fail(f"unsupported executable architecture: {architecture}")
+    script_targets = {
+        target
+        for target in os.environ.get("EXTRAS_SCRIPT_TARGETS", "").split(",")
+        if target
+    }
+    return architecture, destination_name in script_targets
+
+
 def write_stream(directory: str) -> None:
     directory_descriptor = open_existing_directory(directory)
     descriptor = -1
@@ -328,10 +420,14 @@ def write_stream(directory: str) -> None:
             fail(f"unable to create a unique file in: {directory}")
 
         digest = hashlib.sha256()
+        copied = 0
         while True:
             chunk = sys.stdin.buffer.read(1024 * 1024)
             if not chunk:
                 break
+            copied += len(chunk)
+            if copied > MAXIMUM_FILE_SIZE:
+                fail(f"downloaded artifact exceeds the supported size: {directory}")
             digest.update(chunk)
             write_all(descriptor, chunk)
 
@@ -390,17 +486,14 @@ def copy_private(source: str, destination: str) -> None:
                 fail(f"destination must not be a symbolic link: {destination}")
             raise
 
-        digest = hashlib.sha256()
-        while True:
-            chunk = os.read(source_descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-            write_all(destination_descriptor, chunk)
+        source_metadata = os.fstat(source_descriptor)
+        if source_metadata.st_size > MAXIMUM_FILE_SIZE:
+            fail(f"source file exceeds the supported size: {source}")
+        digest = copy_limited(source_descriptor, destination_descriptor, source)
 
         os.fchmod(destination_descriptor, 0o600)
         os.fsync(destination_descriptor)
-        print(digest.hexdigest())
+        print(digest)
     except BaseException:
         if destination_descriptor >= 0:
             os.close(destination_descriptor)
@@ -550,6 +643,8 @@ def publish_file(source: str, destination: str, expected_checksum: str) -> None:
         destination_parent = open_parent(destination, strict_final_parent=True)
 
         source_metadata = os.fstat(source_descriptor)
+        if source_metadata.st_size > MAXIMUM_FILE_SIZE:
+            fail(f"source file exceeds the supported size: {source}")
         current_source_metadata = os.stat(
             source_name,
             dir_fd=source_parent,
@@ -609,15 +704,11 @@ def publish_file(source: str, destination: str, expected_checksum: str) -> None:
         if destination_descriptor < 0:
             fail(f"unable to create a unique destination file in: {destination}")
 
-        digest = hashlib.sha256()
-        while True:
-            chunk = os.read(source_descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-            write_all(destination_descriptor, chunk)
-
-        actual_checksum = digest.hexdigest()
+        actual_checksum = copy_limited(
+            source_descriptor,
+            destination_descriptor,
+            source,
+        )
         if actual_checksum != expected_checksum:
             fail(f"source checksum does not match the expected SHA-256 checksum: {source}")
 
@@ -853,6 +944,16 @@ def replace_destination(
         ):
             fail("staged deployment file is not in the destination directory")
 
+        validation = deployment_executable_mode(destination_name)
+        if validation is not None:
+            architecture, allow_script = validation
+            validate_executable_descriptor(
+                staged_descriptor,
+                staged,
+                architecture,
+                allow_script=allow_script,
+            )
+
         os.fsync(staged_descriptor)
         if not sync_directory(destination_parent, "the deployment directory"):
             raise OSError(errno.EIO, "unable to sync the deployment directory")
@@ -880,6 +981,14 @@ def replace_destination(
         )
         if not identities_match(staged_metadata, installed_metadata):
             raise OSError(errno.EIO, "installed deployment file identity changed")
+        if validation is not None:
+            architecture, allow_script = validation
+            validate_executable_descriptor(
+                staged_descriptor,
+                destination,
+                architecture,
+                allow_script=allow_script,
+            )
         print(metadata_identity(staged_metadata))
         return 0
     finally:
@@ -1371,6 +1480,12 @@ def find_verified_artifact(directory: str, expected_checksum: str) -> bool:
                 continue
             if metadata.st_nlink != 1 or metadata.st_uid != os.geteuid():
                 continue
+            if metadata.st_size > MAXIMUM_FILE_SIZE:
+                try:
+                    os.unlink(name, dir_fd=directory_descriptor)
+                except FileNotFoundError:
+                    pass
+                continue
 
             descriptor = -1
             try:
@@ -1636,6 +1751,7 @@ def main() -> None:
         "read": 3,
         "replace-destination": 5,
         "rollback": 8,
+        "validate-executable": 4,
         "validate-file": 3,
         "write": 3,
     }
@@ -1647,8 +1763,8 @@ def main() -> None:
         "publish SOURCE DESTINATION SHA256 or find-verified DIRECTORY SHA256 or "
         "prune-partials DIRECTORY or prune-versions DIRECTORY KEEP_NAME or "
         "rollback DESTINATION BACKUP ORIGINAL_IDENTITY STAGED_IDENTITY "
-        "BACKUP_IDENTITY HAD_ORIGINAL or "
-        "prune-lock-state DIRECTORY SCOPE KEEP_NAME KEEP_DECISION_NAME"
+        "BACKUP_IDENTITY HAD_ORIGINAL or validate-executable PATH ARCHITECTURE "
+        "MODE or prune-lock-state DIRECTORY SCOPE KEEP_NAME KEEP_DECISION_NAME"
     )
 
     if command not in expected_arguments or len(sys.argv) != expected_arguments[command]:
@@ -1695,6 +1811,8 @@ def main() -> None:
                 had_original == "1",
             )
             raise SystemExit(status)
+        elif command == "validate-executable":
+            validate_executable(sys.argv[2], sys.argv[3], sys.argv[4])
         elif command == "validate-file":
             absolute = os.path.abspath(sys.argv[2])
             name = os.path.basename(absolute)

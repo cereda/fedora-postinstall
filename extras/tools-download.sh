@@ -172,6 +172,13 @@ function extras_manifest_version {
         "${EXTRAS_MANIFEST_FILE}"
 }
 
+function extras_manifest_source {
+    local tool="${1}"
+
+    jq -r --arg tool "${tool}" '.tools[$tool].source // empty' \
+        "${EXTRAS_MANIFEST_FILE}"
+}
+
 function extras_validate_manifest_file {
     if [ ! -f "${EXTRAS_MANIFEST_FILE}" ] || [ -L "${EXTRAS_MANIFEST_FILE}" ]; then
         extras_report_error \
@@ -191,6 +198,8 @@ function extras_validate_manifest_file {
             (.value.description | length <= 100) and
             (.value.description | contains("\n") | not) and
             (.value.description | contains("\r") | not) and
+            (.value.source | type == "string") and
+            (.value.source | test("^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")) and
             (.value.assets | type == "object") and
             (.value.assets | length > 0) and
             (((.value.assets | keys) - ["x86_64", "aarch64", "any"]) | length == 0)
@@ -208,7 +217,7 @@ function extras_validate_manifest_entry {
     local architecture="${2}"
     local entry url checksum archive_type source target version filename
     local url_regex='^https://[A-Za-z0-9._~:/?#@!$&()*,;=%+-]+$'
-    local component normalized_source
+    local component normalized_source url_validation
 
     if ! [[ "${tool}" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
         extras_report_error \
@@ -228,6 +237,7 @@ function extras_validate_manifest_entry {
     checksum=$(jq -r '.sha256 // empty' <<<"${entry}")
     archive_type=$(jq -r '.type // empty' <<<"${entry}")
     version=$(extras_manifest_version "${tool}")
+    source=$(extras_manifest_source "${tool}")
 
     if ! [[ "${url}" =~ ${url_regex} ]]; then
         extras_report_error \
@@ -265,6 +275,26 @@ function extras_validate_manifest_entry {
             "invalid version for tool \"${tool}\""
         return 1
     fi
+
+    if ! [[ "${source}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+        extras_report_error \
+            "Invalid source for command-line tool ${tool}." \
+            "invalid source for tool \"${tool}\""
+        return 1
+    fi
+
+    filename=$(basename -- "${url}") || return 1
+    if ! url_validation=$(python3 "${SCRIPT_PATH}/extras/manifest_url.py" \
+        --source "${source}" \
+        --version "${version}" \
+        --url "${url}" \
+        --filename "${filename}" 2>/dev/null); then
+        extras_report_error \
+            "The download URL for command-line tool ${tool} does not match its configured source and pinned release." \
+            "download URL for tool \"${tool}\" does not match its configured source and pinned release"
+        return 1
+    fi
+    filename="${url_validation#*$'\t'}"
 
     if [[ "${url}" != *"${version}"* ]]; then
         extras_report_error \
@@ -323,7 +353,6 @@ function extras_validate_manifest_entry {
         return 1
     fi
 
-    filename=$(basename -- "${url}")
     if [ -z "${filename}" ] || [ "${filename}" = "." ] || [ "${filename}" = ".." ]; then
         extras_report_error \
             "Invalid artifact filename for command-line tool ${tool}." \
@@ -513,6 +542,7 @@ function download_extras_tool {
         extras_report_step "Downloading ${tool} ${version} (${EXTRAS_ARCHITECTURE})." || return $?
         download_result=$(
             curl \
+                --disable \
                 --fail \
                 --location \
                 --silent \

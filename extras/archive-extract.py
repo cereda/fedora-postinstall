@@ -16,9 +16,13 @@ import zipfile
 from pathlib import Path
 from typing import BinaryIO
 
-MAX_MEMBER_COUNT = 10_000
-MAX_MEMBER_SIZE = 1024 * 1024 * 1024
-MAX_TOTAL_SIZE = 2 * 1024 * 1024 * 1024
+from tar_guard import (
+    MAX_MEMBER_COUNT,
+    MAX_MEMBER_SIZE,
+    MAX_TOTAL_SIZE,
+    TarGuardError,
+    bounded_tar_gz,
+)
 
 
 class ArchiveError(Exception):
@@ -94,13 +98,14 @@ def copy_limited(source: BinaryIO, destination: Path, expected_size: int) -> Non
 
 def extract_tar(archive: Path, destination: Path, requested: set[str]) -> None:
     try:
-        with tarfile.open(archive, mode="r:gz") as tar_file:
-            members = tar_file.getmembers()
+        with bounded_tar_gz(archive) as tar_file:
             names: set[str] = set()
             total_size = 0
+            member_count = 0
             regular_members: dict[str, tarfile.TarInfo] = {}
 
-            for member in members:
+            for member in tar_file:
+                member_count += 1
                 name = validate_member_name(member.name)
                 if name in names:
                     fail(f"archive contains a duplicate path: {name!r}")
@@ -110,12 +115,14 @@ def extract_tar(archive: Path, destination: Path, requested: set[str]) -> None:
                     continue
                 if not member.isreg():
                     fail(f"archive contains a link or special file: {name!r}")
+                if getattr(member, "sparse", None):
+                    fail(f"archive contains a sparse member: {name!r}")
                 if member.size < 0 or member.size > MAX_MEMBER_SIZE:
                     fail(f"archive member is too large: {name!r}")
                 total_size += member.size
                 regular_members[name] = member
 
-            validate_limits(len(members), total_size)
+            validate_limits(member_count, total_size)
 
             missing = sorted(requested - set(regular_members))
             if missing:
@@ -128,6 +135,8 @@ def extract_tar(archive: Path, destination: Path, requested: set[str]) -> None:
                     fail(f"unable to read declared archive member: {name!r}")
                 with source:
                     copy_limited(source, destination / name, member.size)
+    except TarGuardError as error:
+        fail(f"unable to inspect tar archive: {error}")
     except (tarfile.TarError, OSError) as error:
         fail(f"unable to inspect tar archive: {error}")
 

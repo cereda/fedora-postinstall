@@ -17,22 +17,29 @@ setup() {
         "${SANDBOX_REPO}/extras" \
         "${SANDBOX_REPO}/modules" \
         "${SANDBOX_REPO}/workstation" \
+        "${SANDBOX_REPO}/silverblue" \
         "${TEST_HOME}" \
         "${MOCK_BIN}"
 
     cp "${REPO_ROOT}/common/runtime.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/runtime-file.py" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/module-inventory.sh" "${SANDBOX_REPO}/common/"
+    cp "${REPO_ROOT}/common/home-helpers.sh" "${SANDBOX_REPO}/common/"
+    cp "${REPO_ROOT}/common/validation.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/flatpaks-installation.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/flatpaks-to-install.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/common/hostname-configuration.sh" "${SANDBOX_REPO}/common/"
     cp "${REPO_ROOT}/workstation/home-configuration.sh" \
         "${SANDBOX_REPO}/workstation/"
+    cp "${REPO_ROOT}/silverblue/home-configuration.sh" \
+        "${SANDBOX_REPO}/silverblue/"
     cp "${REPO_ROOT}/extras/tools-list.sh" "${SANDBOX_REPO}/extras/"
     cp "${REPO_ROOT}/extras/tools-download.sh" "${SANDBOX_REPO}/extras/"
     cp "${REPO_ROOT}/extras/tools-unpacking.sh" "${SANDBOX_REPO}/extras/"
     cp "${REPO_ROOT}/extras/tools-deployment.sh" "${SANDBOX_REPO}/extras/"
     cp "${REPO_ROOT}/extras/archive-extract.py" "${SANDBOX_REPO}/extras/"
+    cp "${REPO_ROOT}/extras/manifest_url.py" "${SANDBOX_REPO}/extras/"
+    cp "${REPO_ROOT}/extras/tar_guard.py" "${SANDBOX_REPO}/extras/"
     cp "${REPO_ROOT}/extras/tools-manifest.json" "${SANDBOX_REPO}/extras/"
     cp "${REPO_ROOT}/extras/additional-tools.sh" "${SANDBOX_REPO}/extras/"
     for wrapper in "${REPO_ROOT}/extras/"*-download.sh; do
@@ -148,7 +155,11 @@ checksum_for() {
         POSTINSTALL_RESUME=1 \
         bash -c "source '${SANDBOX_REPO}/common/runtime.sh'; runtime_initialize; MACHINE_NAME=''; ROOT_DIRECTORY_STRUCTURE=''; COMMAND_NAME=''; TOOLBOX_NAME=''; runtime_run_module 'modules/shared-context.sh' mutating MACHINE_NAME ROOT_DIRECTORY_STRUCTURE COMMAND_NAME TOOLBOX_NAME; printf '%s\\n%s\\n%s\\n%s\\n' \"\${MACHINE_NAME}\" \"\${ROOT_DIRECTORY_STRUCTURE}\" \"\${COMMAND_NAME}\" \"\${TOOLBOX_NAME}\""
     assert_success
-    assert_equal "${output}" $'test-host\n/tmp/test-root\nhost_test_host\nf45-test'
+    assert_output_contains "Module 1: modules/shared-context.sh (already completed)"
+    assert_output_contains "test-host"
+    assert_output_contains "/tmp/test-root"
+    assert_output_contains "host_test_host"
+    assert_output_contains "f45-test"
 }
 
 @test "resume restores retained Flatpak application IDs from a skipped provider" {
@@ -237,6 +248,37 @@ EOF
         printf 'Flatpak suggestion data did not change the consumer fingerprint\n' >&2
         return 1
     fi
+}
+
+@test "home configuration fingerprints include helper and validation dependencies" {
+    local module dependency flavor before after
+
+    for module in \
+        workstation/home-configuration.sh \
+        silverblue/home-configuration.sh; do
+        case "${module}" in
+        workstation/*) flavor="workstation" ;;
+        silverblue/*) flavor="silverblue" ;;
+        esac
+
+        for dependency in \
+            common/home-helpers.sh \
+            common/validation.sh; do
+            cp "${REPO_ROOT}/${dependency}" "${SANDBOX_REPO}/${dependency}"
+            before=$(checksum_for "${module}" \
+                "POSTINSTALL_FLAVOR=${flavor}")
+            printf '\n# dependency change\n' >> \
+                "${SANDBOX_REPO}/${dependency}"
+            after=$(checksum_for "${module}" \
+                "POSTINSTALL_FLAVOR=${flavor}")
+
+            if [ "${before}" = "${after}" ]; then
+                printf '%s did not change the %s fingerprint\n' \
+                    "${dependency}" "${module}" >&2
+                return 1
+            fi
+        done
+    done
 }
 
 @test "malformed resume records do not mark a module complete" {

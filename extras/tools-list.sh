@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 declare -g -t CLI_TOOLS_LIST=(
+    "atuin"
+    "bandwhich"
     "binsider"
     "bottom"
     "bun"
@@ -24,13 +26,16 @@ declare -g -t CLI_TOOLS_LIST=(
     "jless"
     "lapce"
     "lsd"
+    "ncdu"
     "ouch"
     "picocrypt"
     "pingu"
     "procs"
     "ripgrep"
+    "shellcheck"
     "surreal"
     "tlrc"
+    "tokei"
     "trdsql"
     "trippy"
     "trivy"

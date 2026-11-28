@@ -32,7 +32,10 @@ EOF
     PACKAGES_TO_INSTALL=("ack" "bat")
     TOOLBOX_CALLS="${TEST_ROOT}/toolbox-calls"
 
-    toolbox() { printf '%s\n' "$*" >> "${TOOLBOX_CALLS}"; }
+    toolbox() {
+        printf '%s\n' "$*" >> "${TOOLBOX_CALLS}"
+        return "${MOCK_TOOLBOX_INSTALL_STATUS:-0}"
+    }
 }
 
 run_useful_packages() {
@@ -69,8 +72,18 @@ run_useful_packages() {
         refute_output_contains "run sudo dnf install"
     fi
 
-    run grep -F 'PACKAGE_LIST="ack bat"' "${TEST_ROOT}/scripts/aliases.sh"
+    run cat "${TEST_ROOT}/data/toolbox/packages.txt"
     assert_success
+    assert_equal "${output}" $'ack\nbat'
+}
+
+@test "a failed toolbox installation preserves the selected package list" {
+    MOCK_TOOLBOX_INSTALL_STATUS=7 run run_useful_packages "yes"
+    assert_equal "${status}" "7"
+
+    run cat "${TEST_ROOT}/data/toolbox/packages.txt"
+    assert_success
+    assert_equal "${output}" $'ack\nbat'
 }
 
 @test "accepting install now installs selected packages in the toolbox" {

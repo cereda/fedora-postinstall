@@ -16,6 +16,23 @@ declare -g RUNTIME_MODULE_FIRST_ERROR_STATUS=0
 declare -g RUNTIME_MODULE_FIRST_ERROR_COMMAND=""
 declare -g RUNTIME_MODULE_FAILURE_STATUS=0
 declare -g RUNTIME_MODULE_FAILURE_MODULE=""
+declare -g RUNTIME_MODULE_TOTAL=0
+declare -g RUNTIME_MODULE_COMPLETED=0
+declare -g RUNTIME_MODULE_SKIPPED=0
+declare -g RUNTIME_MODULE_FAILED=0
+declare -g RUNTIME_MODULE_FAILED_NAME=""
+declare -g RUNTIME_OPERATION_FAILED=0
+declare -g RUNTIME_MODULE_CURRENT=0
+declare -g RUNTIME_START_EPOCH=0
+declare -g RUNTIME_SUMMARY_RENDERED=0
+declare -g RUNTIME_SUMMARY_PENDING=0
+declare -g RUNTIME_SUMMARY_OPERATION=""
+declare -g RUNTIME_SUMMARY_TOTAL=0
+declare -g RUNTIME_SUMMARY_COMPLETED=0
+declare -g RUNTIME_SUMMARY_SKIPPED=0
+declare -g RUNTIME_SUMMARY_FAILED=0
+declare -g RUNTIME_CLEANUP_FAILURE_STATUS=0
+declare -g RUNTIME_OPERATION_LABEL="Operation"
 declare -ga RUNTIME_MODULE_ERROR_STACK=()
 declare -ga RUNTIME_MODULE_STACK=()
 declare -ga RUNTIME_PROFILE_MODULES=()
@@ -156,6 +173,10 @@ function runtime_module_error_handler {
 
     # Stop at the first unhandled failure. Continuing would allow later
     # commands to run against a partially completed system state.
+    if [ "${#RUNTIME_MODULE_STACK[@]}" -gt 0 ]; then
+        runtime_record_module_failure "${runtime_local_status}" \
+            "${RUNTIME_MODULE_STACK[${#RUNTIME_MODULE_STACK[@]} - 1]}"
+    fi
     exit "${runtime_local_status}"
 }
 
@@ -232,6 +253,7 @@ function runtime_initialize {
     if [ -z "${RUNTIME_RUN_ID}" ]; then
         RUNTIME_RUN_ID="$(date -u +'%Y%m%dT%H%M%SZ')-$$-${RANDOM}"
     fi
+    RUNTIME_START_EPOCH=$(date +%s) || RUNTIME_START_EPOCH=0
     RUNTIME_INITIALIZED=1
     set -E
     set -o pipefail
@@ -3200,12 +3222,23 @@ function runtime_handle_support_loss {
 
 function runtime_cleanup {
     local runtime_local_status="${?}"
+    local runtime_local_original_status="${runtime_local_status}"
     local runtime_local_final_status
     local runtime_local_index
     local runtime_local_name
     local runtime_local_callback
     local runtime_local_callback_status=0
     local runtime_local_cleanup_status=0
+    local runtime_local_failure_count=0
+    local runtime_local_summary_status=0
+    local runtime_local_summary_operation=""
+    local runtime_local_summary_total=0
+    local runtime_local_summary_completed=0
+    local runtime_local_summary_skipped=0
+    local runtime_local_summary_failed=0
+    local runtime_local_summary_required=0
+    local runtime_local_summary_canceled=0
+    local runtime_local_operation_failure=0
 
     # Cleanup callbacks are commands, not command-line argument carriers.
     # Clear the function's inherited positional parameters so every callback
@@ -3220,6 +3253,25 @@ function runtime_cleanup {
         return "${runtime_local_status}"
     fi
     RUNTIME_CLEANING=1
+
+    # Modules are sourced into the installer shell. An explicit `exit` inside
+    # a module therefore bypasses runtime_run_module and reaches this trap
+    # directly. Treat that termination as a module failure instead of
+    # allowing an incomplete installation to report success.
+    if [ "${RUNTIME_MODULE_ACTIVE_DEPTH}" -gt 0 ] &&
+        [ "${RUNTIME_MODULE_FAILURE_STATUS}" -eq 0 ] &&
+        [ "${#RUNTIME_MODULE_STACK[@]}" -gt 0 ]; then
+        runtime_local_index=$((${#RUNTIME_MODULE_STACK[@]} - 1))
+        if [ "${runtime_local_status}" -eq 0 ]; then
+            runtime_local_status=1
+        fi
+        runtime_record_module_failure "${runtime_local_status}" \
+            "${RUNTIME_MODULE_STACK[runtime_local_index]}"
+        RUNTIME_MODULE_FIRST_ERROR_STATUS="${runtime_local_status}"
+        RUNTIME_MODULE_FIRST_ERROR_COMMAND="module termination"
+        runtime_log "ERROR" "Module '${RUNTIME_MODULE_STACK[runtime_local_index]}' terminated unexpectedly with status ${runtime_local_status}." \
+            "runtime.module.failed" || true
+    fi
 
     if [ "${RUNTIME_MODULE_FIRST_ERROR_STATUS}" -ne 0 ] &&
         [ "${#RUNTIME_MODULE_STACK[@]}" -gt 0 ]; then
@@ -3264,6 +3316,8 @@ function runtime_cleanup {
         fi
     done
 
+    RUNTIME_CLEANUP_FAILURE_STATUS="${runtime_local_cleanup_status}"
+
     # Mark cleanup complete before selecting the terminal status. Once
     # RUNTIME_CLEANING is cleared, a shutdown signal that arrives at the
     # status-selection boundary is handled immediately with its own status
@@ -3282,13 +3336,103 @@ function runtime_cleanup {
         # remains visible through its warning log, but a generic cleanup
         # failure must not replace 143, 130, or 129.
         runtime_local_final_status="${RUNTIME_PENDING_SIGNAL_STATUS}"
-    elif [ "${runtime_local_cleanup_status}" -ne 0 ]; then
-        # A cleanup failure must remain visible even when the original command
-        # already failed. Preserve the callback's exact nonzero status when
-        # one was reported instead of masking it with an unrelated status.
+    elif [ "${runtime_local_cleanup_status}" -ne 0 ] &&
+        [ "${runtime_local_status}" -eq 0 ]; then
+        # A cleanup failure is the terminal status only when the operation
+        # itself succeeded. A module's exact failure status remains primary;
+        # the cleanup failure is still visible in the structured warning log.
         runtime_local_final_status="${runtime_local_cleanup_status}"
     fi
-    if [ "${runtime_local_final_status}" -ne "${runtime_local_status}" ]; then
+
+    if [ "${RUNTIME_SUMMARY_PENDING}" -eq 1 ] &&
+        [ "${RUNTIME_PENDING_SIGNAL_STATUS}" -eq 0 ]; then
+        case "${RUNTIME_SUMMARY_OPERATION}" in
+        *canceled* | *cancelled*) runtime_local_summary_canceled=1 ;;
+        esac
+    fi
+
+    runtime_local_operation_failure=0
+    if [ "${RUNTIME_SUMMARY_PENDING}" -eq 1 ] &&
+        [ "${runtime_local_summary_canceled}" -eq 1 ]; then
+        # An intentional cancellation is not an additional failed unit.
+        runtime_local_operation_failure=0
+    elif [ "${runtime_local_final_status}" -ne 0 ]; then
+        # Any terminal failure without a failed module is operation-level,
+        # including a failure after every counted module has completed.
+        runtime_local_operation_failure=1
+    fi
+
+    if [ "${runtime_local_cleanup_status}" -ne 0 ]; then
+        # Cleanup is part of the operation. Its failure remains operation-level
+        # even when every module completed successfully.
+        RUNTIME_OPERATION_FAILED=1
+    elif [ "${runtime_local_final_status}" -ne 0 ] &&
+        [ "${RUNTIME_MODULE_FAILED}" -eq 0 ] &&
+        [ "${RUNTIME_OPERATION_FAILED}" -eq 0 ] &&
+        [ "${runtime_local_operation_failure}" -eq 1 ]; then
+        # A failure before all counted units completed is an operation-level
+        # failure rather than a module failure. Keep the two categories
+        # distinct while still reporting one failed unit in the summary.
+        RUNTIME_OPERATION_FAILED=1
+    fi
+
+    if [ "${RUNTIME_SUMMARY_PENDING}" -eq 1 ]; then
+        runtime_local_summary_required=1
+        runtime_local_summary_operation="${RUNTIME_SUMMARY_OPERATION}"
+        runtime_local_summary_total="${RUNTIME_SUMMARY_TOTAL}"
+        runtime_local_summary_completed="${RUNTIME_SUMMARY_COMPLETED}"
+        runtime_local_summary_skipped="${RUNTIME_SUMMARY_SKIPPED}"
+        runtime_local_summary_failed="${RUNTIME_SUMMARY_FAILED}"
+
+        if [ "${runtime_local_cleanup_status}" -ne 0 ] ||
+            { [ "${runtime_local_final_status}" -ne 0 ] &&
+                [ "${runtime_local_summary_canceled}" -ne 1 ]; }; then
+            case "${RUNTIME_SUMMARY_OPERATION}" in
+            *" complete")
+                runtime_local_summary_operation="${RUNTIME_SUMMARY_OPERATION% complete} failed"
+                ;;
+            *)
+                runtime_local_summary_operation="${RUNTIME_OPERATION_LABEL} failed"
+                ;;
+            esac
+            runtime_local_summary_total="${RUNTIME_MODULE_TOTAL}"
+            runtime_local_summary_completed="${RUNTIME_MODULE_COMPLETED}"
+            runtime_local_summary_skipped="${RUNTIME_MODULE_SKIPPED}"
+            runtime_local_failure_count=$((RUNTIME_MODULE_FAILED + RUNTIME_OPERATION_FAILED))
+            runtime_local_summary_failed="${runtime_local_failure_count}"
+        fi
+    elif [ "${runtime_local_final_status}" -ne 0 ]; then
+        runtime_local_summary_required=1
+        runtime_local_summary_operation="${RUNTIME_OPERATION_LABEL} failed"
+        runtime_local_summary_total="${RUNTIME_MODULE_TOTAL}"
+        runtime_local_summary_completed="${RUNTIME_MODULE_COMPLETED}"
+        runtime_local_summary_skipped="${RUNTIME_MODULE_SKIPPED}"
+        runtime_local_failure_count=$((RUNTIME_MODULE_FAILED + RUNTIME_OPERATION_FAILED))
+        runtime_local_summary_failed="${runtime_local_failure_count}"
+    fi
+
+    if [ "${runtime_local_summary_required}" -eq 1 ] &&
+        [ "${RUNTIME_SUMMARY_RENDERED}" -ne 1 ]; then
+        if runtime_emit_result_summary \
+            "${runtime_local_summary_operation}" \
+            "${runtime_local_summary_total}" \
+            "${runtime_local_summary_completed}" \
+            "${runtime_local_summary_skipped}" \
+            "${runtime_local_summary_failed}"; then
+            runtime_local_summary_status=0
+        else
+            runtime_local_summary_status="${?}"
+        fi
+        RUNTIME_SUMMARY_PENDING=0
+        if [ "${runtime_local_summary_status}" -ne 0 ] &&
+            [ "${runtime_local_final_status}" -eq 0 ]; then
+            # Preserve the historical behavior where a failed summary renderer
+            # makes an otherwise successful operation fail.
+            runtime_local_final_status="${runtime_local_summary_status}"
+            RUNTIME_OPERATION_FAILED=1
+        fi
+    fi
+    if [ "${runtime_local_final_status}" -ne "${runtime_local_original_status}" ]; then
         exit "${runtime_local_final_status}"
     fi
     return "${runtime_local_final_status}"
@@ -3632,6 +3776,18 @@ function runtime_module_checksum {
     local -a runtime_local_dependency_modules_list=()
 
     case "${runtime_local_module}" in
+    common/distrobox-installation.sh | common/direnv-installation.sh | common/starship-installation.sh)
+        runtime_local_dependencies+=("${SCRIPT_PATH}/common/rolling-install.sh")
+        ;;
+    workstation/home-configuration.sh | silverblue/home-configuration.sh)
+        # Both home-configuration modules consume the shared helper generator
+        # and validation functions, so changes to either must invalidate their
+        # saved resume fingerprints.
+        runtime_local_dependencies+=(
+            "${SCRIPT_PATH}/common/home-helpers.sh"
+            "${SCRIPT_PATH}/common/validation.sh"
+        )
+        ;;
     extras/additional-tools.sh)
         runtime_local_dependencies=(
             "${SCRIPT_PATH}/extras/tools-list.sh"
@@ -3639,6 +3795,8 @@ function runtime_module_checksum {
             "${SCRIPT_PATH}/extras/tools-unpacking.sh"
             "${SCRIPT_PATH}/extras/tools-deployment.sh"
             "${SCRIPT_PATH}/extras/archive-extract.py"
+            "${SCRIPT_PATH}/extras/manifest_url.py"
+            "${SCRIPT_PATH}/extras/tar_guard.py"
             "${SCRIPT_PATH}/extras/tools-manifest.json"
         )
         for runtime_local_dependency in "${SCRIPT_PATH}/extras/"*-download.sh; do
@@ -3968,12 +4126,168 @@ function runtime_mark_module_complete {
     runtime_state_append_record "module" "${runtime_local_key}" "${runtime_local_checksum}"
 }
 
+function runtime_elapsed_seconds {
+    local runtime_local_now=0
+
+    if [ "${RUNTIME_START_EPOCH}" -le 0 ]; then
+        printf '%s\n' "0"
+        return 0
+    fi
+    runtime_local_now=$(date +%s) || runtime_local_now="${RUNTIME_START_EPOCH}"
+    if [ "${runtime_local_now}" -lt "${RUNTIME_START_EPOCH}" ]; then
+        runtime_local_now="${RUNTIME_START_EPOCH}"
+    fi
+    printf '%s\n' "$((runtime_local_now - RUNTIME_START_EPOCH))"
+}
+
+function runtime_format_duration {
+    local runtime_local_seconds="${1:-0}"
+    local runtime_local_hours
+    local runtime_local_minutes
+    local runtime_local_remainder
+
+    if ! [[ "${runtime_local_seconds}" =~ ^[0-9]+$ ]]; then
+        runtime_local_seconds=0
+    fi
+    runtime_local_hours=$((runtime_local_seconds / 3600))
+    runtime_local_minutes=$(((runtime_local_seconds % 3600) / 60))
+    runtime_local_remainder=$((runtime_local_seconds % 60))
+    if [ "${runtime_local_hours}" -gt 0 ]; then
+        printf '%dh %dm %ds\n' \
+            "${runtime_local_hours}" "${runtime_local_minutes}" \
+            "${runtime_local_remainder}"
+        return 0
+    fi
+    if [ "${runtime_local_minutes}" -gt 0 ]; then
+        printf '%dm %ds\n' "${runtime_local_minutes}" "${runtime_local_remainder}"
+        return 0
+    fi
+    printf '%ds\n' "${runtime_local_remainder}"
+}
+
+function runtime_emit_result_summary {
+    local runtime_local_operation="${1:-Operation}"
+    local runtime_local_total="${2:-0}"
+    local runtime_local_completed="${3:-0}"
+    local runtime_local_skipped="${4:-0}"
+    local runtime_local_failed="${5:-0}"
+    local runtime_local_duration
+    local runtime_local_message
+    local runtime_local_status=0
+
+    if [ "${RUNTIME_SUMMARY_RENDERED}" -eq 1 ]; then
+        return 0
+    fi
+    runtime_local_duration=$(runtime_format_duration "$(runtime_elapsed_seconds)") ||
+        return 1
+    runtime_local_message="${runtime_local_operation}: ${runtime_local_completed} completed, ${runtime_local_skipped} skipped, ${runtime_local_failed} failed in ${runtime_local_duration}."
+    if declare -F ui_summary >/dev/null; then
+        if ui_summary "${runtime_local_message}"; then
+            runtime_local_status=0
+        else
+            runtime_local_status="${?}"
+        fi
+    else
+        if printf '%s\n' "${runtime_local_message}"; then
+            runtime_local_status=0
+        else
+            runtime_local_status="${?}"
+        fi
+    fi
+    if [ "${runtime_local_status}" -ne 0 ]; then
+        return "${runtime_local_status}"
+    fi
+    RUNTIME_SUMMARY_RENDERED=1
+    return 0
+}
+
+function runtime_render_result_summary {
+    local runtime_local_operation="${1:-Operation}"
+    local runtime_local_total="${2:-0}"
+    local runtime_local_completed="${3:-0}"
+    local runtime_local_skipped="${4:-0}"
+    local runtime_local_failed="${5:-0}"
+
+    if [ "${RUNTIME_SUMMARY_RENDERED}" -eq 1 ]; then
+        return 0
+    fi
+
+    # The root flow requests its final summary immediately before the EXIT
+    # trap. Keep that request pending so cleanup callbacks can determine the
+    # terminal outcome before a success summary is rendered.
+    if [ "${RUNTIME_INITIALIZED}" -eq 1 ] && [ "${RUNTIME_CLEANED}" -ne 1 ]; then
+        RUNTIME_SUMMARY_PENDING=1
+        RUNTIME_SUMMARY_OPERATION="${runtime_local_operation}"
+        RUNTIME_SUMMARY_TOTAL="${runtime_local_total}"
+        RUNTIME_SUMMARY_COMPLETED="${runtime_local_completed}"
+        RUNTIME_SUMMARY_SKIPPED="${runtime_local_skipped}"
+        RUNTIME_SUMMARY_FAILED="${runtime_local_failed}"
+        return 0
+    fi
+
+    if [ "${RUNTIME_CLEANED}" -eq 1 ] &&
+        [ "${RUNTIME_OPERATION_FAILED}" -eq 1 ]; then
+        runtime_local_operation="${RUNTIME_OPERATION_LABEL} failed"
+        runtime_local_total="${RUNTIME_MODULE_TOTAL}"
+        runtime_local_completed="${RUNTIME_MODULE_COMPLETED}"
+        runtime_local_skipped="${RUNTIME_MODULE_SKIPPED}"
+        runtime_local_failed=$((RUNTIME_MODULE_FAILED + RUNTIME_OPERATION_FAILED))
+    fi
+
+    runtime_emit_result_summary \
+        "${runtime_local_operation}" \
+        "${runtime_local_total}" \
+        "${runtime_local_completed}" \
+        "${runtime_local_skipped}" \
+        "${runtime_local_failed}"
+}
+
+function runtime_render_module_progress {
+    local runtime_local_module="${1:-unknown}"
+    local runtime_local_state="${2:-}"
+    local runtime_local_position
+    local runtime_local_message
+
+    if [ "${RUNTIME_MODULE_TOTAL}" -gt 0 ]; then
+        runtime_local_position=$((RUNTIME_MODULE_COMPLETED + \
+            RUNTIME_MODULE_SKIPPED + RUNTIME_MODULE_FAILED + 1))
+        runtime_local_message="Module ${runtime_local_position}/${RUNTIME_MODULE_TOTAL}: ${runtime_local_module}"
+    else
+        runtime_local_position=$((RUNTIME_MODULE_COMPLETED + \
+            RUNTIME_MODULE_SKIPPED + RUNTIME_MODULE_FAILED + 1))
+        runtime_local_message="Module ${runtime_local_position}: ${runtime_local_module}"
+    fi
+    if [ -n "${runtime_local_state}" ]; then
+        runtime_local_message+=" (${runtime_local_state})"
+    fi
+    if declare -F ui_step >/dev/null; then
+        ui_step "${runtime_local_message}" || return $?
+    else
+        printf 'info: %s\n' "${runtime_local_message}" || return $?
+    fi
+    RUNTIME_MODULE_CURRENT="${runtime_local_position}"
+    return 0
+}
+
+function runtime_record_module_failure {
+    local runtime_local_status="${1:-1}"
+    local runtime_local_module="${2:-unknown}"
+
+    if [ "${RUNTIME_MODULE_FAILED}" -eq 0 ] ||
+        [ "${RUNTIME_MODULE_FAILED_NAME}" != "${runtime_local_module}" ]; then
+        RUNTIME_MODULE_FAILED=$((RUNTIME_MODULE_FAILED + 1))
+        RUNTIME_MODULE_FAILED_NAME="${runtime_local_module}"
+    fi
+    RUNTIME_MODULE_FAILURE_STATUS="${runtime_local_status}"
+    RUNTIME_MODULE_FAILURE_MODULE="${runtime_local_module}"
+    return 0
+}
+
 function runtime_module_fail {
     local runtime_local_status="${1:-1}"
     local runtime_local_module="${2:-unknown}"
 
-    RUNTIME_MODULE_FAILURE_STATUS="${runtime_local_status}"
-    RUNTIME_MODULE_FAILURE_MODULE="${runtime_local_module}"
+    runtime_record_module_failure "${runtime_local_status}" "${runtime_local_module}"
     if [ "${RUNTIME_MODULE_FIRST_ERROR_STATUS}" -eq 0 ]; then
         RUNTIME_MODULE_FIRST_ERROR_STATUS="${runtime_local_status}"
         RUNTIME_MODULE_FIRST_ERROR_COMMAND="runtime_module_fail ${runtime_local_module}"
@@ -4018,6 +4332,9 @@ function runtime_run_module {
 
     if [ "${runtime_local_effect}" != "orchestrator" ] &&
         ! runtime_profile_allows_module "${runtime_local_module}"; then
+        runtime_render_module_progress "${runtime_local_module}" "skipped" ||
+            runtime_module_fail 1 "${runtime_local_module}" || return $?
+        RUNTIME_MODULE_SKIPPED=$((RUNTIME_MODULE_SKIPPED + 1))
         runtime_log "INFO" "Skipping module '${runtime_local_module}' because it is not selected by the active profile." \
             "module.skip" "${runtime_local_module}"
         return 0
@@ -4054,8 +4371,11 @@ function runtime_run_module {
     if runtime_is_dry_run; then
         runtime_local_dry_run=1
         if [ "${runtime_local_effect}" = "mutating" ]; then
+            runtime_render_module_progress "${runtime_local_module}" "dry run" ||
+                runtime_module_fail 1 "${runtime_local_module}" || return $?
             runtime_log "INFO" "Dry run: would run module '${runtime_local_module}'." ||
                 runtime_module_fail 1 "${runtime_local_module}" || return $?
+            RUNTIME_MODULE_SKIPPED=$((RUNTIME_MODULE_SKIPPED + 1))
             return 0
         fi
     fi
@@ -4072,6 +4392,10 @@ function runtime_run_module {
             runtime_local_restore_status=0
             if runtime_restore_module_state "${runtime_local_module}" \
                 "${runtime_local_state_names[@]}"; then
+                runtime_render_module_progress "${runtime_local_module}" \
+                    "already completed" ||
+                    runtime_module_fail 1 "${runtime_local_module}" || return $?
+                RUNTIME_MODULE_SKIPPED=$((RUNTIME_MODULE_SKIPPED + 1))
                 runtime_log "INFO" "Resume: skipping completed module '${runtime_local_module}'." ||
                     runtime_module_fail 1 "${runtime_local_module}" || return $?
                 return 0
@@ -4093,6 +4417,10 @@ function runtime_run_module {
         fi
     fi
 
+    if [ "${runtime_local_effect}" != "orchestrator" ]; then
+        runtime_render_module_progress "${runtime_local_module}" ||
+            runtime_module_fail 1 "${runtime_local_module}" || return $?
+    fi
     runtime_log "INFO" "Starting module '${runtime_local_module}'." \
         "runtime.module.started" "${runtime_local_module}" ||
         runtime_module_fail 1 "${runtime_local_module}" || return $?
@@ -4124,6 +4452,7 @@ function runtime_run_module {
             runtime_log "INFO" "Completed read-only module '${runtime_local_module}'." \
                 "runtime.module.completed" "${runtime_local_module}"
         fi
+        RUNTIME_MODULE_COMPLETED=$((RUNTIME_MODULE_COMPLETED + 1))
         return 0
     fi
 
@@ -4142,5 +4471,6 @@ function runtime_run_module {
 
     runtime_log "INFO" "Completed module '${runtime_local_module}'." \
         "runtime.module.completed" "${runtime_local_module}"
+    RUNTIME_MODULE_COMPLETED=$((RUNTIME_MODULE_COMPLETED + 1))
     return 0
 }

@@ -24,19 +24,21 @@ if [ "${#INSTALLED_FLATPAKS[@]}" -gt 0 ]; then
     fi
 fi
 
-if [ "${#FLATPAKS_TO_REMOVE[@]}" -eq 0 ]; then
-
+if [ "${#FLATPAKS_TO_REMOVE[@]}" -eq 0 ] ||
+    [ -z "${FLATPAKS_TO_REMOVE[0]:-}" ]; then
     ui_skip "No applications selected for removal."
-else
-
-    ui_step "Removing the selected applications."
-    for FLATPAK_TO_REMOVE in "${FLATPAKS_TO_REMOVE[@]}"; do
-        flatpak uninstall "${FLATPAK_TO_REMOVE}" -y
-    done
-
-    # Remove runtimes that are no longer referenced by installed applications.
-    ui_step "Removing unused Flatpak runtimes."
-    flatpak uninstall --unused -y
-
-    ui_success "Selected applications and unused runtimes removed."
+    return 0
 fi
+
+ui_text "Selected applications: ${FLATPAKS_TO_REMOVE[*]}"
+ui_step "Removing the selected applications."
+for FLATPAK_TO_REMOVE in "${FLATPAKS_TO_REMOVE[@]}"; do
+    flatpak uninstall "${FLATPAK_TO_REMOVE}" -y || return $?
+done
+
+# Remove runtimes that are no longer referenced by installed applications.
+ui_step "Removing unused Flatpak runtimes."
+flatpak uninstall --unused -y || return $?
+
+ui_success "Selected applications and unused runtimes removed."
+return 0

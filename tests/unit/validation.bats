@@ -6,6 +6,9 @@ load "${BATS_TEST_DIRNAME}/../helpers/assertions"
 
 setup() {
     REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+    TEST_ROOT="${BATS_TEST_TMPDIR}/validation"
+    export HOME="${TEST_ROOT}/home"
+    mkdir -p "${HOME}"
     source "${REPO_ROOT}/common/validation.sh"
 }
 
@@ -80,4 +83,46 @@ setup() {
     run flatpaks_keep_cache_filter_from_state '["../escape"]'
     assert_failure
     assert_output_contains "saved Flatpak cache-retention state is invalid"
+}
+
+@test "managed root validation rejects a symbolic-link root" {
+    local target="${TEST_ROOT}/managed-target"
+    local link="${TEST_ROOT}/managed-link"
+
+    mkdir -p "${target}"
+    ln -s "${target}" "${link}"
+
+    run is_valid_root_directory "${link}"
+    assert_failure
+}
+
+@test "managed root validation rejects the home directory itself" {
+    run is_valid_root_directory "${HOME}"
+    assert_failure
+}
+
+@test "managed child validation rejects symbolic links and non-directories" {
+    local root="${TEST_ROOT}/managed"
+    local outside="${TEST_ROOT}/outside"
+    local linked_child="${root}/scripts"
+    local regular_child="${root}/config"
+
+    mkdir -p "${root}" "${outside}"
+    ln -s "${outside}" "${linked_child}"
+    run validate_root_directory_children "${root}"
+    assert_failure
+    assert_output_contains "symbolic links"
+
+    rm "${linked_child}"
+    printf '%s\n' "not a directory" > "${regular_child}"
+    run validate_root_directory_children "${root}"
+    assert_failure
+    assert_output_contains "must be a directory"
+}
+
+@test "managed child validation accepts an absent root before creation" {
+    local root="${TEST_ROOT}/not-created"
+
+    run validate_root_directory_children "${root}"
+    assert_success
 }

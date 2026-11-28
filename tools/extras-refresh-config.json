@@ -1,0 +1,900 @@
+{
+  "schema_version": 2,
+  "excluded_rolling_tools": [
+    "distrobox",
+    "direnv",
+    "starship"
+  ],
+  "unstable_tag_patterns": [
+    "(?i)(?:alpha|beta|rc|nightly|dev(?:elopment)?|snapshot|pre(?:view)?|canary|unstable)(?:[-_.]?[0-9]+)?(?:[-_.]|$)",
+    "(?i)-[0-9]+$"
+  ],
+  "tools": {
+    "atuin": {
+      "mode": "release",
+      "source": "atuinsh/atuin",
+      "assets": {
+        "x86_64": {
+          "pattern": "^atuin-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "atuin": "atuin"
+          }
+        },
+        "aarch64": {
+          "pattern": "^atuin-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "atuin": "atuin"
+          }
+        }
+      }
+    },
+    "bandwhich": {
+      "mode": "release",
+      "source": "imsnif/bandwhich",
+      "assets": {
+        "x86_64": {
+          "pattern": "^bandwhich-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "bandwhich": "bandwhich"
+          }
+        },
+        "aarch64": {
+          "pattern": "^bandwhich-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "bandwhich": "bandwhich"
+          }
+        }
+      }
+    },
+    "binsider": {
+      "mode": "release",
+      "source": "orhun/binsider",
+      "assets": {
+        "x86_64": {
+          "pattern": "^binsider-[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "binsider": "binsider"
+          }
+        },
+        "aarch64": {
+          "pattern": "^binsider-[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "binsider": "binsider"
+          }
+        }
+      }
+    },
+    "bottom": {
+      "mode": "release",
+      "source": "ClementTsang/bottom",
+      "assets": {
+        "x86_64": {
+          "pattern": "^bottom_x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "btm": "btm"
+          }
+        },
+        "aarch64": {
+          "pattern": "^bottom_aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "btm": "btm"
+          }
+        }
+      }
+    },
+    "bun": {
+      "mode": "release",
+      "source": "oven-sh/bun",
+      "assets": {
+        "x86_64": {
+          "pattern": "^bun-linux-x64\\.zip$",
+          "type": "zip",
+          "files": {
+            "bun": "bun"
+          }
+        },
+        "aarch64": {
+          "pattern": "^bun-linux-aarch64\\.zip$",
+          "type": "zip",
+          "files": {
+            "bun": "bun"
+          }
+        }
+      }
+    },
+    "caddy": {
+      "mode": "release",
+      "source": "caddyserver/caddy",
+      "assets": {
+        "x86_64": {
+          "pattern": "^caddy_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_amd64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "caddy": "caddy"
+          }
+        },
+        "aarch64": {
+          "pattern": "^caddy_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "caddy": "caddy"
+          }
+        }
+      }
+    },
+    "deno": {
+      "mode": "release",
+      "source": "denoland/deno",
+      "assets": {
+        "x86_64": {
+          "pattern": "^deno-x86_64-unknown-linux-gnu\\.zip$",
+          "type": "zip",
+          "files": {
+            "deno": "deno"
+          }
+        },
+        "aarch64": {
+          "pattern": "^deno-aarch64-unknown-linux-gnu\\.zip$",
+          "type": "zip",
+          "files": {
+            "deno": "deno"
+          }
+        }
+      }
+    },
+    "duckdb": {
+      "mode": "release",
+      "source": "duckdb/duckdb",
+      "assets": {
+        "x86_64": {
+          "pattern": "^duckdb-cli-linux-amd64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "duckdb": "duckdb"
+          }
+        },
+        "aarch64": {
+          "pattern": "^duckdb-cli-linux-arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "duckdb": "duckdb"
+          }
+        }
+      }
+    },
+    "duf": {
+      "mode": "release",
+      "source": "muesli/duf",
+      "assets": {
+        "x86_64": {
+          "pattern": "^duf_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "duf": "duf"
+          }
+        },
+        "aarch64": {
+          "pattern": "^duf_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "duf": "duf"
+          }
+        }
+      }
+    },
+    "eza": {
+      "mode": "release",
+      "source": "eza-community/eza",
+      "assets": {
+        "x86_64": {
+          "pattern": "^eza_x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "eza": "eza"
+          }
+        },
+        "aarch64": {
+          "pattern": "^eza_aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "eza": "eza"
+          }
+        }
+      }
+    },
+    "f2": {
+      "mode": "release",
+      "source": "ayoisaiah/f2",
+      "assets": {
+        "x86_64": {
+          "pattern": "^f2_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_amd64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "f2": "f2"
+          }
+        },
+        "aarch64": {
+          "pattern": "^f2_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "f2": "f2"
+          }
+        }
+      }
+    },
+    "fd": {
+      "mode": "release",
+      "source": "sharkdp/fd",
+      "assets": {
+        "x86_64": {
+          "pattern": "^fd-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "fd": "fd"
+          }
+        },
+        "aarch64": {
+          "pattern": "^fd-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "fd": "fd"
+          }
+        }
+      }
+    },
+    "freeze": {
+      "mode": "release",
+      "source": "charmbracelet/freeze",
+      "assets": {
+        "x86_64": {
+          "pattern": "^freeze_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "freeze": "freeze"
+          }
+        },
+        "aarch64": {
+          "pattern": "^freeze_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "freeze": "freeze"
+          }
+        }
+      }
+    },
+    "fx": {
+      "mode": "release",
+      "source": "antonmedv/fx",
+      "assets": {
+        "x86_64": {
+          "pattern": "^fx_linux_amd64$",
+          "type": "none",
+          "files": {
+            "fx_linux_amd64": "fx"
+          }
+        },
+        "aarch64": {
+          "pattern": "^fx_linux_arm64$",
+          "type": "none",
+          "files": {
+            "fx_linux_arm64": "fx"
+          }
+        }
+      }
+    },
+    "glow": {
+      "mode": "release",
+      "source": "charmbracelet/glow",
+      "assets": {
+        "x86_64": {
+          "pattern": "^glow_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "glow": "glow"
+          }
+        },
+        "aarch64": {
+          "pattern": "^glow_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "glow": "glow"
+          }
+        }
+      }
+    },
+    "gping": {
+      "mode": "release",
+      "source": "orf/gping",
+      "assets": {
+        "x86_64": {
+          "pattern": "^gping-Linux-gnu-x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "gping": "gping"
+          }
+        },
+        "aarch64": {
+          "pattern": "^gping-Linux-gnu-arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "gping": "gping"
+          }
+        }
+      }
+    },
+    "grex": {
+      "mode": "release",
+      "source": "pemistahl/grex",
+      "assets": {
+        "x86_64": {
+          "pattern": "^grex-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-musl\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "grex": "grex"
+          }
+        },
+        "aarch64": {
+          "pattern": "^grex-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-musl\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "grex": "grex"
+          }
+        }
+      }
+    },
+    "gum": {
+      "mode": "release",
+      "source": "charmbracelet/gum",
+      "assets": {
+        "x86_64": {
+          "pattern": "^gum_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "gum": "gum"
+          }
+        },
+        "aarch64": {
+          "pattern": "^gum_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "gum": "gum"
+          }
+        }
+      }
+    },
+    "hexyl": {
+      "mode": "release",
+      "source": "sharkdp/hexyl",
+      "assets": {
+        "x86_64": {
+          "pattern": "^hexyl-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "hexyl": "hexyl"
+          }
+        },
+        "aarch64": {
+          "pattern": "^hexyl-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "hexyl": "hexyl"
+          }
+        }
+      }
+    },
+    "ipinfo": {
+      "mode": "release",
+      "source": "ipinfo/cli",
+      "assets": {
+        "x86_64": {
+          "pattern": "^ipinfo_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_amd64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "ipinfo_*_linux_amd64": "ipinfo"
+          }
+        },
+        "aarch64": {
+          "pattern": "^ipinfo_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "ipinfo_*_linux_arm64": "ipinfo"
+          }
+        }
+      }
+    },
+    "jless": {
+      "mode": "release",
+      "source": "PaulJuliusMartinez/jless",
+      "assets": {
+        "x86_64": {
+          "pattern": "^jless-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.zip$",
+          "type": "zip",
+          "files": {
+            "jless": "jless"
+          }
+        },
+        "aarch64": null
+      }
+    },
+    "lapce": {
+      "mode": "release",
+      "source": "lapce/lapce",
+      "assets": {
+        "x86_64": {
+          "pattern": "^lapce-linux-amd64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "lapce": "lapce"
+          }
+        },
+        "aarch64": {
+          "pattern": "^lapce-linux-arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "lapce": "lapce"
+          }
+        }
+      }
+    },
+    "lsd": {
+      "mode": "release",
+      "source": "lsd-rs/lsd",
+      "assets": {
+        "x86_64": {
+          "pattern": "^lsd-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "lsd": "lsd"
+          }
+        },
+        "aarch64": {
+          "pattern": "^lsd-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "lsd": "lsd"
+          }
+        }
+      }
+    },
+    "ncdu": {
+      "mode": "ncdu",
+      "source": "yorhel/ncdu",
+      "assets": {
+        "x86_64": {
+          "pattern": "^ncdu-[0-9]+(?:\\.[0-9]+)+-linux-x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "ncdu": "ncdu"
+          }
+        },
+        "aarch64": {
+          "pattern": "^ncdu-[0-9]+(?:\\.[0-9]+)+-linux-aarch64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "ncdu": "ncdu"
+          }
+        }
+      }
+    },
+    "ouch": {
+      "mode": "release",
+      "source": "ouch-org/ouch",
+      "assets": {
+        "x86_64": {
+          "pattern": "^ouch-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "ouch": "ouch"
+          }
+        },
+        "aarch64": {
+          "pattern": "^ouch-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "ouch": "ouch"
+          }
+        }
+      }
+    },
+    "picocrypt": {
+      "mode": "release",
+      "source": "Picocrypt/CLI",
+      "assets": {
+        "x86_64": {
+          "pattern": "^picocrypt-linux-amd64$",
+          "type": "none",
+          "files": {
+            "picocrypt-linux-amd64": "picocrypt"
+          }
+        },
+        "aarch64": {
+          "pattern": "^picocrypt-linux-arm64$",
+          "type": "none",
+          "files": {
+            "picocrypt-linux-arm64": "picocrypt"
+          }
+        }
+      }
+    },
+    "pingu": {
+      "mode": "release",
+      "source": "sheepla/pingu",
+      "assets": {
+        "x86_64": {
+          "pattern": "^pingu_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "pingu": "pingu"
+          }
+        },
+        "aarch64": {
+          "pattern": "^pingu_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "pingu": "pingu"
+          }
+        }
+      }
+    },
+    "procs": {
+      "mode": "release",
+      "source": "dalance/procs",
+      "assets": {
+        "x86_64": {
+          "pattern": "^procs-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-linux\\.zip$",
+          "type": "zip",
+          "files": {
+            "procs": "procs"
+          }
+        },
+        "aarch64": {
+          "pattern": "^procs-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-linux\\.zip$",
+          "type": "zip",
+          "files": {
+            "procs": "procs"
+          }
+        }
+      }
+    },
+    "ripgrep": {
+      "mode": "release",
+      "source": "BurntSushi/ripgrep",
+      "assets": {
+        "x86_64": {
+          "pattern": "^ripgrep-[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-musl\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "rg": "rg"
+          }
+        },
+        "aarch64": {
+          "pattern": "^ripgrep-[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-musl\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "rg": "rg"
+          }
+        }
+      }
+    },
+    "shellcheck": {
+      "mode": "release",
+      "source": "koalaman/shellcheck",
+      "assets": {
+        "x86_64": {
+          "pattern": "^shellcheck-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?\\.linux\\.x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "shellcheck": "shellcheck"
+          }
+        },
+        "aarch64": {
+          "pattern": "^shellcheck-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?\\.linux\\.aarch64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "shellcheck": "shellcheck"
+          }
+        }
+      }
+    },
+    "surreal": {
+      "mode": "release",
+      "source": "surrealdb/surrealdb",
+      "assets": {
+        "x86_64": {
+          "pattern": "^surreal-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?\\.linux-amd64\\.tgz$",
+          "type": "tar.gz",
+          "files": {
+            "surreal": "surreal"
+          }
+        },
+        "aarch64": {
+          "pattern": "^surreal-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?\\.linux-arm64\\.tgz$",
+          "type": "tar.gz",
+          "files": {
+            "surreal": "surreal"
+          }
+        }
+      }
+    },
+    "tlrc": {
+      "mode": "release",
+      "source": "tldr-pages/tlrc",
+      "assets": {
+        "x86_64": {
+          "pattern": "^tlrc-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "tldr": "tldr"
+          }
+        },
+        "aarch64": {
+          "pattern": "^tlrc-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "tldr": "tldr"
+          }
+        }
+      }
+    },
+    "tokei": {
+      "mode": "release",
+      "source": "XAMPPRocky/tokei",
+      "assets": {
+        "x86_64": {
+          "pattern": "^tokei-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "tokei": "tokei"
+          }
+        },
+        "aarch64": {
+          "pattern": "^tokei-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "tokei": "tokei"
+          }
+        }
+      }
+    },
+    "trdsql": {
+      "mode": "release",
+      "source": "noborus/trdsql",
+      "assets": {
+        "x86_64": {
+          "pattern": "^trdsql_v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_amd64\\.zip$",
+          "type": "zip",
+          "files": {
+            "trdsql": "trdsql"
+          }
+        },
+        "aarch64": {
+          "pattern": "^trdsql_v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_linux_arm64\\.zip$",
+          "type": "zip",
+          "files": {
+            "trdsql": "trdsql"
+          }
+        }
+      }
+    },
+    "trippy": {
+      "mode": "release",
+      "source": "fujiapple852/trippy",
+      "assets": {
+        "x86_64": {
+          "pattern": "^trippy-[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "trip": "trip"
+          }
+        },
+        "aarch64": {
+          "pattern": "^trippy-[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "trip": "trip"
+          }
+        }
+      }
+    },
+    "trivy": {
+      "mode": "release",
+      "source": "aquasecurity/trivy",
+      "assets": {
+        "x86_64": {
+          "pattern": "^trivy_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux-64bit\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "trivy": "trivy"
+          }
+        },
+        "aarch64": {
+          "pattern": "^trivy_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux-ARM64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "trivy": "trivy"
+          }
+        }
+      }
+    },
+    "ttyd": {
+      "mode": "release",
+      "source": "tsl0922/ttyd",
+      "assets": {
+        "x86_64": {
+          "pattern": "^ttyd\\.x86_64$",
+          "type": "none",
+          "files": {
+            "ttyd.x86_64": "ttyd"
+          }
+        },
+        "aarch64": {
+          "pattern": "^ttyd\\.aarch64$",
+          "type": "none",
+          "files": {
+            "ttyd.aarch64": "ttyd"
+          }
+        }
+      }
+    },
+    "unimatrix": {
+      "mode": "commit",
+      "source": "will8211/unimatrix",
+      "ref": "master",
+      "path": "unimatrix.py",
+      "assets": {
+        "any": {
+          "pattern": null,
+          "type": "none",
+          "files": {
+            "unimatrix.py": "unimatrix"
+          }
+        }
+      }
+    },
+    "usage": {
+      "mode": "release",
+      "source": "jdx/usage",
+      "assets": {
+        "x86_64": {
+          "pattern": "^usage-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "usage": "usage"
+          }
+        },
+        "aarch64": {
+          "pattern": "^usage-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "usage": "usage"
+          }
+        }
+      }
+    },
+    "vhs": {
+      "mode": "release",
+      "source": "charmbracelet/vhs",
+      "assets": {
+        "x86_64": {
+          "pattern": "^vhs_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_x86_64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "vhs": "vhs"
+          }
+        },
+        "aarch64": {
+          "pattern": "^vhs_[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?_Linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "vhs": "vhs"
+          }
+        }
+      }
+    },
+    "vimv": {
+      "mode": "commit",
+      "source": "thameera/vimv",
+      "ref": "master",
+      "path": "vimv",
+      "assets": {
+        "any": {
+          "pattern": null,
+          "type": "none",
+          "files": {
+            "vimv": "vimv"
+          }
+        }
+      }
+    },
+    "vivid": {
+      "mode": "release",
+      "source": "sharkdp/vivid",
+      "assets": {
+        "x86_64": {
+          "pattern": "^vivid-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "vivid": "vivid"
+          }
+        },
+        "aarch64": {
+          "pattern": "^vivid-v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "vivid": "vivid"
+          }
+        }
+      }
+    },
+    "yazi": {
+      "mode": "release",
+      "source": "sxyazi/yazi",
+      "assets": {
+        "x86_64": {
+          "pattern": "^yazi-x86_64-unknown-linux-gnu\\.zip$",
+          "type": "zip",
+          "files": {
+            "yazi": "yazi",
+            "ya": "ya"
+          }
+        },
+        "aarch64": {
+          "pattern": "^yazi-aarch64-unknown-linux-gnu\\.zip$",
+          "type": "zip",
+          "files": {
+            "yazi": "yazi",
+            "ya": "ya"
+          }
+        }
+      }
+    },
+    "yq": {
+      "mode": "release",
+      "source": "mikefarah/yq",
+      "assets": {
+        "x86_64": {
+          "pattern": "^yq_linux_amd64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "yq_linux_amd64": "yq"
+          }
+        },
+        "aarch64": {
+          "pattern": "^yq_linux_arm64\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "yq_linux_arm64": "yq"
+          }
+        }
+      }
+    },
+    "zellij": {
+      "mode": "release",
+      "source": "zellij-org/zellij",
+      "assets": {
+        "x86_64": {
+          "pattern": "^zellij-x86_64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "zellij": "zellij"
+          }
+        },
+        "aarch64": {
+          "pattern": "^zellij-aarch64-unknown-linux-gnu\\.tar\\.gz$",
+          "type": "tar.gz",
+          "files": {
+            "zellij": "zellij"
+          }
+        }
+      }
+    }
+  }
+}
